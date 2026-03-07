@@ -5,7 +5,7 @@
 [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)](https://dart.dev)
 [![TensorFlow Lite](https://img.shields.io/badge/TFLite-2.x-FF6F00?logo=tensorflow)](https://www.tensorflow.org/lite)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey)](https://flutter.dev/multi-platform)
 
 ---
@@ -574,10 +574,10 @@ docs: update dataset download instructions
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE).
+GNU General Public License v3.0 — see [LICENSE](LICENSE).
 
 > **Medical Disclaimer:** This tool is a training and simulation aid only. It does not replace formal CPR certification or professional medical advice. Always call emergency services first.
 
 ---
 
-*Built with ❤️ for Rwanda and Sub-Saharan Africa — "Twese turi inshuti z'amagara" (We are all friends of health)*
+*Built with ❤️ for Rwanda and Sub-Saharan Africa — "Buri mugenzi yagutabara" (Anyone can help)*
