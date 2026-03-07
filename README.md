@@ -282,7 +282,7 @@ Not used in this project. May be revisited if compression rhythm modeling needs 
 ## Project Structure
 
 ```
-cpr-ai-coach/
+capstone-project/
 │
 ├── README.md
 ├── pubspec.yaml                       ← Flutter dependencies (mobile)
