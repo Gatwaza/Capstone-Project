@@ -1,4 +1,4 @@
-# 🫀 CPR-AI Coach — AI-Guided First Aid Simulation Tool
+# CPR-AI Coach — AI-Guided First Aid Simulation Tool
 ### *Empowering Every Bystander in Sub-Saharan Africa*
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
@@ -10,7 +10,7 @@
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
 - [Project Overview](#-project-overview)
 - [Problem Statement](#-problem-statement)
@@ -33,11 +33,11 @@
 
 ---
 
-## 🌍 Project Overview
+## Project Overview
 
 **CPR-AI Coach** is a cross-platform (Android/iOS) mobile application that uses real-time pose estimation and machine learning to coach completely untrained bystanders through CPR (Cardiopulmonary Resuscitation) in emergency situations — **with no internet connection required**.
 
-This is the capstone project for [Your Institution Name], developed in the context of Sub-Saharan Africa where:
+This is the capstone project for The African Leadership University, developed in the context of Sub-Saharan Africa where:
 - **41%** of all deaths could be addressed by emergency interventions *(Anto-Ocrah et al., 2020)*
 - Official EMS response is rare — bystanders are the first and often only responder
 - Smartphone ownership has grown from 32% (2012) to ~50% (2022) *(GSMA, 2023)*
@@ -45,33 +45,33 @@ This is the capstone project for [Your Institution Name], developed in the conte
 
 ---
 
-## 🚨 Problem Statement
+## Problem Statement
 
-In Rwanda and across Sub-Saharan Africa, untrained bystanders witnessing cardiac emergencies have no real-time guidance system to follow. Existing first-aid apps deliver static videos or text — they do not observe the user, correct posture errors, or adapt to performance. This tool fills that gap by combining:
+In Rwanda and across Sub-Saharan Africa, untrained bystanders witnessing cardiac emergencies have no real-time guidance system to follow. Existing first-aid apps deliver static videos or text they do not observe the user, correct posture errors, or adapt to performance. This tool fills that gap by combining:
 
-- 📷 **Camera-based pose estimation** (MediaPipe BlazePose)
-- 🤖 **On-device ML classification** (CNN + LSTM via TFLite)
-- 🔊 **Adaptive voice coaching** (flutter_tts + Umuganda TTS for Kinyarwanda)
-- ⚡ **100% offline operation** — no API calls, no internet dependency
+- **Camera-based pose estimation** (MediaPipe BlazePose)
+- **On-device ML classification** (CNN + LSTM via TFLite)
+- **Adaptive voice coaching** (flutter_tts + Umuganda TTS for Kinyarwanda)
+- **100% offline operation** — no API calls, no internet dependency
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 | Feature | Description |
 |---|---|
-| 🦴 Real-time Pose Estimation | MediaPipe BlazePose tracks 33 body landmarks at 25–30 FPS |
-| 🤖 Error Classification | CNN/LSTM detects: wrong hand placement, bent elbows, shallow depth, wrong rate |
-| 🔊 Voice Coaching | Prioritized prompt queue in English + Kinyarwanda (Umuganda TTS) |
-| 📊 Live Dashboard | BPM counter, depth indicator, compression fraction display |
-| 🌐 Fully Offline | All inference on-device; TFLite INT8 quantized model (~3–5 MB) |
-| 📱 Mid-Range Optimized | Tested on Tecno Spark / Samsung A-series (≤2GB RAM devices) |
-| 📝 Session Logging | Local SQLite log of all metrics for post-session review |
-| 🧑‍💻 Animated Demo | On-screen animated instructor shows correct technique |
+| Real-time Pose Estimation | MediaPipe BlazePose tracks 33 body landmarks at 25–30 FPS |
+| Error Classification | CNN/LSTM detects: wrong hand placement, bent elbows, shallow depth, wrong rate |
+| Voice Coaching | Prioritized prompt queue in English + Kinyarwanda (Umuganda TTS) |
+| Live Dashboard | BPM counter, depth indicator, compression fraction display |
+| Fully Offline | All inference on-device; TFLite INT8 quantized model (~3–5 MB) |
+| Mid-Range Optimized | Tested on Tecno Spark / Samsung A-series (≤2GB RAM devices) |
+| Session Logging | Local SQLite log of all metrics for post-session review |
+| Animated Demo | On-screen animated instructor shows correct technique |
 
 ---
 
-## 🏗 System Architecture
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -106,9 +106,9 @@ In Rwanda and across Sub-Saharan Africa, untrained bystanders witnessing cardiac
 
 ---
 
-## 📦 Datasets
+## Datasets
 
-### Primary Dataset — CPR-Coach ⭐ (Main)
+### Primary Dataset — CPR-Coach (Priority for Training & Evaluation)
 > **Best fit for this use case**
 
 | Property | Value |
@@ -177,7 +177,7 @@ Not used in this project. May be revisited if compression rhythm modeling needs 
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 ### Mobile Application
 | Layer | Technology | Reason |
@@ -205,7 +205,7 @@ Not used in this project. May be revisited if compression rhythm modeling needs 
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 cpr-ai-coach/
@@ -293,7 +293,7 @@ cpr-ai-coach/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -381,7 +381,7 @@ python src/export/convert_to_tflite.py --model_path outputs/best_model.h5
 
 ---
 
-## 🔊 Voice Guidance: Two Approaches
+## Voice Guidance: Two Approaches
 
 ### Option 1 — Pre-recorded Audio + TTS Hybrid (Recommended for MVP)
 > Best for naturalness and Kinyarwanda authenticity
@@ -403,7 +403,7 @@ assets/audio/
     └── ...
 ```
 
-### Option 2 — Fully Synthetic TTS (No Recordings Required) ✅
+### Option 2 — Fully Synthetic TTS (No Recordings Required)
 > Simpler to implement; recommended if recording sessions aren't feasible
 
 Both `flutter_tts` (English) and the Umuganda TTS engine (Kinyarwanda) synthesize all prompts **on-the-fly** from plain text strings defined in `app_constants.dart`. No `.wav` files needed. The `TTSService` manages a priority queue so prompts never overlap.
@@ -429,7 +429,7 @@ static const Map<String, String> promptsRw = {
 
 ---
 
-## 🤖 ML Pipeline
+## ML Pipeline
 
 ### Model Architecture
 
@@ -504,7 +504,7 @@ export:
 
 ---
 
-## 📊 Evaluation & Metrics
+## Evaluation & Metrics
 
 ### System Metrics
 | Metric | Target | Measurement |
@@ -528,11 +528,11 @@ export:
 
 ---
 
-## 🗺 Roadmap
+## Roadmap
 
 | Phase | Timeline | Status |
 |---|---|---|
-| Phase 1: Infrastructure + Pose Pipeline | Month 1 | 🔄 In Progress |
+| Phase 1: Infrastructure + Pose Pipeline | Month 1 | In Progress |
 | Phase 2: ML Model Training + TFLite Export | Month 2 | ⏳ Pending |
 | Phase 3: Full App Integration + TTS | Month 3 | ⏳ Pending |
 | Phase 4: Pilot Study + Evaluation | Month 4 | ⏳ Pending |
@@ -542,9 +542,9 @@ export:
 
 ---
 
-## 📚 Research Context
+## Research Context
 
-This project is developed as a capstone for [Institution Name], Rwanda. Key references:
+This project is developed as a capstone for The African Leadership University, Rwanda. Key references:
 
 - Anto-Ocrah et al. (2020) — Bystander CPR attitudes in low-resource settings
 - Ecker et al. (2024) — Computer vision CPR feedback; **doubled correct depth proportions**
@@ -555,7 +555,7 @@ This project is developed as a capstone for [Institution Name], Rwanda. Key refe
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 ```bash
 # Branch naming convention
@@ -572,7 +572,7 @@ docs: update dataset download instructions
 
 ---
 
-## 📄 License
+## License
 
 GNU General Public License v3.0 — see [LICENSE](LICENSE).
 
