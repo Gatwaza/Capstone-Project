@@ -124,12 +124,12 @@ In Rwanda and across Sub-Saharan Africa, untrained bystanders witnessing cardiac
 | **Error Classes** | 13 single-error actions + 74 composite error actions |
 | **Extras** | Optical flow (TV-L1) + 2D skeletons (AlphaPose) pre-computed |
 | **Size** | 449 GB (full); sample available via Google Drive |
-| **Access** | Sample: Google Drive link on dataset page. Full dataset: email slwang19@fudan.edu.cn with institution and purpose |
+| **Access** | Sample: Google Drive link on dataset page. Full dataset: will have to email slwang19@fudan.edu.cn to request it|
 
-**To request full access:**
+**TO-DO: request full access:**
 ```
 Email: slwang19@fudan.edu.cn
-Subject: CPR-Coach Dataset Request — [Your Institution]
+Subject: CPR-Coach Dataset Request — African Leadership University Capstone Project
 Include: Work unit, research purpose, expected usage
 ```
 
