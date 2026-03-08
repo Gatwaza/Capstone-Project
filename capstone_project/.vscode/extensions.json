@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "Dart-Code.flutter",
+    "Dart-Code.dart-code",
+    "humao.rest-client",
+    "eamodio.gitlens",
+    "esbenp.prettier-vscode",
+    "ms-python.python",
+    "ms-toolsai.jupyter",
+    "dbaeumer.vscode-eslint"
+  ]
+}

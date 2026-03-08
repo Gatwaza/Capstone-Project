@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+  <meta name="theme-color" content="#0A0A0F"/>
+  <title>CPR AI Coach</title>
+  <link rel="stylesheet" href="./src/styles/main.css"/>
+</head>
+<body>
+
+<!-- ══ LOADING OVERLAY ══════════════════════════════════════════════════════ -->
+<div id="loading-overlay" class="overlay">
+  <div class="loading-inner">
+    <div class="logo-pulse"><span class="heart">♥</span></div>
+    <h2 class="app-title">CPR AI COACH</h2>
+    <p id="load-msg" class="load-msg">Initializing...</p>
+    <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    <p class="load-sub">Loading MediaPipe + TensorFlow.js</p>
+  </div>
+</div>
+
+<!-- ══ HOME SCREEN ══════════════════════════════════════════════════════════ -->
+<div id="home-screen" class="screen hidden">
+  <header class="home-header">
+    <div>
+      <div class="label-caps">CAPSTONE PROJECT</div>
+      <h1 class="home-title">CPR AI Coach</h1>
+    </div>
+    <button id="lang-btn" class="lang-btn">🇬🇧 EN</button>
+  </header>
+
+  <div class="hero-card">
+    <span class="hero-icon">🫀</span>
+    <h2>Ready to<br>Save a Life?</h2>
+    <p>Real-time AI guidance for CPR. No training needed.</p>
+    <div class="chip-row">
+      <div class="chip"><b>100–120</b><span>BPM</span></div>
+      <div class="chip"><b>5–6 cm</b><span>Depth</span></div>
+      <div class="chip"><b>2 min</b><span>Session</span></div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div id="stat-sessions" class="stat-val">0</div><div class="stat-lbl">Sessions</div></div>
+    <div class="stat-card"><div id="stat-best" class="stat-val">—</div><div class="stat-lbl">Best Score</div></div>
+    <div class="stat-card"><div id="stat-mode" class="stat-val">Rules</div><div class="stat-lbl">Mode</div></div>
+  </div>
+
+  <div class="btn-stack">
+    <button id="start-btn" class="btn btn-primary btn-xl">▶  Start CPR Training</button>
+    <div class="btn-row-2">
+      <button id="demo-btn" class="btn btn-outline">Watch Demo</button>
+      <button id="history-btn" class="btn btn-outline">History</button>
+    </div>
+  </div>
+
+  <div class="notice" id="model-notice" style="display:none">
+    ⚡ Running in rule-based mode. Train the ML model to enable AI classification.
+  </div>
+</div>
+
+<!-- ══ DEMO SCREEN ══════════════════════════════════════════════════════════ -->
+<div id="demo-screen" class="screen hidden">
+  <div class="screen-nav">
+    <button class="back-btn" data-target="home">← Back</button>
+    <h2>How To: CPR</h2>
+  </div>
+  <div id="demo-progress" class="demo-progress"></div>
+  <div class="demo-body">
+    <div id="demo-icon-wrap" class="demo-icon-wrap">
+      <span id="demo-icon" class="demo-icon">🤲</span>
+    </div>
+    <div id="demo-step-counter" class="step-counter"></div>
+    <h3 id="demo-title" class="demo-step-title"></h3>
+    <p id="demo-body-text" class="demo-step-body"></p>
+  </div>
+  <div class="demo-nav">
+    <button id="demo-prev" class="btn btn-outline">← Back</button>
+    <button id="demo-next" class="btn btn-primary">Next →</button>
+  </div>
+</div>
+
+<!-- ══ TRAINING SCREEN ══════════════════════════════════════════════════════ -->
+<div id="training-screen" class="screen hidden">
+  <div class="camera-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="pose-canvas"></canvas>
+
+    <!-- Top HUD -->
+    <div class="hud-top">
+      <div id="timer-badge" class="timer-badge">2:00</div>
+      <button id="stop-btn" class="stop-btn">■ Stop</button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="dashboard">
+    <div class="metrics-row">
+      <div class="metric-block">
+        <div id="bpm-val" class="metric-big">—</div>
+        <div class="metric-lbl">BPM</div>
+        <div id="bpm-status" class="metric-status"></div>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric-block">
+        <div id="acc-val" class="metric-big">—</div>
+        <div class="metric-lbl">Accuracy</div>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric-block">
+        <div id="comp-val" class="metric-big">0</div>
+        <div class="metric-lbl">Compressions</div>
+      </div>
+    </div>
+    <div id="feedback-banner" class="feedback-banner idle">
+      <span id="fb-icon">ℹ️</span>
+      <span id="fb-text">Position yourself in front of the camera...</span>
+    </div>
+    <div id="rule-mode-badge" class="rule-badge hidden">⚡ Rule-based mode</div>
+  </div>
+</div>
+
+<!-- ══ RESULTS SCREEN ═══════════════════════════════════════════════════════ -->
+<div id="results-screen" class="screen hidden">
+  <div class="screen-nav">
+    <button class="back-btn" data-target="home">← Home</button>
+    <h2>Results</h2>
+  </div>
+  <div class="results-body">
+    <div id="score-card" class="score-card">
+      <div id="score-grade" class="score-grade"></div>
+      <div id="score-pct" class="score-pct">0%</div>
+      <div class="score-lbl">Overall Score</div>
+      <div id="score-date" class="score-date"></div>
+    </div>
+
+    <div class="breakdown-row">
+      <div class="breakdown-item"><div id="br-rate" class="br-circle"></div><div class="br-lbl">Rate</div></div>
+      <div class="breakdown-item"><div id="br-posture" class="br-circle"></div><div class="br-lbl">Posture</div></div>
+      <div class="breakdown-item"><div id="br-overall" class="br-circle"></div><div class="br-lbl">Overall</div></div>
+    </div>
+
+    <div class="metrics-grid-2">
+      <div class="grid-tile"><div id="r-bpm" class="tile-val">—</div><div class="tile-lbl">Avg BPM</div></div>
+      <div class="grid-tile"><div id="r-comp" class="tile-val">—</div><div class="tile-lbl">Compressions</div></div>
+      <div class="grid-tile"><div id="r-dur" class="tile-val">—</div><div class="tile-lbl">Duration</div></div>
+      <div class="grid-tile"><div id="r-lang" class="tile-val">—</div><div class="tile-lbl">Language</div></div>
+    </div>
+
+    <div id="history-chart-wrap" class="chart-wrap hidden">
+      <h4>Progress</h4>
+      <canvas id="history-chart" height="80"></canvas>
+    </div>
+
+    <div class="results-actions">
+      <button id="drive-btn" class="btn btn-outline">☁ Save to Google Drive</button>
+      <button id="dl-btn" class="btn btn-outline">⬇ Download JSON</button>
+      <button id="retry-btn" class="btn btn-primary">Practice Again</button>
+    </div>
+    <div id="drive-status" class="drive-status"></div>
+  </div>
+</div>
+
+<!-- ══ HISTORY SCREEN ═══════════════════════════════════════════════════════ -->
+<div id="history-screen" class="screen hidden">
+  <div class="screen-nav">
+    <button class="back-btn" data-target="home">← Back</button>
+    <h2>Session History</h2>
+  </div>
+  <div id="history-list" class="history-list"></div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
