@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Android / iOS)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define=FLUTTER_ENV=dev"],
+      "flutterMode": "debug"
+    },
+    {
+      "name": "Flutter (Chrome / Web)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": [
+        "--dart-define=FLUTTER_ENV=dev",
+        "--web-port=8080"
+      ]
+    },
+    {
+      "name": "Flutter (Release APK)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release"
+    },
+    {
+      "name": "Web App (Vite dev server)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/web",
+      "presentation": { "group": "web", "order": 1 }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Flutter + Web (parallel)",
+      "configurations": ["Flutter (Android / iOS)", "Web App (Vite dev server)"]
+    }
+  ]
+}
