@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Novice — CPR-AI Coach for Sub-Saharan Africa">
+  <!-- iOS meta -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Novice">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>Novice — CPR Coach</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- TensorFlow.js — loaded for web inference (Flutter JS interop) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <!-- MediaPipe Pose WASM — loaded for web pose estimation -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <!-- Novice JS bridges — must load before Flutter bootstrap. Both are optional:
+       Flutter falls back to rule-based demo mode if either bridge is unavailable. -->
+  <script src="flutter_inference_bridge.js"></script>
+  <script src="flutter_pose_bridge.js"></script>
+
+  <style>
+    /* Dark background matching AppTheme.bg while Flutter loads */
+    body { background-color: #0a0d0f; margin: 0; padding: 0; overflow: hidden; }
+    /* Remove default loading text */
+    .loading-indicator { display: none; }
+  </style>
+</head>
+<body>
+  <!-- Flutter app mounts here -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

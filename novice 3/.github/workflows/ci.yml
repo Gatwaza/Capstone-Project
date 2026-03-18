@@ -1,0 +1,110 @@
+# Novice — CPR-AI Coach
+# GNU General Public License v3.0
+# Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
+#
+# ci.yml
+# ──────
+# Continuous Integration: runs on every push and PR to main.
+#
+# Jobs:
+#   flutter-tests   — Dart unit tests (no device required)
+#   python-lint     — ruff + pytest for ml_pipeline/
+#
+# NOTE: iOS build and on-device tests run locally (M1 Mac + iPhone 15 Pro).
+# GitHub-hosted runners do not have Xcode or a connected iPhone.
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Flutter unit tests ────────────────────────────────────
+  flutter-tests:
+    name: Flutter Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.19.0"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run code generators
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyse (lint)
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run unit tests
+        run: flutter test test/unit/ --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          flags: flutter
+        continue-on-error: true   # don't fail CI if codecov is unavailable
+
+  # ── Python ML pipeline lint + tests ──────────────────────
+  python-lint:
+    name: Python ML Pipeline
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ml_pipeline
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install ruff pytest numpy scipy
+
+      - name: Lint with ruff
+        run: ruff check src/ tests/
+
+      - name: Run unit tests (no GPU, no dataset required)
+        run: python -m pytest tests/test_landmark_math.py -v
+
+  # ── Web build check ───────────────────────────────────────
+  web-build:
+    name: Web Build Check
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build

@@ -1,0 +1,76 @@
+{
+  // Novice — CPR-AI Coach
+  // GNU General Public License v3.0
+  // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
+  //
+  // VSCode launch configurations for cross-platform Flutter development.
+  // Open the Command Palette (Cmd+Shift+P) → "Flutter: Select Device"
+  // then press F5 to launch with the active config.
+
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // ── iPhone 15 Pro (primary testing device) ────────────────────────
+      "name": "iOS — iPhone 15 Pro",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "--dart-define=UMUGANDA_TTS_URL=",
+        "--dart-define=DEBUG_POSE=true"
+      ]
+      // Make sure iPhone 15 Pro is connected via USB and trusted.
+      // Select "iPhone 15 Pro" in the Flutter device picker bottom-right of VSCode.
+    },
+    {
+      // ── iOS Simulator (faster iteration, no real camera) ──────────────
+      "name": "iOS — Simulator",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "-d", "iPhone 15 Pro",
+        "--dart-define=UMUGANDA_TTS_URL="
+      ]
+      // Note: camera does not work in simulator — pose runs in demo/simulation mode.
+    },
+    {
+      // ── Flutter Web in Chrome ─────────────────────────────────────────
+      "name": "Web — Chrome",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "-d", "chrome",
+        "--web-renderer", "canvaskit",
+        "--dart-define=UMUGANDA_TTS_URL="
+      ]
+      // Requires camera permission in Chrome.
+      // MediaPipe WASM loads from CDN on first run (~8 MB).
+    },
+    {
+      // ── Flutter Web — release build + serve ───────────────────────────
+      "name": "Web — Release Build",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "args": [
+        "-d", "chrome",
+        "--web-renderer", "canvaskit",
+        "--dart-define=UMUGANDA_TTS_URL="
+      ]
+    },
+    {
+      // ── Android (for future testing) ──────────────────────────────────
+      "name": "Android — Debug",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "--dart-define=UMUGANDA_TTS_URL=",
+        "--dart-define=DEBUG_POSE=true"
+      ]
+      // Connect Android device with USB debugging enabled.
+    }
+  ]
+}

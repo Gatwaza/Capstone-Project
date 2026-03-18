@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CPR-AI Coach — Phase 1 Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #0a0d0f;
+    --surface:   #111518;
+    --card:      #161c20;
+    --border:    rgba(255,255,255,0.08);
+    --accent:    #00e5a0;
+    --accent2:   #ff4d6d;
+    --accent3:   #ffc947;
+    --text:      #e8eaec;
+    --muted:     #5a6470;
+    --mono:      'Space Mono', monospace;
+    --sans:      'Syne', sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden}
+
+  /* ─── Layout ─── */
+  .shell{display:grid;grid-template-columns:1fr 340px;grid-template-rows:56px 1fr;height:100vh;gap:0}
+  .topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 24px;border-bottom:1px solid var(--border);gap:16px;background:var(--surface)}
+  .logo{font-family:var(--sans);font-weight:800;font-size:18px;letter-spacing:-0.5px;color:#fff}
+  .logo span{color:var(--accent)}
+  .badge{font-family:var(--mono);font-size:10px;background:rgba(0,229,160,0.12);color:var(--accent);border:1px solid rgba(0,229,160,0.3);padding:3px 8px;border-radius:4px;letter-spacing:1px}
+  .badge.demo{background:rgba(255,201,71,0.12);color:var(--accent3);border-color:rgba(255,201,71,0.3)}
+  .topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .status-dot.live{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse-dot 2s infinite}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.4}}
+  .status-label{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  /* ─── Camera panel ─── */
+  .cam-panel{position:relative;background:#000;overflow:hidden}
+  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #overlay{position:absolute;inset:0;width:100%;height:100%}
+  .cam-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:var(--surface)}
+  .cam-icon{width:72px;height:72px;border:2px solid var(--muted);border-radius:16px;display:flex;align-items:center;justify-content:center;opacity:0.4}
+  .cam-icon svg{width:32px;height:32px;fill:var(--muted)}
+  .cam-btn{background:var(--accent);color:#000;border:none;font-family:var(--sans);font-weight:600;font-size:14px;padding:12px 28px;border-radius:8px;cursor:pointer;transition:opacity .2s}
+  .cam-btn:hover{opacity:0.85}
+  .cam-note{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;max-width:240px;line-height:1.6}
+
+  /* Scanning frame overlay */
+  .scan-frame{position:absolute;inset:20px;border:1px solid rgba(0,229,160,0.2);border-radius:12px;pointer-events:none}
+  .scan-frame::before,.scan-frame::after{content:'';position:absolute;width:24px;height:24px;border-color:var(--accent);border-style:solid}
+  .scan-frame::before{top:-1px;left:-1px;border-width:2px 0 0 2px;border-radius:4px 0 0 0}
+  .scan-frame::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0;border-radius:0 0 4px 0}
+  .scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,229,160,0.6),transparent);animation:scan 3s linear infinite}
+  @keyframes scan{0%{top:0;opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+
+  /* Feedback banner */
+  .feedback-banner{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);min-width:320px;max-width:480px;background:rgba(10,13,15,0.92);border:1px solid var(--border);border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;backdrop-filter:blur(8px);transition:all .3s ease}
+  .feedback-banner.warn{border-color:rgba(255,77,109,0.5);background:rgba(20,8,12,0.92)}
+  .feedback-banner.ok{border-color:rgba(0,229,160,0.4)}
+  .fb-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;background:rgba(255,255,255,0.06)}
+  .feedback-banner.warn .fb-icon{background:rgba(255,77,109,0.15)}
+  .feedback-banner.ok .fb-icon{background:rgba(0,229,160,0.15)}
+  .fb-text{font-size:14px;font-weight:600;line-height:1.4;color:var(--text)}
+  .fb-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
+  .speak-btn{margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px;transition:all .2s;flex-shrink:0}
+  .speak-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ─── Side panel ─── */
+  .side{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+  .side-section{padding:20px;border-bottom:1px solid var(--border)}
+  .section-label{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:14px;text-transform:uppercase}
+
+  /* BPM ring */
+  .bpm-wrap{display:flex;align-items:center;gap:18px}
+  .bpm-ring{position:relative;width:80px;height:80px;flex-shrink:0}
+  .bpm-ring svg{transform:rotate(-90deg)}
+  .bpm-ring .track{fill:none;stroke:var(--border);stroke-width:5}
+  .bpm-ring .fill{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-dasharray:220;stroke-dashoffset:220;transition:stroke-dashoffset .5s ease,stroke .3s}
+  .bpm-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .bpm-num{font-family:var(--mono);font-size:22px;font-weight:700;color:#fff;line-height:1}
+  .bpm-unit{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px}
+  .bpm-info{flex:1}
+  .bpm-label{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--text)}
+  .bpm-target{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px}
+  .bpm-bar-wrap{margin-top:10px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+  .bpm-bar{height:100%;width:0%;border-radius:2px;background:var(--accent);transition:width .5s ease,background .3s}
+
+  /* Depth gauge */
+  .depth-gauge{display:flex;align-items:flex-end;gap:3px;height:56px}
+  .depth-bar{flex:1;border-radius:3px 3px 0 0;background:var(--border);position:relative;height:100%;overflow:hidden}
+  .depth-fill{position:absolute;bottom:0;left:0;right:0;background:var(--accent);border-radius:3px 3px 0 0;transition:height .15s ease,background .3s}
+  .depth-target-line{position:absolute;bottom:66%;left:0;right:0;height:1px;background:rgba(0,229,160,0.4);border-top:1px dashed rgba(0,229,160,0.4)}
+  .depth-labels{display:flex;justify-content:space-between;margin-top:6px}
+  .depth-label{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .depth-val{font-family:var(--mono);font-size:24px;font-weight:700;color:#fff;text-align:center;margin-top:8px}
+  .depth-val span{font-size:12px;color:var(--muted);margin-left:2px}
+
+  /* Error classes */
+  .error-list{display:flex;flex-direction:column;gap:8px}
+  .error-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:var(--card);border:1px solid transparent;transition:all .3s}
+  .error-item.active{border-color:rgba(255,77,109,0.4);background:rgba(30,8,14,0.8)}
+  .error-item.good{border-color:rgba(0,229,160,0.2)}
+  .err-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+  .error-item.active .err-dot{background:var(--accent2);box-shadow:0 0 6px var(--accent2)}
+  .error-item.good .err-dot{background:var(--accent)}
+  .err-label{font-family:var(--mono);font-size:11px;color:var(--muted);transition:color .3s}
+  .error-item.active .err-label{color:var(--accent2)}
+  .error-item.good .err-label{color:var(--text)}
+  .err-conf{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+  /* Session stats */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+  .stat-val{font-family:var(--mono);font-size:20px;font-weight:700;color:#fff}
+  .stat-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:0.5px}
+
+  /* Controls */
+  .ctrl-row{display:flex;gap:10px;padding:16px 20px}
+  .btn{flex:1;border:none;border-radius:8px;padding:11px;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;transition:all .2s}
+  .btn-start{background:var(--accent);color:#000}
+  .btn-start:hover{opacity:0.85}
+  .btn-start:disabled{opacity:0.3;cursor:not-allowed}
+  .btn-stop{background:var(--card);color:var(--accent2);border:1px solid rgba(255,77,109,0.3)}
+  .btn-stop:hover{background:rgba(255,77,109,0.1)}
+  .btn-stop:disabled{opacity:0.3;cursor:not-allowed}
+  .btn-voice{background:var(--card);color:var(--text);border:1px solid var(--border);flex:0 0 auto;padding:11px 14px}
+  .btn-voice:hover{border-color:var(--accent)}
+  .btn-voice.on{border-color:var(--accent);color:var(--accent)}
+
+  /* Lang toggle */
+  .lang-toggle{display:flex;gap:0;border-radius:6px;overflow:hidden;border:1px solid var(--border);width:fit-content;margin:0 20px 16px}
+  .lang-btn{background:none;border:none;padding:6px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;transition:all .2s}
+  .lang-btn.active{background:rgba(0,229,160,0.15);color:var(--accent)}
+
+  /* Phase tag */
+  .phase-tag{position:absolute;top:16px;left:16px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;padding:5px 10px;background:rgba(10,13,15,0.8);border:1px solid var(--border);border-radius:4px;color:var(--muted);backdrop-filter:blur(4px)}
+
+  /* Compression fraction */
+  .cf-wrap{text-align:center;padding:14px 20px}
+  .cf-arc{position:relative;width:100px;height:52px;margin:0 auto 8px;overflow:hidden}
+  .cf-arc svg{position:absolute;bottom:0;left:0}
+  .cf-val{font-family:var(--mono);font-size:22px;font-weight:700;color:#fff}
+  .cf-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:1px}
+
+  /* Responsive */
+  @media(max-width:700px){
+    .shell{grid-template-columns:1fr;grid-template-rows:56px 55vw 1fr}
+    .side{border-left:none;border-top:1px solid var(--border)}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="logo">CPR<span>·</span>AI Coach</div>
+    <div class="badge">PHASE 1</div>
+    <div class="badge demo">DEMO</div>
+    <div class="topbar-right">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-label" id="statusLabel">CAMERA OFF</span>
+    </div>
+  </header>
+
+  <!-- Camera / pose panel -->
+  <div class="cam-panel" id="camPanel">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay"></canvas>
+
+    <!-- placeholder shown before camera starts -->
+    <div class="cam-placeholder" id="placeholder">
+      <div class="cam-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3.17L15 2H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+      </div>
+      <button class="cam-btn" onclick="startCamera()">Enable Camera</button>
+      <p class="cam-note">Camera access required for pose estimation. All processing happens locally in your browser.</p>
+    </div>
+
+    <!-- scanning UI shown during active session -->
+    <div class="scan-frame" id="scanFrame" style="display:none">
+      <div class="scan-line"></div>
+    </div>
+    <div class="phase-tag" id="phaseTag" style="display:none">POSE ESTIMATION ACTIVE</div>
+
+    <!-- Feedback banner -->
+    <div class="feedback-banner ok" id="feedbackBanner" style="display:none">
+      <div class="fb-icon" id="fbIcon">✓</div>
+      <div>
+        <div class="fb-text" id="fbText">Good technique — keep going</div>
+        <div class="fb-sub" id="fbSub">No errors detected</div>
+      </div>
+      <button class="speak-btn" onclick="speakFeedback()" title="Repeat audio">🔊</button>
+    </div>
+  </div>
+
+  <!-- Side dashboard -->
+  <aside class="side">
+
+    <!-- Lang toggle -->
+    <div style="padding:16px 20px 0">
+      <div class="section-label">Language</div>
+      <div class="lang-toggle">
+        <button class="lang-btn active" id="langEN" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" id="langRW" onclick="setLang('rw')">RW</button>
+      </div>
+    </div>
+
+    <!-- BPM -->
+    <div class="side-section">
+      <div class="section-label">Compression Rate</div>
+      <div class="bpm-wrap">
+        <div class="bpm-ring">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle class="track" cx="40" cy="40" r="35"/>
+            <circle class="fill" id="bpmArc" cx="40" cy="40" r="35"/>
+          </svg>
+          <div class="bpm-center">
+            <div class="bpm-num" id="bpmNum">--</div>
+            <div class="bpm-unit">BPM</div>
+          </div>
+        </div>
+        <div class="bpm-info">
+          <div class="bpm-label" id="bpmStatus">Waiting...</div>
+          <div class="bpm-target">Target: 100–120 bpm</div>
+          <div class="bpm-bar-wrap"><div class="bpm-bar" id="bpmBar"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Depth gauge -->
+    <div class="side-section">
+      <div class="section-label">Compression Depth</div>
+      <div class="depth-gauge" id="depthGauge">
+        <!-- bars rendered by JS -->
+      </div>
+      <div class="depth-labels">
+        <span class="depth-label">0 cm</span>
+        <span class="depth-label">3 cm</span>
+        <span class="depth-label">6 cm</span>
+      </div>
+      <div class="depth-val" id="depthVal">-- <span>cm</span></div>
+    </div>
+
+    <!-- Error classes -->
+    <div class="side-section">
+      <div class="section-label">Error Detection</div>
+      <div class="error-list" id="errorList"></div>
+    </div>
+
+    <!-- Session stats -->
+    <div class="side-section">
+      <div class="section-label">Session Metrics</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val" id="statComps">0</div><div class="stat-lbl">COMPRESSIONS</div></div>
+        <div class="stat-card"><div class="stat-val" id="statTime">0:00</div><div class="stat-lbl">ELAPSED</div></div>
+        <div class="stat-card"><div class="stat-val" id="statCF">0%</div><div class="stat-lbl">CPR FRACTION</div></div>
+        <div class="stat-card"><div class="stat-val" id="statScore">--</div><div class="stat-lbl">QUALITY SCORE</div></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-row">
+      <button class="btn btn-start" id="btnStart" onclick="startSession()" disabled>Start</button>
+      <button class="btn btn-stop"  id="btnStop"  onclick="stopSession()"  disabled>Stop</button>
+      <button class="btn btn-voice" id="btnVoice" onclick="toggleVoice()" title="Toggle voice coaching">🔇</button>
+    </div>
+
+  </aside>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────
+const state = {
+  cameraOn: false,
+  sessionActive: false,
+  voiceOn: true,
+  lang: 'en',
+  bpm: 0,
+  depth: 0,
+  compressions: 0,
+  sessionStart: null,
+  errors: {},
+  lastSpoke: 0,
+  simPhase: 0,
+  simTick: 0,
+};
+
+// ─── Prompts ─────────────────────────────────────────────
+const PROMPTS = {
+  en: {
+    good:            'Good technique — keep going',
+    bent_elbows:     'Straighten your arms — lock your elbows',
+    hand_too_high:   'Move hands down — center of chest',
+    hand_too_low:    'Move hands up slightly',
+    too_shallow:     'Press deeper — aim for 5 centimeters',
+    too_deep:        'Ease up — 5 to 6 centimeters max',
+    rate_too_slow:   'Speed up — keep a steady beat',
+    rate_too_fast:   'Slow down slightly',
+    not_compressing: 'Place hands on center of chest and compress',
+  },
+  rw: {
+    good:            'Imirimo myiza — komeza',
+    bent_elbows:     'Gorora amaboko — shira ingufu',
+    hand_too_high:   'Manura intoki — hagati y\'isaya',
+    hand_too_low:    'Fungura intoki hejuru gato',
+    too_shallow:     'Kanda cyane — santimetero eshanu',
+    too_deep:        'Fata neza — kuri 5 kugeza 6 cm',
+    rate_too_slow:   'Yihutirire — komeza intera',
+    rate_too_fast:   'Yigende buhoro gato',
+    not_compressing: 'Shyira intoki hagati y\'isaya hanyuma kanda',
+  }
+};
+
+// ─── Error class definitions ─────────────────────────────
+const ERROR_CLASSES = [
+  { key: 'bent_elbows',   label: 'Bent elbows' },
+  { key: 'hand_too_high', label: 'Hands too high' },
+  { key: 'hand_too_low',  label: 'Hands too low' },
+  { key: 'too_shallow',   label: 'Depth too shallow' },
+  { key: 'rate_too_slow', label: 'Rate too slow' },
+  { key: 'rate_too_fast', label: 'Rate too fast' },
+];
+
+// ─── DOM refs ─────────────────────────────────────────────
+const video      = document.getElementById('video');
+const canvas     = document.getElementById('overlay');
+const ctx        = canvas.getContext('2d');
+const placeholder= document.getElementById('placeholder');
+const scanFrame  = document.getElementById('scanFrame');
+const phaseTag   = document.getElementById('phaseTag');
+const bpmNum     = document.getElementById('bpmNum');
+const bpmArc     = document.getElementById('bpmArc');
+const bpmBar     = document.getElementById('bpmBar');
+const bpmStatus  = document.getElementById('bpmStatus');
+const depthVal   = document.getElementById('depthVal');
+const depthGauge = document.getElementById('depthGauge');
+const fbBanner   = document.getElementById('feedbackBanner');
+const fbText     = document.getElementById('fbText');
+const fbSub      = document.getElementById('fbSub');
+const fbIcon     = document.getElementById('fbIcon');
+const statusDot  = document.getElementById('statusDot');
+const statusLabel= document.getElementById('statusLabel');
+const btnStart   = document.getElementById('btnStart');
+const btnStop    = document.getElementById('btnStop');
+const btnVoice   = document.getElementById('btnVoice');
+const errorList  = document.getElementById('errorList');
+
+// ─── Build depth gauge bars ──────────────────────────────
+function buildDepthGauge() {
+  depthGauge.innerHTML = '';
+  for (let i = 0; i < 20; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'depth-bar';
+    const fill = document.createElement('div');
+    fill.className = 'depth-fill';
+    fill.id = `db${i}`;
+    const line = document.createElement('div');
+    line.className = 'depth-target-line';
+    bar.appendChild(fill); bar.appendChild(line);
+    depthGauge.appendChild(bar);
+  }
+}
+buildDepthGauge();
+
+// ─── Build error list ────────────────────────────────────
+function buildErrorList() {
+  errorList.innerHTML = '';
+  ERROR_CLASSES.forEach(e => {
+    const item = document.createElement('div');
+    item.className = 'error-item';
+    item.id = `err-${e.key}`;
+    item.innerHTML = `<div class="err-dot"></div><span class="err-label">${e.label}</span><span class="err-conf" id="conf-${e.key}">--</span>`;
+    errorList.appendChild(item);
+  });
+}
+buildErrorList();
+
+// ─── Camera ──────────────────────────────────────────────
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      canvas.width  = video.videoWidth  || 1280;
+      canvas.height = video.videoHeight || 720;
+      resizeCanvas();
+    };
+    state.cameraOn = true;
+    placeholder.style.display = 'none';
+    statusDot.classList.add('live');
+    statusLabel.textContent = 'CAMERA LIVE';
+    btnStart.disabled = false;
+    requestAnimationFrame(drawLoop);
+  } catch(err) {
+    alert('Camera access denied. Please allow camera permissions and reload.');
+    console.error(err);
+  }
+}
+
+function resizeCanvas() {
+  const panel = document.getElementById('camPanel');
+  canvas.style.width  = panel.clientWidth  + 'px';
+  canvas.style.height = panel.clientHeight + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ─── Draw loop (skeleton simulation) ────────────────────
+let landmarks = null;
+let wristHistory = [];
+
+function drawLoop() {
+  if (!state.cameraOn) return;
+
+  // Sync canvas dimensions to video
+  if (video.videoWidth && canvas.width !== video.videoWidth) {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (state.sessionActive) {
+    simulateLandmarks();
+    drawSkeleton(landmarks);
+    drawWristTrace();
+  }
+
+  requestAnimationFrame(drawLoop);
+}
+
+// Simulated landmark positions (normalized 0-1, mirrored for front camera)
+// Represents person doing CPR from approx. upper body view
+function simulateLandmarks() {
+  state.simTick++;
+  const t    = state.simTick;
+  const rate = (state.bpm || 110) / 60;    // compressions per second
+  const phase= (t / 30 * rate) % 1;         // 0–1 compression cycle
+
+  // Compression motion: sinusoidal wrist Y displacement
+  const compressAmt = state.depth / 6;      // 0–1 scale
+  const wristY = 0.58 + compressAmt * 0.05 * Math.sin(phase * Math.PI * 2);
+
+  // Elbow angle: 180° correct, simulate bent elbow error
+  const bentError = state.errors['bent_elbows'] > 0.5;
+  const elbowY = bentError ? 0.48 : 0.44;
+
+  landmarks = {
+    // Key joints (x, y normalized, visible)
+    leftShoulder:  { x: 0.38, y: 0.28, v: 1 },
+    rightShoulder: { x: 0.62, y: 0.28, v: 1 },
+    leftElbow:     { x: 0.35, y: elbowY, v: 1 },
+    rightElbow:    { x: 0.65, y: elbowY, v: 1 },
+    leftWrist:     { x: 0.47, y: wristY, v: 1 },
+    rightWrist:    { x: 0.53, y: wristY, v: 1 },
+    leftHip:       { x: 0.40, y: 0.75, v: 0.7 },
+    rightHip:      { x: 0.60, y: 0.75, v: 0.7 },
+    chest:         { x: 0.50, y: 0.55, v: 0.8 },   // compression point
+  };
+
+  // Track wrist Y for rate detection (simulated)
+  wristHistory.push({ t: Date.now(), y: wristY });
+  if (wristHistory.length > 150) wristHistory.shift();
+}
+
+function toCanvas(lm) {
+  return { x: lm.x * canvas.width, y: lm.y * canvas.height };
+}
+
+function drawSkeleton(lm) {
+  if (!lm) return;
+  const W = canvas.width, H = canvas.height;
+
+  // Connection pairs
+  const connections = [
+    ['leftShoulder','rightShoulder'],
+    ['leftShoulder','leftElbow'],
+    ['rightShoulder','rightElbow'],
+    ['leftElbow','leftWrist'],
+    ['rightElbow','rightWrist'],
+    ['leftWrist','rightWrist'],
+    ['leftShoulder','leftHip'],
+    ['rightShoulder','rightHip'],
+    ['leftHip','rightHip'],
+  ];
+
+  // Determine arm color based on errors
+  const bentErr = state.errors['bent_elbows'] > 0.5;
+  const armColor = bentErr ? '#ff4d6d' : '#00e5a0';
+
+  connections.forEach(([a, b]) => {
+    const pa = toCanvas(lm[a] || lm.chest);
+    const pb = toCanvas(lm[b] || lm.chest);
+    if (!lm[a] || !lm[b]) return;
+    const isArm = a.includes('lbow') || b.includes('lbow') || a.includes('rist') || b.includes('rist');
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.strokeStyle = isArm ? armColor : 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = isArm ? 3 : 2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  });
+
+  // Joints
+  Object.entries(lm).forEach(([key, pt]) => {
+    if (key === 'chest') return;
+    const p = toCanvas(pt);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    const isWrist = key.includes('rist');
+    ctx.fillStyle = isWrist ? armColor : 'rgba(255,255,255,0.85)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Compression target indicator
+  const cp = toCanvas(lm.chest);
+  ctx.beginPath();
+  ctx.arc(cp.x, cp.y, 14, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,229,160,0.5)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.arc(cp.x, cp.y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,229,160,0.8)';
+  ctx.fill();
+
+  // Depth arrow
+  const lwp = toCanvas(lm.leftWrist);
+  const depthPx = (state.depth / 6) * H * 0.04;
+  if (depthPx > 2) {
+    ctx.beginPath();
+    ctx.moveTo(lwp.x - 30, cp.y - depthPx);
+    ctx.lineTo(lwp.x - 30, cp.y);
+    ctx.strokeStyle = 'rgba(255,201,71,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,201,71,0.7)';
+    ctx.font = '10px Space Mono, monospace';
+    ctx.fillText(`${state.depth.toFixed(1)}cm`, lwp.x - 56, cp.y - depthPx * 0.5);
+  }
+}
+
+function drawWristTrace() {
+  if (wristHistory.length < 5) return;
+  ctx.beginPath();
+  wristHistory.forEach((pt, i) => {
+    const x = (i / wristHistory.length) * canvas.width * 0.15 + canvas.width * 0.03;
+    const y = pt.y * canvas.height;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = 'rgba(0,229,160,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// ─── Session ─────────────────────────────────────────────
+let sessionTimer  = null;
+let simInterval   = null;
+let elapsed       = 0;
+
+function startSession() {
+  state.sessionActive = true;
+  state.sessionStart  = Date.now();
+  state.compressions  = 0;
+  elapsed             = 0;
+  wristHistory        = [];
+
+  scanFrame.style.display = '';
+  phaseTag.style.display  = '';
+  fbBanner.style.display  = '';
+
+  btnStart.disabled = true;
+  btnStop.disabled  = false;
+  statusLabel.textContent = 'SESSION ACTIVE';
+
+  // Timer
+  sessionTimer = setInterval(() => {
+    elapsed++;
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    document.getElementById('statTime').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }, 1000);
+
+  // Simulation loop — mimics incoming ML inference results
+  simInterval = setInterval(simulateInference, 200);
+
+  speak('not_compressing');
+}
+
+function stopSession() {
+  state.sessionActive = false;
+  clearInterval(sessionTimer);
+  clearInterval(simInterval);
+  scanFrame.style.display = 'none';
+  phaseTag.style.display  = 'none';
+
+  btnStart.disabled = false;
+  btnStop.disabled  = true;
+  statusLabel.textContent = 'CAMERA LIVE';
+
+  bpmNum.textContent = '--';
+  depthVal.innerHTML = '-- <span>cm</span>';
+  updateBpmArc(0);
+
+  // Reset errors
+  state.errors = {};
+  updateErrorList();
+  updateFeedbackBanner('not_compressing');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ─── Inference simulation ─────────────────────────────────
+// Simulates a realistic BiLSTM output stream:
+// Cycles through correct compressions with occasional errors
+let simCycle = 0;
+const SIM_SCENARIOS = [
+  { bpm: 115, depth: 5.2, errors: {} },
+  { bpm: 115, depth: 5.0, errors: {} },
+  { bpm: 115, depth: 4.2, errors: { too_shallow: 0.87 } },
+  { bpm: 115, depth: 5.3, errors: {} },
+  { bpm: 95,  depth: 5.0, errors: { rate_too_slow: 0.76 } },
+  { bpm: 115, depth: 5.1, errors: {} },
+  { bpm: 115, depth: 5.5, errors: { bent_elbows: 0.91 } },
+  { bpm: 115, depth: 5.1, errors: {} },
+  { bpm: 130, depth: 5.0, errors: { rate_too_fast: 0.68 } },
+  { bpm: 112, depth: 5.2, errors: {} },
+  { bpm: 112, depth: 5.2, errors: {} },
+  { bpm: 112, depth: 5.2, errors: { hand_too_high: 0.72 } },
+  { bpm: 112, depth: 5.2, errors: {} },
+];
+
+let tickInScenario = 0;
+const TICKS_PER_SCENARIO = 12; // ~2.4 seconds per scenario at 200ms
+
+function simulateInference() {
+  tickInScenario++;
+  if (tickInScenario >= TICKS_PER_SCENARIO) {
+    tickInScenario = 0;
+    simCycle = (simCycle + 1) % SIM_SCENARIOS.length;
+  }
+
+  const sc = SIM_SCENARIOS[simCycle];
+
+  // Smooth BPM transition
+  state.bpm   = state.bpm   * 0.7 + sc.bpm   * 0.3;
+  state.depth = state.depth * 0.6 + sc.depth * 0.4;
+  state.errors = sc.errors;
+
+  // Compression count
+  const compRate = state.bpm / 60 * 0.2; // per 200ms tick
+  state.compressions += compRate;
+
+  updateBPMDisplay();
+  updateDepthDisplay();
+  updateErrorList();
+
+  // Determine primary feedback
+  const errKey = Object.keys(sc.errors)[0] || 'good';
+  updateFeedbackBanner(errKey);
+
+  // Voice coaching (throttled)
+  const now = Date.now();
+  if (now - state.lastSpoke > 4000) {
+    speak(errKey);
+    state.lastSpoke = now;
+  }
+
+  // Stats
+  document.getElementById('statComps').textContent = Math.floor(state.compressions);
+  const cf = Math.min(98, 60 + Math.random() * 15).toFixed(0);
+  document.getElementById('statCF').textContent = cf + '%';
+  const score = Object.keys(sc.errors).length === 0 ? Math.floor(88 + Math.random() * 10) : Math.floor(60 + Math.random() * 20);
+  document.getElementById('statScore').textContent = score;
+}
+
+// ─── Display updates ──────────────────────────────────────
+function updateBPMDisplay() {
+  const bpm = Math.round(state.bpm);
+  bpmNum.textContent = bpm;
+  updateBpmArc(bpm);
+  const pct = Math.max(0, Math.min(100, (bpm - 60) / 80 * 100));
+  bpmBar.style.width = pct + '%';
+
+  if (bpm < 100) {
+    bpmStatus.textContent = 'Too slow';
+    bpmBar.style.background = '#ff4d6d';
+    bpmArc.style.stroke     = '#ff4d6d';
+  } else if (bpm > 120) {
+    bpmStatus.textContent = 'Too fast';
+    bpmBar.style.background = '#ffc947';
+    bpmArc.style.stroke     = '#ffc947';
+  } else {
+    bpmStatus.textContent = 'On target ✓';
+    bpmBar.style.background = 'var(--accent)';
+    bpmArc.style.stroke     = 'var(--accent)';
+  }
+}
+
+function updateBpmArc(bpm) {
+  const pct = Math.max(0, Math.min(1, (bpm - 60) / 80));
+  const circumference = 2 * Math.PI * 35; // r=35
+  bpmArc.style.strokeDashoffset = circumference * (1 - pct);
+}
+
+function updateDepthDisplay() {
+  const d = state.depth;
+  depthVal.innerHTML = `${d.toFixed(1)} <span>cm</span>`;
+  const pct = Math.min(1, d / 6);
+  const color = (d < 4) ? '#ff4d6d' : (d > 6) ? '#ffc947' : 'var(--accent)';
+  for (let i = 0; i < 20; i++) {
+    const bar = document.getElementById(`db${i}`);
+    if (bar) {
+      bar.style.height  = (i / 20 <= pct ? '100%' : '0%');
+      bar.style.background = color;
+    }
+  }
+}
+
+function updateErrorList() {
+  ERROR_CLASSES.forEach(e => {
+    const item = document.getElementById(`err-${e.key}`);
+    const conf = document.getElementById(`conf-${e.key}`);
+    if (!item) return;
+    const score = state.errors[e.key] || 0;
+    item.className = 'error-item' + (score > 0.5 ? ' active' : score === 0 ? '' : ' good');
+    conf.textContent = score > 0 ? (score * 100).toFixed(0) + '%' : '--';
+  });
+}
+
+function updateFeedbackBanner(key) {
+  const prompts = PROMPTS[state.lang];
+  const msg  = prompts[key] || prompts.good;
+  const isOk = key === 'good';
+
+  fbBanner.className = 'feedback-banner ' + (isOk ? 'ok' : 'warn');
+  fbText.textContent = msg;
+  fbIcon.textContent = isOk ? '✓' : '⚠';
+
+  const subMap = {
+    good:            'No errors detected',
+    bent_elbows:     'E05 — elbow angle < 160°',
+    hand_too_high:   'E01 — hand position error',
+    hand_too_low:    'E02 — hand position error',
+    too_shallow:     'E07 — depth < 5 cm',
+    too_deep:        'E08 — depth > 6 cm',
+    rate_too_slow:   'E10 — rate < 100 bpm',
+    rate_too_fast:   'E11 — rate > 120 bpm',
+    not_compressing: 'Awaiting compression start',
+  };
+  fbSub.textContent = subMap[key] || '';
+}
+
+// ─── Voice ───────────────────────────────────────────────
+let voiceEnabled = false;
+
+function toggleVoice() {
+  voiceEnabled = !voiceEnabled;
+  btnVoice.textContent = voiceEnabled ? '🔊' : '🔇';
+  btnVoice.className   = 'btn btn-voice' + (voiceEnabled ? ' on' : '');
+}
+
+function speak(key) {
+  if (!voiceEnabled) return;
+  const msg = PROMPTS[state.lang][key];
+  if (!msg || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt  = new SpeechSynthesisUtterance(msg);
+  utt.lang   = state.lang === 'rw' ? 'rw-RW' : 'en-US';
+  utt.rate   = 1.05;
+  utt.pitch  = 1;
+  window.speechSynthesis.speak(utt);
+}
+
+function speakFeedback() {
+  window.speechSynthesis.cancel();
+  const msg = fbText.textContent;
+  if (!msg || !window.speechSynthesis) return;
+  const utt  = new SpeechSynthesisUtterance(msg);
+  utt.lang   = state.lang === 'rw' ? 'rw-RW' : 'en-US';
+  utt.rate   = 1.0;
+  window.speechSynthesis.speak(utt);
+}
+
+// ─── Language ─────────────────────────────────────────────
+function setLang(lang) {
+  state.lang = lang;
+  document.getElementById('langEN').className = 'lang-btn' + (lang === 'en' ? ' active' : '');
+  document.getElementById('langRW').className = 'lang-btn' + (lang === 'rw' ? ' active' : '');
+}
+</script>
+</body>
+</html>

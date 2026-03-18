@@ -1,0 +1,44 @@
+# Novice — ML Pipeline requirements
+# GNU General Public License v3.0
+# Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
+#
+# Pin versions for full reproducibility.
+# Tested on macOS M1 Max (arm64) with Python 3.11.
+# Use: pip install -r requirements.txt
+#
+# ── Core ────────────────────────────────────────────────────
+tensorflow-macos==2.13.0       # Apple Silicon native build
+tensorflow-metal==1.0.1        # Metal GPU acceleration on M1 Max
+keras==2.13.1
+
+# ── Pose extraction ──────────────────────────────────────────
+mediapipe==0.10.9
+opencv-python-headless==4.9.0.80
+
+# ── Data ─────────────────────────────────────────────────────
+numpy==1.26.4
+pandas==2.2.1
+scipy==1.13.0
+scikit-learn==1.4.2
+h5py==3.11.0
+
+# ── ML export ────────────────────────────────────────────────
+tensorflowjs==4.17.0           # .h5 → TFJS graph model for web
+# TFLite converter is bundled with tensorflow-macos — no separate install
+
+# ── Augmentation ─────────────────────────────────────────────
+albumentations==1.4.2
+
+# ── Experiment tracking (optional) ───────────────────────────
+wandb==0.16.6                  # set WANDB_API_KEY in .env to enable
+
+# ── Notebook / analysis ──────────────────────────────────────
+jupyter==1.0.0
+matplotlib==3.8.4
+seaborn==0.13.2
+tqdm==4.66.2
+
+# ── Utilities ────────────────────────────────────────────────
+pyyaml==6.0.1
+python-dotenv==1.0.1
+click==8.1.7
