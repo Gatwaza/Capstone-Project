@@ -1,0 +1,137 @@
+{
+  // Novice — CPR-AI Coach
+  // GNU General Public License v3.0
+  //
+  // VSCode tasks — run via Terminal → Run Task (or Cmd+Shift+P → Tasks: Run Task)
+
+  "version": "2.0.0",
+  "tasks": [
+    // ── Flutter ─────────────────────────────────────────────
+    {
+      "label": "Flutter: pub get",
+      "type": "shell",
+      "command": "flutter pub get",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Flutter: build_runner (generate code)",
+      "type": "shell",
+      "command": "dart run build_runner build --delete-conflicting-outputs",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Flutter: test (unit)",
+      "type": "shell",
+      "command": "flutter test test/unit/ --reporter expanded",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Flutter: test (all)",
+      "type": "shell",
+      "command": "flutter test --reporter expanded",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Flutter: analyze",
+      "type": "shell",
+      "command": "flutter analyze",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Flutter: build web (release)",
+      "type": "shell",
+      "command": "flutter build web --web-renderer canvaskit --release",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Flutter: build iOS (release)",
+      "type": "shell",
+      "command": "flutter build ios --release",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+
+    // ── ML Pipeline ─────────────────────────────────────────
+    {
+      "label": "ML: setup venv",
+      "type": "shell",
+      "command": "cd ml_pipeline && python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "ML: extract landmarks",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && python src/data/extract_landmarks.py --config config.yaml",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "ML: train model",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && python src/training/train.py --config config.yaml",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "ML: export TFLite + TFJS",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && python src/export/convert_to_tflite.py --config config.yaml && python src/export/convert_to_tfjs.py --config config.yaml",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "ML: run pytest",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && python -m pytest tests/ -v",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+
+    // ── Kinyarwanda TTS ──────────────────────────────────────
+    {
+      "label": "TTS: install dependencies",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && pip install -r src/tts/tts_requirements.txt",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "TTS: inspect model (run first)",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && python src/tts/inspect_model.py",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "TTS: start Kinyarwanda server (port 5000)",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && python src/tts/kinyarwanda_tts_server.py --port 5000",
+      "group": "build",
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "TTS: pre-bake all 13 prompt WAVs",
+      "type": "shell",
+      "command": "cd ml_pipeline && source .venv/bin/activate && python src/tts/prebake_audio.py",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+
+    // ── Repo cleanup ─────────────────────────────────────────
+    {
+      "label": "Repo: clean ghost folders",
+      "type": "shell",
+      "command": "chmod +x scripts/clean_repo.sh && ./scripts/clean_repo.sh",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    }
+  ]
+}
