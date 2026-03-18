@@ -1,0 +1,78 @@
+# Novice — .gitignore
+# GNU GPL v3 — Jean Robert Gatwaza / ALU
+
+# ── Flutter / Dart ────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.g.dart
+*.freezed.dart
+lib/core/di/injection.config.dart
+
+# ── Environment & secrets ─────────────────────────────────
+.env
+*.env
+!.env.example
+
+# ── ML model binaries (use Git LFS) ──────────────────────
+assets/models/*.tflite
+assets/models/*.lite
+web/assets/models/*.bin
+web/assets/models/model.json
+ml_pipeline/data/
+ml_pipeline/checkpoints/
+ml_pipeline/wandb/
+*.h5
+*.keras
+*.ckpt
+
+# ── macOS ─────────────────────────────────────────────────
+**/.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+*.xcworkspace/xcuserdata/
+
+# ── iOS ───────────────────────────────────────────────────
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GeneratedPluginRegistrant.*
+
+# ── Android ───────────────────────────────────────────────
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/debug.keystore
+
+# ── Web ───────────────────────────────────────────────────
+web/node_modules/
+web/dist/
+web/.parcel-cache/
+
+# ── Python / ML pipeline ──────────────────────────────────
+ml_pipeline/__pycache__/
+ml_pipeline/.venv/
+ml_pipeline/venv/
+*.pyc
+*.pyo
+*.egg-info/
+.ipynb_checkpoints/
+mlruns/
+
+# ── Editors ───────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.iml
+*.swp
+
+# ── Test artifacts ────────────────────────────────────────
+coverage/
+test/golden/failures/

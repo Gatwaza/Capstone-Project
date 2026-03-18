@@ -1,0 +1,30 @@
+{
+  // Novice — CPR-AI Coach
+  // Recommended VSCode extensions for cross-platform Flutter + Python development.
+  // VSCode will prompt to install these when you open the workspace.
+
+  "recommendations": [
+    // ── Flutter / Dart ─────────────────────────────────────
+    "Dart-Code.dart-code",          // Dart language support
+    "Dart-Code.flutter",            // Flutter tools, device picker, hot reload
+
+    // ── Python (ML pipeline) ───────────────────────────────
+    "ms-python.python",             // Python language support
+    "ms-python.vscode-pylance",     // Fast type checking
+    "ms-toolsai.jupyter",           // Jupyter notebooks for ml_pipeline/notebooks/
+
+    // ── Code quality ───────────────────────────────────────
+    "streetsidesoftware.code-spell-checker", // Spell check in comments
+    "esbenp.prettier-vscode",       // JS formatting (web/src/)
+    "editorconfig.editorconfig",    // Consistent indentation
+
+    // ── Git ────────────────────────────────────────────────
+    "eamodio.gitlens",              // Git blame, history
+    "mhutchie.git-graph",           // Visual git graph
+
+    // ── Utilities ──────────────────────────────────────────
+    "pkief.material-icon-theme",    // File icons
+    "usernamehw.errorlens",         // Inline error messages
+    "formulahendry.auto-close-tag"  // HTML auto-close (web/index.html)
+  ]
+}
