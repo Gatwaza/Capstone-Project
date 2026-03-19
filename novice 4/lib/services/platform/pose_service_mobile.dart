@@ -4,6 +4,7 @@
 
 // ignore: avoid_web_libraries_in_flutter
 import 'package:camera/camera.dart';
+import 'package:flutter/painting.dart' show Size;
 // google_mlkit is mobile-only. Stub provides types on web so this file compiles.
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart'
     if (dart.library.html) '../../core/utils/mlkit_stub.dart';

@@ -23,7 +23,7 @@ class HomeScreen extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 32),
 
@@ -54,18 +54,21 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 40),
 
               // ── Phase badge ────────────────────────────────
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.accent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
-                ),
-                child: Text(
-                  'PHASE 1 — DEMONSTRATION BUILD',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppTheme.accent,
-                    letterSpacing: 1.5,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    'PHASE 1 — DEMONSTRATION BUILD',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppTheme.accent,
+                      letterSpacing: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -123,6 +126,7 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Text(
                       'Buri mugenzi yagutabara',
+                      textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontStyle: FontStyle.italic,
                         color: AppTheme.accent.withOpacity(0.7),
@@ -131,11 +135,13 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       '"Anyone can help" — CPR saves lives',
+                      textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'GNU GPL v3 · ALU Capstone · Jean Robert Gatwaza',
+                      textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ],

@@ -1,68 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-  Novice — CPR-AI Coach
-  GNU General Public License v3.0
-  Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
--->
 <plist version="1.0">
 <dict>
-
-    <!-- ── Camera permission ─────────────────────────────── -->
-    <!-- Required for MediaPipe BlazePose pose estimation     -->
-    <key>NSCameraUsageDescription</key>
-    <string>Novice uses the camera to analyse your CPR technique in real time using pose estimation. No video is recorded or stored.</string>
-
-    <!-- ── Microphone (for TTS audio output) ─────────────── -->
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Novice uses the microphone indirectly via the camera API. Audio coaching is output-only via the speaker.</string>
-
-    <!-- ── Flutter / app settings ────────────────────────── -->
-    <key>CFBundleName</key>
-    <string>Novice</string>
-
-    <key>CFBundleDisplayName</key>
-    <string>Novice</string>
-
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-
-    <key>CFBundleVersion</key>
-    <string>$(FLUTTER_BUILD_NUMBER)</string>
-
-    <key>CFBundleShortVersionString</key>
-    <string>$(FLUTTER_BUILD_NAME)</string>
-
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-
-    <key>CFBundleSignature</key>
-    <string>????</string>
-
-    <!-- Required for Flutter -->
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-
-    <!-- Allow local network for Umuganda TTS HTTP (self-hosted) -->
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>Novice can optionally connect to a locally hosted Kinyarwanda TTS service for offline voice coaching in Kinyarwanda.</string>
-
-    <!-- iOS 14+: disable ATS for local HTTP TTS endpoint only -->
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsLocalNetworking</key>
-        <true/>
-    </dict>
-
-    <!-- Supported interface orientations: portrait only for CPR coaching -->
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-    </array>
-
-    <!-- Prevent screen from dimming during active session -->
-    <key>UIApplicationSupportsIndirectInputEvents</key>
-    <true/>
-
+	<key>CFBundleDisplayName</key>
+	<string>Novice</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>Novice</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Novice uses the camera to analyse your CPR technique in real time using pose estimation. No video is recorded or stored.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Novice can optionally connect to a locally hosted Kinyarwanda TTS service for offline voice coaching in Kinyarwanda.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Novice uses the microphone indirectly via the camera API. Audio coaching is output-only via the speaker.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
 </dict>
 </plist>
