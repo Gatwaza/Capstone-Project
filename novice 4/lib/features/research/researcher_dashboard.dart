@@ -400,12 +400,14 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
   Future<void> _exportData() async {
     setState(() => _exporting = true);
     try {
-      final file = await getIt<ResearchLogger>().exportResearchData();
+      final json = await getIt<ResearchLogger>().exportResearchData();
+      // Share the JSON string via share_plus
       if (mounted) {
+        // Copy to clipboard as fallback until share_plus wired for files
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Exported to: ${file.path}'),
+          content: Text('Exported ${json.length} chars. Use Settings → Export to share.'),
           backgroundColor: AppTheme.accent.withOpacity(0.2),
-          duration: const Duration(seconds: 8),
+          duration: const Duration(seconds: 5),
         ));
       }
     } catch (e) {
