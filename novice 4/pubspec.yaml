@@ -50,9 +50,10 @@ dependencies:
   shared_preferences: ^2.2.3   # cross-platform: iOS, Android, Web, Desktop
   path_provider: ^2.1.2
 
-  # ── JS interop (web only — tree-shaken on mobile) ─────────
-  # Used to call TF.js and MediaPipe loaded via web/index.html <script> tags
-  js: ^0.7.1
+  # ── JS interop (web only — use package:web instead of deprecated js) ──────
+  # js: ^0.7.1 removed — not compatible with iOS builds (platform private library)
+  # Web JS interop is handled directly in pose_service_web.dart and
+  # inference_service_web.dart using dart:js_interop (built into Dart SDK)
 
   # ── HTTP (for Umuganda TTS endpoint) ──────────────────────
   http: ^1.2.1
