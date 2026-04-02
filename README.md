@@ -695,7 +695,3 @@ docs: update dataset download instructions
 GNU General Public License v3.0 — see [LICENSE](LICENSE).
 
 > **Medical Disclaimer:** This tool is a training and simulation aid only. It does not replace formal CPR certification or professional medical advice. Always call emergency services first.
-
----
-
-*Built with love for Rwanda and Sub-Saharan Africa — "Buri mugenzi yagutabara" (Anyone can help)*
