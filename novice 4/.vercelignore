@@ -1,0 +1,11 @@
+android/
+ios/
+build/ios/
+build/android/
+linux/
+macos/
+windows/
+.dart_tool/
+.pub-cache/
+*.iml
+*.lock
