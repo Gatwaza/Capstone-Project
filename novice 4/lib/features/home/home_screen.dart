@@ -37,7 +37,7 @@ class HomeScreen extends ConsumerWidget {
                           style: Theme.of(context).textTheme.headlineLarge),
                       const SizedBox(height: 4),
                       Text(
-                        'CPR Coach · Sub-Saharan Africa',
+                        'CPR Sim · Your first step out of novelty',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
@@ -109,7 +109,7 @@ const SizedBox(height: 32),
                 child: Column(
                   children: [
                     Text(
-                      'Buri mugenzi yagutabara',
+                      'First Aiders Save Lives — Get Trained, Stay Ready',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontStyle: FontStyle.italic,
@@ -118,7 +118,7 @@ const SizedBox(height: 32),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '"Anyone can help" — CPR saves lives',
+                      'That 10 min before the ambulance arrives can be the difference between life and death.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
