@@ -6,6 +6,8 @@
 // Falls back to rule-based classification when API is unreachable.
 
 import 'dart:collection';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/landmark_math.dart';
@@ -20,7 +22,6 @@ class InferenceServiceWeb {
 
   bool get isModelLoaded => _api.isReachable;
 
-  // Called once from injection.dart after registration
   Future<void> init() async {
     await _api.checkHealth();
   }
@@ -41,13 +42,14 @@ class InferenceServiceWeb {
     final bpm   = _estimateBpm();
     final depth = _estimateDepthCm(frame);
 
-    // ── Try API inference when buffer is full ────────────────────
     if (_api.isReachable &&
         _frameBuffer.length >= AppConstants.temporalWindowFrames) {
-      final sequence = _frameBuffer.toList();
+      final sequence   = _frameBuffer.toList();
       final prediction = await _api.predict(sequence);
 
       if (prediction != null) {
+        print('[InferenceServiceWeb] API → ${prediction.resolvedLabel} '
+              '(${prediction.resolvedConfidence.toStringAsFixed(2)})');
         return InferenceResult(
           timestamp:           DateTime.now(),
           topClassIndex:       0,
@@ -58,32 +60,25 @@ class InferenceServiceWeb {
             prediction.depthLabel:  prediction.depthConfidence,
             prediction.recoilLabel: prediction.recoilConfidence,
           },
-          currentBpm:           bpm,
-          estimatedDepthCm:     depth,
-          elbowAngleMean:       (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
-          spineVerticalityDeg:  frame.spineVerticality,
-          isSimulated:          false,  // real model output
+          currentBpm:          bpm,
+          estimatedDepthCm:    depth,
+          elbowAngleMean:      (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
+          spineVerticalityDeg: frame.spineVerticality,
+          isSimulated:         false,
         );
       }
-      // API call failed mid-session — mark unreachable and fall through
-      // (next infer() call will retry health check via _api.isReachable guard)
     }
 
-    // ── Rule-based fallback ──────────────────────────────────────
     return _ruleBased(frame, bpm, depth);
   }
 
-  // Keep sync infer() so existing callers don't break —
-  // it returns a rule-based result immediately and fires the async
-  // API call in the background, updating next frame.
   InferenceResult infer(LandmarkFrame frame) {
-    inferAsync(frame); // fire-and-forget; result used next frame
+    inferAsync(frame);
     final bpm   = _estimateBpm();
     final depth = _estimateDepthCm(frame);
     return _ruleBased(frame, bpm, depth);
   }
 
-  // ── Feature builder (matches Python Stage 4 exactly) ────────────────────
   List<double> _buildFeatures(LandmarkFrame frame) {
     return LandmarkMath.buildFeatureVector(
       leftElbowAngle:     frame.leftElbowAngle,
@@ -92,11 +87,11 @@ class InferenceServiceWeb {
       wristY:             frame.wristMidY,
       wristVelocityY:     frame.wristVelocityY,
       wristAccelerationY: frame.wristAccelerationY,
-      normalizedDepth:    LandmarkMath.normalizedWristDisplacement(
+      normalizedDepth: LandmarkMath.normalizedWristDisplacement(
         frame.wristMidY, frame.leftShoulderY, frame.leftHipY,
       ),
-      shoulderWidth:      frame.shoulderWidth,
-      meanConfidence:     frame.meanLandmarkConfidence,
+      shoulderWidth:    frame.shoulderWidth,
+      meanConfidence:   frame.meanLandmarkConfidence,
       leftElbowVisible:
           frame.leftElbowVisibility > AppConstants.minLandmarkVisibility,
       rightElbowVisible:
@@ -104,22 +99,17 @@ class InferenceServiceWeb {
     );
   }
 
-  InferenceResult _ruleBased(
-    LandmarkFrame frame, double bpm, double depth,
-  ) {
+  InferenceResult _ruleBased(LandmarkFrame frame, double bpm, double depth) {
     String label = 'correct_compression';
-    String? rateError;
     if (bpm > 0) {
-      if (bpm < AppConstants.cprMinRateBpm) rateError = 'rate_too_slow';
-      if (bpm > AppConstants.cprMaxRateBpm) rateError = 'rate_too_fast';
+      if (bpm < AppConstants.cprMinRateBpm) label = 'rate_too_slow';
+      if (bpm > AppConstants.cprMaxRateBpm) label = 'rate_too_fast';
     }
-    if (rateError != null) {
-      label = rateError;
-    } else {
+    if (label == 'correct_compression') {
       final meanElbow = (frame.leftElbowAngle + frame.rightElbowAngle) / 2;
-      if (meanElbow < AppConstants.elbowLockAngleDeg) label = 'bent_elbows';
+      if (meanElbow < AppConstants.elbowLockAngleDeg)           label = 'bent_elbows';
       else if (depth > 0 && depth < AppConstants.cprMinDepthCm - 0.5) label = 'too_shallow';
-      else if (depth > AppConstants.cprMaxDepthCm + 0.5) label = 'too_deep';
+      else if (depth > AppConstants.cprMaxDepthCm + 0.5)        label = 'too_deep';
     }
     return InferenceResult(
       timestamp:           DateTime.now(),
@@ -131,7 +121,7 @@ class InferenceServiceWeb {
       estimatedDepthCm:    depth,
       elbowAngleMean:      (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
       spineVerticalityDeg: frame.spineVerticality,
-      isSimulated:         true,  // rule-based fallback
+      isSimulated:         true,
     );
   }
 
