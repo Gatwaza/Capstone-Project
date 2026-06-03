@@ -140,8 +140,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _exportData(BuildContext context) async {
     try {
       final storage = getIt<StorageService>();
-      final json = await storage.exportJson();
-      // Share the JSON string via share_plus
+      final json = await storage.exportJson(); // resolves via exportSummaryJson()
       await Share.share(json, subject: 'Novice CPR Session Data');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,27 +1,19 @@
 // Novice — CPR-AI Coach
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
-//
-// TrainingScreen — cross-platform camera + pose + inference screen.
-//
-// Platform behaviour:
-//   iOS/Android : CameraController + google_mlkit_pose_detection
-//   Web         : CameraController (getUserMedia) + JS interop pose bridge
-//                 Falls back to demo simulation when JS bridge is not ready.
 
+import 'dart:async';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js show context;
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// google_mlkit_pose_detection is mobile-only — not available on web.
-// The stub provides InputImageRotation so the call site compiles on all targets.
-// On web, processFrame() receives the rotation but PoseServiceWeb ignores it.
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart'
     if (dart.library.html) '../../core/utils/mlkit_stub.dart';
 
-import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/session_provider.dart';
 import '../../core/di/injection.dart';
@@ -31,7 +23,6 @@ import '../../widgets/compression_gauge.dart';
 import '../../widgets/feedback_banner.dart';
 import '../../widgets/pose_overlay.dart';
 
-// Permission handler — mobile only (no-op on web)
 import 'package:permission_handler/permission_handler.dart'
     if (dart.library.html) '../../core/utils/permission_stub.dart';
 
@@ -46,6 +37,15 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   CameraController? _camera;
   bool _cameraReady = false;
   bool _permissionDenied = false;
+  Timer? _webPoseTimer;
+
+  // FIX: track whether the MediaPipe JS bridge has confirmed a valid frame.
+  // The crash "roi->width > 0 && roi->height > 0" happens because the poll
+  // loop starts before the <video> element has non-zero dimensions. We wait
+  // until the JS bridge sets window._novicePoseReady = true (inside its
+  // onResults callback) or until a 4-second timeout, then start the loop.
+  bool _poseReady = false;
+  Timer? _poseReadyPoller;
 
   late final PoseServiceInterface _poseService;
 
@@ -57,7 +57,6 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   }
 
   Future<void> _initCamera() async {
-    // Permission check — mobile only (web uses browser permission dialog)
     if (!kIsWeb) {
       final status = await Permission.camera.request();
       if (!status.isGranted) {
@@ -69,7 +68,6 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
     final cameras = await availableCameras();
     if (cameras.isEmpty) return;
 
-    // Front camera preferred for self-guided CPR coaching
     final front = cameras.firstWhere(
       (c) => c.lensDirection == CameraLensDirection.front,
       orElse: () => cameras.first,
@@ -79,7 +77,6 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
       front,
       ResolutionPreset.high,
       enableAudio: false,
-      // iOS: bgra8888 native | Android: nv21 | Web: yuv420 (camera plugin handles it)
       imageFormatGroup: kIsWeb
           ? ImageFormatGroup.jpeg
           : ImageFormatGroup.bgra8888,
@@ -89,21 +86,75 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
     if (!mounted) return;
     setState(() => _cameraReady = true);
 
-    // Start frame processing loop
-    _camera!.startImageStream(_onCameraFrame);
+    if (kIsWeb) {
+      // FIX: Do NOT poll MediaPipe immediately after initialize().
+      // The Flutter camera plugin attaches the stream to a <video> element,
+      // but the element has videoWidth=0/videoHeight=0 until the browser
+      // paints the first decoded frame. Sending a frame to MediaPipe before
+      // this causes the fatal RET_CHECK crash. We poll a JS readiness flag
+      // set by the bridge after its own first successful onResults, then start
+      // the 200ms pose loop. PoseServiceWeb also guards per-frame as a
+      // secondary safety net.
+      _waitForPoseBridgeReady();
+    } else {
+      _camera!.startImageStream(_onCameraFrame);
+    }
+  }
+
+  /// Polls `window._novicePoseReady` (set by the JS bridge) every 100 ms.
+  /// Starts the pose loop once ready, or after a 4-second timeout (at which
+  /// point PoseServiceWeb's own JS guard handles any remaining bad frames).
+  void _waitForPoseBridgeReady() {
+    const pollInterval = Duration(milliseconds: 100);
+    const maxWait      = Duration(seconds: 4);
+    final deadline     = DateTime.now().add(maxWait);
+
+    _poseReadyPoller = Timer.periodic(pollInterval, (timer) {
+      if (!mounted) { timer.cancel(); return; }
+
+      bool jsReady = false;
+      try {
+        // _novicePoseReady is set to true by the MediaPipe JS bridge inside
+        // its onResults callback once it receives a frame with valid dimensions.
+        jsReady = js.context['_novicePoseReady'] == true;
+      } catch (_) {
+        // js.context access can throw if the bridge hasn't loaded yet — treat
+        // as not ready and keep polling.
+      }
+
+      final timedOut = DateTime.now().isAfter(deadline);
+
+      if (jsReady || timedOut) {
+        timer.cancel();
+        if (mounted) {
+          setState(() => _poseReady = true);
+          _startWebPoseLoop();
+        }
+      }
+    });
+  }
+
+  void _startWebPoseLoop() {
+    _webPoseTimer = Timer.periodic(
+      const Duration(milliseconds: 200),
+      (_) {
+        final session = ref.read(liveSessionProvider);
+        if (!session.isActive) return;
+        _poseService.processFrame(null, null).then((frame) {
+          if (frame != null && mounted) {
+            ref.read(liveSessionProvider.notifier).onFrame(frame);
+          }
+        });
+      },
+    );
   }
 
   void _onCameraFrame(CameraImage image) {
     final session = ref.read(liveSessionProvider);
     if (!session.isActive) return;
-
-    // Rotation: portrait front camera
-    // iOS iPhone 15 Pro: 270°  |  Android varies  |  Web: 0° (already upright)
-    final rotation = kIsWeb
-        ? null
-        : InputImageRotation.rotation270deg;
-
-    _poseService.processFrame(image, rotation).then((frame) {
+    _poseService
+        .processFrame(image, InputImageRotation.rotation270deg)
+        .then((frame) {
       if (frame != null && mounted) {
         ref.read(liveSessionProvider.notifier).onFrame(frame);
       }
@@ -124,7 +175,9 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
 
   @override
   void dispose() {
-    _camera?.stopImageStream();
+    _poseReadyPoller?.cancel();
+    _webPoseTimer?.cancel();
+    if (!kIsWeb) _camera?.stopImageStream();
     _camera?.dispose();
     super.dispose();
   }
@@ -132,7 +185,6 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(liveSessionProvider);
-
     if (_permissionDenied) return _buildPermissionDenied();
 
     return Scaffold(
@@ -156,10 +208,34 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                       kIsWeb
                           ? 'Initialising camera…\nAllow camera access when prompted.'
                           : 'Starting camera…',
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      style: TextStyle(
+                          color: AppTheme.textSecondary, fontSize: 13),
                       textAlign: TextAlign.center,
                     ),
                   ],
+                ),
+              ),
+            ),
+
+          // ── Pose bridge warming up (web only) ────────────
+          if (kIsWeb && _cameraReady && !_poseReady)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 60,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Initialising pose detection…',
+                    style: TextStyle(
+                        color: AppTheme.textSecondary, fontSize: 12),
+                  ),
                 ),
               ),
             ),
@@ -222,30 +298,6 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
               ),
             ),
 
-          // ── Platform badge ───────────────────────────────
-          if (kIsWeb)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 12,
-              left: 16 + 48 + 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentAmber.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppTheme.accentAmber.withOpacity(0.4)),
-                ),
-                child: Text(
-                  'WEB',
-                  style: TextStyle(
-                    color: AppTheme.accentAmber,
-                    fontSize: 9,
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-
           // ── Feedback banner ──────────────────────────────
           if (session.currentPrompt != null)
             Positioned(
@@ -263,9 +315,8 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
             child: ElevatedButton(
               onPressed: _onStartStop,
               style: ElevatedButton.styleFrom(
-                backgroundColor: session.isActive
-                    ? AppTheme.accentWarn
-                    : AppTheme.accent,
+                backgroundColor:
+                    session.isActive ? AppTheme.accentWarn : AppTheme.accent,
                 foregroundColor: Colors.black,
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
@@ -273,34 +324,11 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
               ),
               child: Text(
                 session.isActive ? 'Stop Session' : 'Start Session',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ),
           ),
-
-          // ── Model status ─────────────────────────────────
-          if (!session.modelAvailable)
-            Positioned(
-              bottom: 104,
-              left: 24,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentAmber.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.accentAmber.withOpacity(0.4)),
-                ),
-                child: Text(
-                  'DEMO MODE — TRAIN MODEL TO ACTIVATE AI',
-                  style: TextStyle(
-                    color: AppTheme.accentAmber,
-                    fontSize: 9,
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -366,12 +394,25 @@ class _ScanFramePainter extends CustomPainter {
     canvas.drawPath(
         Path()..moveTo(0, len)..lineTo(0, 0)..lineTo(len, 0), paint);
     canvas.drawPath(
-        Path()..moveTo(size.width - len, 0)..lineTo(size.width, 0)..lineTo(size.width, len), paint);
+        Path()
+          ..moveTo(size.width - len, 0)
+          ..lineTo(size.width, 0)
+          ..lineTo(size.width, len),
+        paint);
     canvas.drawPath(
-        Path()..moveTo(0, size.height - len)..lineTo(0, size.height)..lineTo(len, size.height), paint);
+        Path()
+          ..moveTo(0, size.height - len)
+          ..lineTo(0, size.height)
+          ..lineTo(len, size.height),
+        paint);
     canvas.drawPath(
-        Path()..moveTo(size.width - len, size.height)..lineTo(size.width, size.height)..lineTo(size.width, size.height - len), paint);
+        Path()
+          ..moveTo(size.width - len, size.height)
+          ..lineTo(size.width, size.height)
+          ..lineTo(size.width, size.height - len),
+        paint);
   }
+
   @override
   bool shouldRepaint(_) => false;
 }
@@ -387,7 +428,8 @@ class _HudButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40, height: 40,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.5),
           borderRadius: BorderRadius.circular(10),
@@ -398,7 +440,9 @@ class _HudButton extends StatelessWidget {
               ? Icon(icon, color: Colors.white, size: 18)
               : Text(label ?? '',
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700)),
         ),
       ),
     );
@@ -433,11 +477,15 @@ class _HudChip extends StatelessWidget {
             children: [
               Text(label,
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
               if (sublabel != null)
                 Text(sublabel!,
                     style: TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 9, letterSpacing: 0.5)),
+                        color: AppTheme.textSecondary,
+                        fontSize: 9,
+                        letterSpacing: 0.5)),
             ],
           ),
         ],

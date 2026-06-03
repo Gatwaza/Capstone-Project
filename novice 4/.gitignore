@@ -76,3 +76,4 @@ mlruns/
 # ── Test artifacts ────────────────────────────────────────
 coverage/
 test/golden/failures/
+.vercel

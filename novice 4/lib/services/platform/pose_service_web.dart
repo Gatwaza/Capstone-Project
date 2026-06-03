@@ -15,8 +15,16 @@ class PoseServiceWeb implements PoseServiceInterface {
   double _prevWristVY = 0;
 
   @override
-  Future<LandmarkFrame?> processFrame(CameraImage image, dynamic rotation) async {
+  Future<LandmarkFrame?> processFrame(CameraImage? image, dynamic rotation) async {
     try {
+      // FIX (primary guard — secondary to the readiness poller in TrainingScreen):
+      // MediaPipe crashes with "roi->width > 0 && roi->height > 0" when it
+      // processes a frame before the <video> element has been rendered by the
+      // browser. We check the JS-side video dimensions before touching landmarks.
+      // _novicePoseVideoReady is set to true by the bridge once videoWidth > 0.
+      final videoReady = js.context['_novicePoseVideoReady'];
+      if (videoReady != true) return null;
+
       final landmarks = js.context['_novicePoseLandmarks'];
       if (landmarks == null) return null;
       final length = landmarks['length'] as int? ?? 0;
@@ -49,7 +57,9 @@ class PoseServiceWeb implements PoseServiceInterface {
       _prevWristY   = wmy;
       _prevWristVY  = wristVY;
 
-      double elbowAngle(double ax, double ay, double bx, double by, double cx, double cy) {
+      double elbowAngle(
+        double ax, double ay, double bx, double by, double cx, double cy,
+      ) {
         final v1x = ax-bx; final v1y = ay-by;
         final v2x = cx-bx; final v2y = cy-by;
         final dot = v1x*v2x + v1y*v2y;
@@ -60,7 +70,8 @@ class PoseServiceWeb implements PoseServiceInterface {
 
       final smx = (lsx+rsx)/2; final smy = (lsy+rsy)/2;
       final hmx = (lhx+rhx)/2; final hmy = (lhy+rhy)/2;
-      final spineVerticality = (smx-hmx).abs() / ((smy-hmy).abs() + 0.001) * 90;
+      final spineVerticality =
+          (smx-hmx).abs() / ((smy-hmy).abs() + 0.001) * 90;
 
       return LandmarkFrame(
         capturedAt:             now,

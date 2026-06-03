@@ -20,6 +20,20 @@ class InferenceServiceWeb {
   final _wristYHistory = ListQueue<_TimedSample>();
   final _api           = CprApiService();
 
+  // ── FIX: Depth calibration ─────────────────────────────────────────────────
+  // Track wrist Y range within the session to normalise depth dynamically.
+  // On first frames we have no range yet — we use a conservative fixed scale
+  // until we have enough history (>= _depthCalibFrames samples).
+  //
+  // Physical basis: typical adult torso is ~50–60 cm tall when seated/kneeling.
+  // Sternum compression target = 5–6 cm ≈ 9–11% of torso height.
+  // normalizedWristDisplacement() returns a value in [0,1] relative to torso.
+  // So: depthCm = normDisp * torsoHeightCm
+  // We estimate torsoHeightCm from shoulderWidth (roughly 1:1 in adults).
+  double _shoulderWidthPxSum = 0;
+  int _shoulderWidthSamples  = 0;
+  static const int _depthCalibFrames = 30; // ~1.2s at 25fps before depth is live
+
   bool get isModelLoaded => _api.isReachable;
 
   Future<void> init() async {
@@ -38,6 +52,8 @@ class InferenceServiceWeb {
     while (_wristYHistory.length > AppConstants.bpmHistoryLength) {
       _wristYHistory.removeFirst();
     }
+
+    _updateDepthCalibration(frame);
 
     final bpm   = _estimateBpm();
     final depth = _estimateDepthCm(frame);
@@ -74,6 +90,7 @@ class InferenceServiceWeb {
 
   InferenceResult infer(LandmarkFrame frame) {
     inferAsync(frame);
+    _updateDepthCalibration(frame);
     final bpm   = _estimateBpm();
     final depth = _estimateDepthCm(frame);
     return _ruleBased(frame, bpm, depth);
@@ -107,9 +124,9 @@ class InferenceServiceWeb {
     }
     if (label == 'correct_compression') {
       final meanElbow = (frame.leftElbowAngle + frame.rightElbowAngle) / 2;
-      if (meanElbow < AppConstants.elbowLockAngleDeg)           label = 'bent_elbows';
+      if (meanElbow < AppConstants.elbowLockAngleDeg)            label = 'bent_elbows';
       else if (depth > 0 && depth < AppConstants.cprMinDepthCm - 0.5) label = 'too_shallow';
-      else if (depth > AppConstants.cprMaxDepthCm + 0.5)        label = 'too_deep';
+      else if (depth > AppConstants.cprMaxDepthCm + 0.5)         label = 'too_deep';
     }
     return InferenceResult(
       timestamp:           DateTime.now(),
@@ -123,6 +140,52 @@ class InferenceServiceWeb {
       spineVerticalityDeg: frame.spineVerticality,
       isSimulated:         true,
     );
+  }
+
+  // ── Depth calibration helpers ──────────────────────────────────────────────
+
+  void _updateDepthCalibration(LandmarkFrame frame) {
+    if (frame.shoulderWidth > 0.05) { // ignore frames with invisible shoulders
+      _shoulderWidthPxSum += frame.shoulderWidth;
+      _shoulderWidthSamples++;
+    }
+  }
+
+  /// Estimates physical depth in cm from normalised wrist displacement.
+  ///
+  /// Strategy:
+  ///   1. Compute normalised wrist displacement relative to torso height
+  ///      (0 = at shoulder, 1 = at hip level).
+  ///   2. Multiply by estimated torso height in cm.
+  ///
+  /// Torso height estimation:
+  ///   We use mean shoulder width as a proxy (biacromial width ≈ torso height
+  ///   in seated/kneeling adults, both ~40–48 cm for typical adults).
+  ///   The scale factor (AppConstants.shoulderWidthToTorsoRatio) is calibrated
+  ///   to a typical rescuer distance from the manikin camera.
+  ///
+  /// Before calibration frames accumulate, falls back to a fixed 45 cm torso.
+  double _estimateDepthCm(LandmarkFrame frame) {
+    final normDisp = LandmarkMath.normalizedWristDisplacement(
+      frame.wristMidY,
+      (frame.leftShoulderY + frame.rightShoulderY) / 2,
+      (frame.leftHipY + frame.rightHipY) / 2,
+    );
+
+    // Estimate torso height in cm
+    double torsoHeightCm;
+    if (_shoulderWidthSamples >= _depthCalibFrames) {
+      final meanShoulderWidthNorm = _shoulderWidthPxSum / _shoulderWidthSamples;
+      // shoulderWidthToTorsoRatio: empirically ~0.85 (shoulder width ≈ 85% of torso height)
+      torsoHeightCm = (meanShoulderWidthNorm * AppConstants.normToPhysicalCmScale)
+                      / AppConstants.shoulderWidthToTorsoRatio;
+    } else {
+      // Conservative fallback until we have enough calibration data
+      torsoHeightCm = AppConstants.fallbackTorsoHeightCm;
+    }
+
+    // Clamp to clinically plausible range [0, 10] cm
+    return (normDisp * torsoHeightCm).clamp(0.0, 10.0);
   }
 
   double _estimateBpm() {
@@ -147,15 +210,6 @@ class InferenceServiceWeb {
     }
     final meanMs = totalMs / (peaks.length - 1);
     return meanMs <= 0 ? 0 : (60000 / meanMs).clamp(0, 200);
-  }
-
-  double _estimateDepthCm(LandmarkFrame frame) {
-    final normDisp = LandmarkMath.normalizedWristDisplacement(
-      frame.wristMidY,
-      (frame.leftShoulderY + frame.rightShoulderY) / 2,
-      (frame.leftHipY + frame.rightHipY) / 2,
-    );
-    return (normDisp * 50).clamp(0, 10);
   }
 
   void dispose() {}
