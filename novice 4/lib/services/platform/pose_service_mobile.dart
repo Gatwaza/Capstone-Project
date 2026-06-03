@@ -35,9 +35,11 @@ class PoseServiceMobile implements PoseServiceInterface {
 
   @override
   Future<LandmarkFrame?> processFrame(
-    CameraImage image,
+    CameraImage? image,   // ← nullable to satisfy interface
     dynamic rotation,
   ) async {
+    if (image == null) return null; // ← web guard — never called with null on mobile
+
     final inputImage = _buildInputImage(image, rotation as InputImageRotation);
     if (inputImage == null) return null;
 

@@ -4,16 +4,18 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'landmark_frame.dart';
+
 part 'session_model.freezed.dart';
 part 'session_model.g.dart';
 
 /// Represents a completed CPR training session.
-/// Stored locally in SQLite via session_logger.dart.
-/// Schema version 1 — increment when adding fields.
+/// Stored locally via StorageService.
+/// Schema version 2 — added rawFrames for retraining pipeline.
 @freezed
 class SessionModel with _$SessionModel {
   const factory SessionModel({
-    required String id,           // UUID v4
+    required String id,           // millisecondsSinceEpoch string
     required DateTime startedAt,
     required DateTime endedAt,
     required int totalCompressions,
@@ -21,11 +23,22 @@ class SessionModel with _$SessionModel {
     required double meanDepthCm,
     required double cprFraction,  // % of session time actively compressing
     required int qualityScore,    // 0–100 composite
-    required Map<String, double> errorRates, // errorKey → mean confidence over session
+    required Map<String, double> errorRates, // errorKey → mean confidence
     @Default('en') String language,
     @Default(false) bool modelWasAvailable,
     /// Device identifier for performance tracking across sessions
     String? deviceModel,
+    /// Raw per-frame landmark data for retraining pipeline.
+    /// Excluded from json_serializable — StorageService serialises frames
+    /// manually via _frameToMap / exportFramesNdjson so we keep full control
+    /// over the wire format and avoid bloating the freezed generated code.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default([]) List<LandmarkFrame> rawFrames,
+    /// Reviewer label assigned after session review (null = not yet reviewed).
+    /// Values: 'correct' | 'incorrect' | 'partial'
+    String? reviewLabel,
+    /// Optional free-text note from reviewer or researcher.
+    String? reviewNote,
   }) = _SessionModel;
 
   factory SessionModel.fromJson(Map<String, dynamic> json) =>
