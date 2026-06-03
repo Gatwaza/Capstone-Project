@@ -14,7 +14,7 @@
 
 ## Overview
 
-**Novice** (formerly CPR-AI Coach) is a cross-platform real-time CPR coaching application that uses on-device pose estimation and a BiLSTM machine learning classifier to guide untrained bystanders through cardiopulmonary resuscitation — with **no internet connection required on mobile**.
+**Novice** is a cross-platform real-time CPR coaching application that uses on-device pose estimation and a BiLSTM machine learning classifier to guide untrained bystanders through cardiopulmonary resuscitation — with **no internet connection required on mobile**.
 
 Developed as the capstone project for **The African Leadership University, Rwanda**.
 
@@ -188,7 +188,7 @@ novice/                                ← repo root (clean — no root-level pu
 
 ## Getting Started
 
-See **[SETUP.md](SETUP.md)** for the complete step-by-step guide for macOS M1 Max + iPhone 15 Pro.
+See **[SETUP.md](SETUP.md)** for the complete step-by-step guide for macOS + iOS.
 
 Quick start:
 ```bash

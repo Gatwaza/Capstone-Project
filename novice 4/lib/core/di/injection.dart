@@ -39,9 +39,6 @@ Future<void> configureDependencies() async {
   final log = getIt<Logger>();
 
   // ── Session storage ────────────────────────────────────────────────────────
-  // Mobile: SessionLogger (SQLite). Web: StorageService wraps SharedPreferences.
-  // session_logger.dart compiles on web via sqflite_compat.dart stub —
-  // all methods are guarded by kIsWeb internally.
   SessionLogger? sqliteLogger;
   if (!kIsWeb) {
     sqliteLogger = SessionLogger();
@@ -62,19 +59,17 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<TtsService>(tts);
 
   // ── Pose estimation ────────────────────────────────────────────────────────
-  // pose_service_mobile.dart uses google_mlkit which is mobile-only.
-  // Both files import only on the correct platform (no cross-compilation issues
-  // because injection.dart is compiled on all platforms but only runs one path).
   final PoseServiceInterface pose =
       kIsWeb ? PoseServiceWeb() : PoseServiceMobile();
   getIt.registerSingleton<PoseServiceInterface>(pose);
 
   // ── ML Inference ───────────────────────────────────────────────────────────
-  // inference_service.dart uses tflite_compat.dart (conditional stub on web).
-  // InferenceServiceWeb uses JS interop — web only.
   bool modelLoaded = false;
   if (kIsWeb) {
-    getIt.registerSingleton<InferenceServiceWeb>(InferenceServiceWeb());
+    final inferWeb = InferenceServiceWeb();
+    await inferWeb.init();          // ← health check: sets isReachable
+    modelLoaded = inferWeb.isModelLoaded;
+    getIt.registerSingleton<InferenceServiceWeb>(inferWeb);
   } else {
     final infer = InferenceService();
     await infer.loadModel();
@@ -86,8 +81,6 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<FeedbackEngine>(FeedbackEngine());
 
   // ── Research logger ────────────────────────────────────────────────────────
-  // research_logger.dart uses sqflite_compat.dart (conditional stub on web).
-  // Only registered on mobile. Web research data collection: Phase 2.
   if (!kIsWeb) {
     final research = ResearchLogger();
     await research.init();

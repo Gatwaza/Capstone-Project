@@ -4,96 +4,60 @@
 #
 # Cross-platform Flutter app: iOS · Android · Web
 # One codebase — platform-conditional services via kIsWeb + dart:html
-
 name: novice
 description: >
   Novice — Real-time CPR coaching using pose estimation and on-device ML.
   Empowers bystanders in Sub-Saharan Africa. iOS · Android · Web.
 version: 0.1.0+1
 publish_to: none
-
 environment:
   sdk: ">=3.0.0 <4.0.0"
-
 dependencies:
   flutter:
     sdk: flutter
-
   # ── Camera ────────────────────────────────────────────────
-  # Works on iOS, Android AND Flutter Web (getUserMedia)
-  camera: ^0.10.5+9
-
+  camera: ^0.11.2+1
   # ── Pose estimation (MOBILE only — conditionally imported) ─
-  # google_mlkit_pose_detection does NOT support web.
-  # On web we use JS interop to @mediapipe/pose loaded in web/index.html.
-  google_mlkit_pose_detection: ^0.10.0
-
+  google_mlkit_pose_detection: ^0.14.0
   # ── ML Inference (MOBILE only — conditionally imported) ───
-  # tflite_flutter does NOT support web.
-  # On web we use JS interop to TensorFlow.js loaded in web/index.html.
-  tflite_flutter: ^0.10.4
-
+  tflite_flutter: ^0.12.1
   # ── TTS ───────────────────────────────────────────────────
-  # flutter_tts supports iOS, Android, AND Web (uses Web Speech API on web)
-  flutter_tts: ^3.8.5
-
+  flutter_tts: ^4.2.5
   # ── State management ──────────────────────────────────────
   flutter_riverpod: ^2.4.9
   riverpod_annotation: ^2.3.3
-
   # ── Dependency injection ──────────────────────────────────
-  get_it: ^7.6.4
-
+  get_it: ^9.2.1
   # ── Local storage ─────────────────────────────────────────
-  # sqflite: mobile only. On web we use shared_preferences / localStorage.
   sqflite: ^2.3.2
-  shared_preferences: ^2.2.3   # cross-platform: iOS, Android, Web, Desktop
+  shared_preferences: ^2.2.3
   path_provider: ^2.1.2
-
-  # ── JS interop (web only — use package:web instead of deprecated js) ──────
-  # js: ^0.7.1 removed — not compatible with iOS builds (platform private library)
-  # Web JS interop is handled directly in pose_service_web.dart and
-  # inference_service_web.dart using dart:js_interop (built into Dart SDK)
-
-  # ── HTTP (for Umuganda TTS endpoint) ──────────────────────
+  # ── HTTP ──────────────────────────────────────────────────
   http: ^1.2.1
-
   # ── Routing ───────────────────────────────────────────────
-  go_router: ^13.2.0
-
+  go_router: ^17.0.0
   # ── Utilities ─────────────────────────────────────────────
   equatable: ^2.0.5
-  freezed_annotation: ^2.4.1
-  json_annotation: ^4.8.1
-  intl: ^0.19.0
+  freezed_annotation: ^2.4.1   # downgraded from ^3.1.0
+  json_annotation: ^4.9.0      # bumped to satisfy json_serializable
+  intl: ^0.20.2
   logger: ^2.0.2+1
-
-  # ── Permissions (mobile only — no-op on web) ──────────────
-  permission_handler: ^11.3.0
-
-  # ── File path utilities ───────────────────────────────────
+  # ── Permissions ───────────────────────────────────────────
+  permission_handler: ^12.0.3
+  # ── File utilities ────────────────────────────────────────
   path: ^1.9.0
-
-  # ── File sharing (research export, settings) ──────────────
-  share_plus: ^7.2.2
-
-  # ── Animated demo (Phase 2 — uncomment when .riv is ready) ─
-  # rive: ^0.12.4
-
+  share_plus: ^12.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
-
+  flutter_lints: ^5.0.0
   # ── Code generation ───────────────────────────────────────
-  build_runner: ^2.4.8
-  freezed: ^2.4.6
+  build_runner: ^2.4.9         # bumped from ^2.4.8
+  freezed: ^2.5.7              # downgraded from ^3.1.0
   json_serializable: ^6.7.1
   riverpod_generator: ^2.3.9
-
 flutter:
   uses-material-design: true
-
   assets:
     - assets/models/
     - assets/animations/
