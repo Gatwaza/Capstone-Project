@@ -24,7 +24,7 @@ class AppConstants {
   static const int landmarkFeatureDims = 12;
 
   /// Temporal window (frames) fed into BiLSTM
-  static const int temporalWindowFrames = 30;
+  static const int temporalWindowFrames = 60;  // was 30 — must match API (1, 60, 12)
 
   /// Minimum MediaPipe landmark visibility score to include a frame
   static const double minLandmarkVisibility = 0.5;

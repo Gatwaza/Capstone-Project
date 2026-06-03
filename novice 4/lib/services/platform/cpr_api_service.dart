@@ -4,7 +4,6 @@
 //
 // HTTP client to the hosted CNN_BiLSTM inference API.
 // Replaces rule-based fallback on web when API is reachable.
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -12,7 +11,7 @@ class CprApiService {
   CprApiService({String? baseUrl})
       : _base = baseUrl ?? const String.fromEnvironment(
           'CPR_API_URL',
-          defaultValue: 'https://Jeanrobert-Novice.hf.space',
+          defaultValue: 'https://jeanrobert-novice.hf.space', // ← all lowercase
         );
 
   final String _base;
@@ -24,15 +23,16 @@ class CprApiService {
     try {
       final res = await http
           .get(Uri.parse('$_base/health'))
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 15)); // ← bumped from 5s
       _reachable = res.statusCode == 200;
-    } catch (_) {
+      print('[CprApiService] health check: ${res.statusCode} → reachable=$_reachable');
+    } catch (e) {
       _reachable = false;
+      print('[CprApiService] health check failed: $e');
     }
   }
 
   /// Sends a (60 × 12) feature sequence to the API.
-  /// Returns parsed [ApiPrediction] or null on failure.
   Future<ApiPrediction?> predict(List<List<double>> sequence) async {
     if (!_reachable) return null;
     try {
@@ -43,7 +43,6 @@ class CprApiService {
             body: jsonEncode({'sequence': sequence}),
           )
           .timeout(const Duration(seconds: 3));
-
       if (res.statusCode != 200) return null;
       final json = jsonDecode(res.body) as Map<String, dynamic>;
       return ApiPrediction.fromJson(json);
@@ -72,28 +71,26 @@ class ApiPrediction {
 
   factory ApiPrediction.fromJson(Map<String, dynamic> json) {
     return ApiPrediction(
-      rateLabel:       json['rate']['label']       as String,
-      rateConfidence:  (json['rate']['confidence'] as num).toDouble(),
-      depthLabel:      json['depth']['label']      as String,
-      depthConfidence: (json['depth']['confidence'] as num).toDouble(),
-      recoilLabel:     json['recoil']['label']     as String,
-      recoilConfidence:(json['recoil']['confidence'] as num).toDouble(),
+      rateLabel:        json['rate']['label']        as String,
+      rateConfidence:   (json['rate']['confidence']  as num).toDouble(),
+      depthLabel:       json['depth']['label']       as String,
+      depthConfidence:  (json['depth']['confidence'] as num).toDouble(),
+      recoilLabel:      json['recoil']['label']      as String,
+      recoilConfidence: (json['recoil']['confidence'] as num).toDouble(),
     );
   }
 
-  // Merge rate + depth + recoil into a single label FeedbackEngine understands.
-  // Priority: rate errors first, then depth, then recoil.
   String get resolvedLabel {
-    if (rateLabel == 'Too_Fast') return 'rate_too_fast';
-    if (rateLabel == 'Too_Slow') return 'rate_too_slow';
-    if (depthLabel == 'Too_Deep') return 'too_deep';
-    if (depthLabel == 'Too_Shallow') return 'too_shallow';
-    if (recoilLabel == 'Incomplete') return 'incomplete_decomp';
+    if (rateLabel == 'Too_Fast')      return 'rate_too_fast';
+    if (rateLabel == 'Too_Slow')      return 'rate_too_slow';
+    if (depthLabel == 'Too_Deep')     return 'too_deep';
+    if (depthLabel == 'Too_Shallow')  return 'too_shallow';
+    if (recoilLabel == 'Incomplete')  return 'incomplete_decomp';
     return 'correct_compression';
   }
 
   double get resolvedConfidence {
-    if (rateLabel != 'Correct') return rateConfidence;
+    if (rateLabel != 'Correct')  return rateConfidence;
     if (depthLabel != 'Correct') return depthConfidence;
     return recoilConfidence;
   }

@@ -22,10 +22,10 @@ import '../../services/feedback_engine.dart';
 import '../../services/inference_service.dart';
 import '../../services/research_logger.dart';
 import '../../services/session_logger.dart';
-import '../../services/platform/inference_service_web.dart';
-import '../../services/platform/pose_service_interface.dart';
-import '../../services/platform/pose_service_mobile.dart';
-import '../../services/platform/pose_service_web.dart';
+import '../../services/platform/inference_service_web.dart' show InferenceServiceWeb;
+import '../../services/platform/pose_service_interface.dart' show PoseServiceInterface;
+import '../../services/platform/pose_service_mobile.dart' show PoseServiceMobile;
+import '../../services/platform/pose_service_web.dart' show PoseServiceWeb;
 import '../../services/platform/storage_service.dart';
 import '../../services/tts_service.dart';
 

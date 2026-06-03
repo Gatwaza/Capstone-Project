@@ -54,24 +54,8 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 40),
 
               // ── Phase badge ────────────────────────────────
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    'PHASE 1 — DEMONSTRATION BUILD',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppTheme.accent,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-              ),
+              // ── Phase badge ────────────────────────────────
+const SizedBox(height: 32),
 
               const SizedBox(height: 32),
 
