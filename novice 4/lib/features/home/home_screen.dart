@@ -109,7 +109,7 @@ const SizedBox(height: 32),
                 child: Column(
                   children: [
                     Text(
-                      'First Aiders Save Lives — Get Trained, Stay Ready',
+                      'Only for first responders, but everyone can be one.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontStyle: FontStyle.italic,
@@ -124,7 +124,7 @@ const SizedBox(height: 32),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'GNU GPL v3 · ALU Capstone · Jean Robert Gatwaza',
+                      'GNU GPL v3 · Gatwaza',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
