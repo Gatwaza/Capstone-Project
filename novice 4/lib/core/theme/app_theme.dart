@@ -23,7 +23,6 @@ class AppTheme {
   static const Color textSecondary = Color(0xFF5A6470);
 
   // ── Typography ───────────────────────────────────────────
-  // Using system font fallbacks until custom font assets are added
   static const TextStyle mono = TextStyle(
     fontFamily: 'Courier New', // TODO: replace with Space Mono when added to assets
     letterSpacing: 0.5,
@@ -53,7 +52,7 @@ class AppTheme {
           letterSpacing: -0.5,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: card,
         elevation: 0,
         shape: RoundedRectangleBorder(
