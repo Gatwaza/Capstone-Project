@@ -309,10 +309,18 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
             Positioned(
               top: MediaQuery.of(context).padding.top + 80,
               left: 16,
-              child: _HudChip(
-                label: '${session.compressions}',
-                sublabel: 'compressions',
-                icon: Icons.compress_rounded,
+              child: Column(
+                children: [
+                  _HudChip(
+                    label: '${session.compressions}',
+                    sublabel: 'compressions',
+                    icon: Icons.compress_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _TaskIndicators(
+                    taskAccuracies: session.taskAccuracies,
+                  ),
+                ],
               ),
             ),
 
@@ -504,6 +512,108 @@ class _HudChip extends StatelessWidget {
                         color: AppTheme.textSecondary,
                         fontSize: 9,
                         letterSpacing: 0.5)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Task accuracy indicators (live during session) ──────────────────────────
+
+class _TaskIndicators extends StatelessWidget {
+  const _TaskIndicators({required this.taskAccuracies});
+  final Map<String, double> taskAccuracies;
+
+  Color _getTaskColor(String task) {
+    final acc = taskAccuracies[task] ?? 0.0;
+    if (acc >= 0.80) return AppTheme.accent;
+    if (acc >= 0.60) return AppTheme.accentAmber;
+    return AppTheme.accentWarn;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show mini indicators for each task
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _TaskMiniIndicator(
+          task: 'Rate',
+          accuracy: taskAccuracies['rate'] ?? 0.0,
+          color: _getTaskColor('rate'),
+        ),
+        const SizedBox(height: 8),
+        _TaskMiniIndicator(
+          task: 'Depth',
+          accuracy: taskAccuracies['depth'] ?? 0.0,
+          color: _getTaskColor('depth'),
+        ),
+        const SizedBox(height: 8),
+        _TaskMiniIndicator(
+          task: 'Recoil',
+          accuracy: taskAccuracies['recoil'] ?? 0.0,
+          color: _getTaskColor('recoil'),
+        ),
+      ],
+    );
+  }
+}
+
+class _TaskMiniIndicator extends StatelessWidget {
+  const _TaskMiniIndicator({
+    required this.task,
+    required this.accuracy,
+    required this.color,
+  });
+  final String task;
+  final double accuracy;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (accuracy * 100).clamp(0, 100);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 4,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                task,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              Text(
+                '${pct.round()}%',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ],

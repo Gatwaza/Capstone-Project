@@ -28,6 +28,8 @@ class LiveSessionState {
     this.lastFrame,
     this.language = 'en',
     this.modelAvailable = false,
+    this.taskAccuracies = const {},
+    this.taskConfidences = const {},
   });
 
   final bool isActive;
@@ -43,6 +45,9 @@ class LiveSessionState {
   final LandmarkFrame? lastFrame;
   final String language;
   final bool modelAvailable;
+  // Per-task accuracy and confidence (updated during session)
+  final Map<String, double> taskAccuracies;
+  final Map<String, double> taskConfidences;
 
   String get elapsedFormatted {
     final m = elapsedSeconds ~/ 60;
@@ -82,6 +87,8 @@ class LiveSessionState {
     FeedbackPrompt? currentPrompt, InferenceResult? lastInference,
     LandmarkFrame? lastFrame,
     String? language, bool? modelAvailable,
+    Map<String, double>? taskAccuracies,
+    Map<String, double>? taskConfidences,
   }) => LiveSessionState(
     isActive: isActive ?? this.isActive,
     bpm: bpm ?? this.bpm,
@@ -93,6 +100,8 @@ class LiveSessionState {
     lastFrame: lastFrame ?? this.lastFrame,
     language: language ?? this.language,
     modelAvailable: modelAvailable ?? this.modelAvailable,
+    taskAccuracies: taskAccuracies ?? this.taskAccuracies,
+    taskConfidences: taskConfidences ?? this.taskConfidences,
   );
 }
 
@@ -328,9 +337,18 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     // FIX 1: state machine compression counting
     _updateCompressionCount(frame);
 
+    // Compute live per-task accuracies (mean of accumulated values)
+    final liveTaskAccuracies = {
+      'rate': _rateAccuracies.isEmpty ? 0.0 : _rateAccuracies.reduce((a, b) => a + b) / _rateAccuracies.length,
+      'depth': _depthAccuracies.isEmpty ? 0.0 : _depthAccuracies.reduce((a, b) => a + b) / _depthAccuracies.length,
+      'recoil': _recoilAccuracies.isEmpty ? 0.0 : _recoilAccuracies.reduce((a, b) => a + b) / _recoilAccuracies.length,
+    };
+
     state = state.copyWith(
       bpm: result.currentBpm, depthCm: result.estimatedDepthCm,
       currentPrompt: prompt, lastInference: result, lastFrame: frame,
+      taskAccuracies: liveTaskAccuracies,
+      taskConfidences: _taskConfidences,
     );
     if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
   }

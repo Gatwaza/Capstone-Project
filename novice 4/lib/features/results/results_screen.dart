@@ -133,8 +133,12 @@ class _ResultsContentState extends State<_ResultsContent> {
 
               const SizedBox(height: 28),
 
-              // ── Quality score ────────────────────────────────
-              _ScoreCard(score: widget.session.qualityScore),
+              // ── Quality score (multi-task breakdown) ──────────
+              _ScoreCard(
+                score: widget.session.qualityScore,
+                taskAccuracies: widget.session.taskAccuracies,
+                taskConfidences: widget.session.taskConfidences,
+              ),
 
               const SizedBox(height: 24),
 
@@ -583,11 +587,17 @@ class _BreakdownRow extends StatelessWidget {
   }
 }
 
-// ── Score card ─────────────────────────────────────────────────────────────────
+// ── Score card with multi-task breakdown ──────────────────────────────────────
 
 class _ScoreCard extends StatelessWidget {
-  const _ScoreCard({required this.score});
+  const _ScoreCard({
+    required this.score,
+    this.taskAccuracies = const {},
+    this.taskConfidences = const {},
+  });
   final int score;
+  final Map<String, double> taskAccuracies;
+  final Map<String, double> taskConfidences;
 
   @override
   Widget build(BuildContext context) {
@@ -596,6 +606,15 @@ class _ScoreCard extends StatelessWidget {
         : score >= 60
             ? AppTheme.accentAmber
             : AppTheme.accentWarn;
+
+    // CNN-BiLSTM test-set baselines for reference
+    const double rateBaseline = 0.7592;
+    const double depthBaseline = 0.9405;
+    const double recoilBaseline = 0.7479;
+
+    final rateAcc = taskAccuracies['rate'] ?? 0.0;
+    final depthAcc = taskAccuracies['depth'] ?? 0.0;
+    final recoilAcc = taskAccuracies['recoil'] ?? 0.0;
 
     return Container(
       width: double.infinity,
@@ -608,17 +627,31 @@ class _ScoreCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Overall score
           Text('Quality Score',
               style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 4),
-          Text(
-            '$score',
-            style: TextStyle(
-              color: color,
-              fontSize: 48,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '$score',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 48,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'out of 100',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -631,6 +664,176 @@ class _ScoreCard extends StatelessWidget {
                 .textTheme
                 .bodyMedium
                 ?.copyWith(color: color),
+          ),
+          
+          // Per-task breakdown (if available)
+          if (taskAccuracies.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Divider(color: AppTheme.border, height: 1),
+            const SizedBox(height: 16),
+            Text('Per-Task Assessment',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11,
+                    )),
+            const SizedBox(height: 12),
+            
+            // Rate task
+            _TaskScoreRow(
+              taskName: 'Compression Rate',
+              accuracy: rateAcc,
+              baseline: rateBaseline,
+              confidence: taskConfidences['rate'] ?? 0.0,
+              icon: Icons.speed_rounded,
+            ),
+            const SizedBox(height: 10),
+            
+            // Depth task
+            _TaskScoreRow(
+              taskName: 'Compression Depth',
+              accuracy: depthAcc,
+              baseline: depthBaseline,
+              confidence: taskConfidences['depth'] ?? 0.0,
+              icon: Icons.arrow_downward_rounded,
+            ),
+            const SizedBox(height: 10),
+            
+            // Recoil task
+            _TaskScoreRow(
+              taskName: 'Chest Recoil',
+              accuracy: recoilAcc,
+              baseline: recoilBaseline,
+              confidence: taskConfidences['recoil'] ?? 0.0,
+              icon: Icons.arrow_upward_rounded,
+            ),
+            
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.bg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded,
+                      size: 14, color: AppTheme.textSecondary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Scores compare your accuracy to the trained model\'s performance.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppTheme.textSecondary,
+                            fontSize: 10,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Per-task score row ─────────────────────────────────────────────────────────
+
+class _TaskScoreRow extends StatelessWidget {
+  const _TaskScoreRow({
+    required this.taskName,
+    required this.accuracy,
+    required this.baseline,
+    required this.confidence,
+    required this.icon,
+  });
+
+  final String taskName;
+  final double accuracy;
+  final double baseline;
+  final double confidence;
+  final IconData icon;
+
+  Color _getAccuracyColor() {
+    final normalized = (accuracy / baseline).clamp(0, 1);
+    if (normalized >= 0.9) return AppTheme.accent;
+    if (normalized >= 0.75) return AppTheme.accentAmber;
+    return AppTheme.accentWarn;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accuracyPct = (accuracy * 100).clamp(0, 100);
+    final normalized = (accuracy / baseline).clamp(0, 1);
+    final normalizedScore = normalized * 100;
+    final confPct = (confidence * 100).round();
+    final color = _getAccuracyColor();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  taskName,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              Text(
+                '${normalizedScore.round()}%',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: normalized.toDouble(),
+              minHeight: 4,
+              backgroundColor: Colors.white.withOpacity(0.08),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(
+                '${accuracyPct.toStringAsFixed(1)}%',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
+              ),
+              const Spacer(),
+              Chip(
+                label: Text(
+                  'Confidence: $confPct%',
+                  style: const TextStyle(fontSize: 10),
+                ),
+                side: BorderSide(color: color.withOpacity(0.5)),
+                backgroundColor: color.withOpacity(0.1),
+                labelStyle: TextStyle(color: color, fontSize: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              ),
+            ],
           ),
         ],
       ),

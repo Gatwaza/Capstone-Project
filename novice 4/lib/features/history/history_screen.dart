@@ -101,6 +101,11 @@ class HistoryScreen extends ConsumerWidget {
                               _formatDate(s.startedAt),
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
+                            // NEW: Per-task mini breakdown
+                            if (s.taskAccuracies.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              _TaskMiniRow(taskAccuracies: s.taskAccuracies),
+                            ],
                           ],
                         ),
                       ),
@@ -125,4 +130,59 @@ class HistoryScreen extends ConsumerWidget {
 
   String _formatDate(DateTime dt) =>
       '${dt.day}/${dt.month}/${dt.year}  ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+}
+
+// ── Per-task mini row for history list ──────────────────────────────────────
+
+class _TaskMiniRow extends StatelessWidget {
+  const _TaskMiniRow({required this.taskAccuracies});
+  final Map<String, double> taskAccuracies;
+
+  @override
+  Widget build(BuildContext context) {
+    final rate = ((taskAccuracies['rate'] ?? 0.0) * 100).round();
+    final depth = ((taskAccuracies['depth'] ?? 0.0) * 100).round();
+    final recoil = ((taskAccuracies['recoil'] ?? 0.0) * 100).round();
+
+    return Row(
+      children: [
+        _MiniTaskChip(label: 'Rate', value: rate),
+        const SizedBox(width: 6),
+        _MiniTaskChip(label: 'Depth', value: depth),
+        const SizedBox(width: 6),
+        _MiniTaskChip(label: 'Recoil', value: recoil),
+      ],
+    );
+  }
+}
+
+class _MiniTaskChip extends StatelessWidget {
+  const _MiniTaskChip({required this.label, required this.value});
+  final String label;
+  final int value;
+
+  Color _getColor() {
+    if (value >= 80) return AppTheme.accent;
+    if (value >= 60) return AppTheme.accentAmber;
+    return AppTheme.accentWarn;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getColor().withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$label $value%',
+        style: TextStyle(
+          color: _getColor(),
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
 }
