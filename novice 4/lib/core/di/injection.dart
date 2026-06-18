@@ -113,6 +113,6 @@ Future<void> configureDependencies() async {
 
   log.i(
     'DI ready | platform=${kIsWeb ? "web" : "mobile"} | '
-    'model=${modelLoaded ? "loaded" : "demo mode"}',
+    'model=${modelLoaded ? "loaded" : "rule-based fallback"}',
   );
 }

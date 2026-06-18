@@ -21,7 +21,7 @@ import '../models/session_model.dart';
 /// Output: [1, 8]      — softmax over 8 error classes
 ///
 /// Gracefully falls back to rule-based classification when:
-///   • Model file not found in assets (demo mode)
+///   • Model file not found in assets (rule-based fallback)
 ///   • Running on web (always — use InferenceServiceWeb instead)
 class InferenceService {
   Interpreter? _interpreter;
@@ -45,7 +45,7 @@ class InferenceService {
     } catch (e) {
       _log.w(
         'InferenceService: model not found at ${AppConstants.tfliteModelPath}. '
-        'Running in demo/rule-based mode. '
+        'Running in rule-based fallback mode. '
         'Train with ml_pipeline/ then run convert_to_tflite.py.',
       );
       _modelLoaded = false;

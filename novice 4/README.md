@@ -24,152 +24,174 @@ The active assessment model is a **CNN-BiLSTM** classifier that outperformed oth
 ---
 
 ## Current Status
-
+ 
 | Change | Detail |
 |---|---|
-| Web-only deployment | Removed native iOS/Android folders and build artifacts |
-| Connected inference | TF.js pipeline uses the CNN-BiLSTM assessment model |
-| First aid focus | Broad first aid technique evaluation with CPR-related posture and compression metrics |
-| ML pipeline preserved | Python pipeline remains available for training and TFJS export |
-| Dataset link | Public dataset available via Google Drive |
-
+| Web-only deployment | No native iOS/Android folders; Flutter compiles to `build/web` |
+| CNN-BiLSTM inference | `InferenceServiceWeb` → Hugging Face Spaces API; falls back to rule-based thresholds |
+| No `--web-renderer html` flag | Removed — the flag was dropped in Flutter 3.22 and caused Vercel build exit 64 |
+| MediaPipe pose bridge | JS bridge (`flutter_pose_bridge.js`) with `_novicePoseReady` guard to prevent zero-dimension frame crash |
+| Depth calibration | `normToPhysicalCmScale=20`, `fallbackTorsoHeightCm=8` — calibrated for ~1 m webcam distance |
+| AI MODEL tile | Shows `CNN-BiLSTM` when API reachable, `Rule-based` when not (no longer "Demo mode") |
+| Research logging | Frame NDJSON export + researcher review panel in results screen |
+| Multilingual TTS | EN via Web Speech API · RW via Umuganda HTTP endpoint |
+| ML pipeline preserved | Python `ml_pipeline/` for training new model versions and TFJS/TFLite export |
+ 
 ---
 
-## Running the Web App
-
+## Running locally
+ 
 ```bash
-cd web
-npm install
-npm run dev
-# open http://localhost:3000
+git clone git@github.com:Gatwaza/Capstone-Project.git
+cd "Capstone Project/novice 4"
+ 
+# Install Flutter deps
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+ 
+# Run on web (Chrome recommended for WebGL + WASM)
+flutter run -d chrome
+ 
+# Or build and serve statically
+flutter build web --release --dart-define=RESEARCHER_PIN=2026
+cd build/web && python3 -m http.server 8080
 ```
-
+ 
 ---
 
 ## Key Features
-
+ 
 | Feature | Status | Notes |
 |---|---|---|
-| Real-time pose estimation | ✓ | Pose landmarks via @mediapipe/pose in browser |
-| Connected model assessment | ✓ | CNN-BiLSTM inference in TF.js |
-| First aid technique evaluation | ✓ | Focuses on posture and compression technique, not only CPR steps |
-| Web-native feedback | ✓ | Live browser rendering and corrective prompts |
-| Session persistence | ✓ | IndexedDB logging and export |
-| ML training pipeline | ✓ | Python pipeline with TFJS export |
-
+| Real-time pose estimation | ✓ | `@mediapipe/pose` WASM via `flutter_pose_bridge.js` |
+| CNN-BiLSTM inference | ✓ | Hosted on Hugging Face Spaces; `(60 × 12)` input shape |
+| Rule-based fallback | ✓ | Activates automatically when API unreachable |
+| Live audio coaching | ✓ | 13 TTS prompts in EN + RW; 4 s cooldown per prompt |
+| Compression metrics | ✓ | Rate (bpm), depth (cm), CPR fraction, quality score |
+| Session persistence | ✓ | IndexedDB via `StorageService`; NDJSON frame export |
+| Researcher review panel | ✓ | Label sessions correct/partial/incorrect; export raw frames |
+| Multilingual UI | ✓ | English + Kinyarwanda (Kinyarwanda TTS prompts pending native speaker validation) |
+| ML training pipeline | ✓ | Python `ml_pipeline/` → TFJS + TFLite export |
+ 
 ---
 
-## Platform Architecture
 
+## Architecture at a glance
+ 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    Novice Web Application                     │
-│     Live pose capture · landmark extraction · inference       │
-└──────────────────────────────────────────────────────────────┘
-                       │
-                       ▼
-         ┌──────────────────────────────────────────────────┐
-         │          Browser runtime                         │
-         │  - Pose: @mediapipe/pose WASM                    │
-         │  - Model: TF.js CNN-BiLSTM                       │
-         │  - Feedback: Web Speech API                      │
-         │  - Storage: IndexedDB                            │
-         └──────────────────────────────────────────────────┘
-```
-## Project Structure
-
-```
-novice/                                ← repo root (clean — no root-level pubspec)
+Browser (Flutter Web)
 │
-├── README.md
-├── SETUP.md                           ← step-by-step M1 Max + iPhone 15 Pro guide
-├── pubspec.yaml                       ← Flutter dependencies
+├─ MediaPipe Pose WASM  →  33 landmarks @ 25 fps
+│      (flutter_pose_bridge.js)
+│
+├─ LandmarkMath (Dart)  →  12-dim feature vector per frame
+│      elbow angles · spine lean · wrist Y & velocity · shoulder width
+│
+├─ InferenceServiceWeb  →  60-frame window → CNN-BiLSTM
+│      (flutter_inference_bridge.js)       API: jeanrobert-novice.hf.space
+│      ↳ falls back to rule-based thresholds when API unreachable
+│
+├─ FeedbackEngine       →  priority queue · 4 s cooldown gating
+│
+├─ TtsService           →  Web Speech API (EN) · Umuganda HTTP (RW)
+│
+└─ StorageService       →  IndexedDB session log · NDJSON frame export
+```
+ 
+**Hosted inference API:** `https://jeanrobert-novice.hf.space`
+The API runs the CNN-BiLSTM model server-side. `InferenceServiceWeb` polls `/health` at startup and streams `(60 × 12)` sequences to `/predict`.
+ 
+---
+## Project Structure
+ 
+```
+novice/                                ← repo root
+│
+├── README.md                          ← this file
+├── SETUP.md                           ← complete local + Vercel setup guide
+├── pubspec.yaml                       ← Flutter 3.29.3, Dart ≥3.0.0
+├── pubspec.lock
 ├── analysis_options.yaml
-├── .gitignore                         ← covers .DS_Store, .env, *.tflite (Git LFS)
-├── .env.example
+├── vercel.json                        ← Vercel build + CORS/cache headers
 ├── LICENSE                            ← GNU GPL v3
 │
-├── lib/                               ← Flutter app
-│   ├── main.dart
+├── lib/                               ← Flutter app source
+│   ├── main.dart                      ← app entry point; calls setupDI()
 │   ├── core/
-│   │   ├── constants/app_constants.dart    ← CPR thresholds, prompts, error classes
-│   │   ├── theme/app_theme.dart
-│   │   ├── di/injection.dart               ← GetIt DI bootstrap
-│   │   ├── router/app_router.dart          ← GoRouter
-│   │   └── utils/landmark_math.dart        ← vectorized geometry (pure Dart)
+│   │   ├── constants/app_constants.dart   ← CPR thresholds (ERC 2021), TTS prompts, model paths
+│   │   ├── theme/app_theme.dart           ← dark palette; accent green #00E5A0
+│   │   ├── di/injection.dart              ← GetIt DI bootstrap; loads model, registers services
+│   │   ├── router/app_router.dart         ← GoRouter: /, /training, /results/:id, /history, /demo, /settings
+│   │   └── utils/landmark_math.dart       ← 12-dim feature vector builder (pure Dart)
 │   ├── models/
-│   │   ├── session_model.dart              ← Freezed + SQLite schema
-│   │   └── landmark_frame.dart
+│   │   ├── session_model.dart             ← Freezed SessionModel (stored in IndexedDB)
+│   │   ├── landmark_frame.dart            ← Freezed per-frame pose snapshot
+│   │   └── research_models.dart           ← Freezed consent + survey models
 │   ├── services/
-│   │   ├── pose_service.dart               ← MediaPipe BlazePose (mobile only)
-│   │   ├── inference_service.dart          ← TFLite BiLSTM + rule-based fallback
-│   │   ├── feedback_engine.dart            ← priority queue, cooldown gating
-│   │   ├── tts_service.dart                ← EN offline + Umuganda RW HTTP
-│   │   └── session_logger.dart             ← SQLite + JSON export
-│   ├── providers/session_provider.dart     ← Riverpod live session state
+│   │   ├── inference_service.dart         ← Mobile TFLite BiLSTM (stub on web)
+│   │   ├── feedback_engine.dart           ← Priority queue; 4 s TTS cooldown
+│   │   ├── tts_service.dart               ← Web Speech API (EN) + Umuganda HTTP (RW)
+│   │   ├── session_logger.dart            ← SQLite on mobile; IndexedDB on web
+│   │   ├── research_logger.dart           ← Research consent + survey logging
+│   │   └── platform/
+│   │       ├── pose_service_interface.dart    ← abstract PoseServiceInterface
+│   │       ├── pose_service_web.dart          ← calls flutter_pose_bridge.js JS interop
+│   │       ├── pose_service_mobile.dart       ← google_mlkit_pose_detection
+│   │       ├── inference_service_web.dart     ← CNN-BiLSTM API client (60×12 sequences)
+│   │       ├── cpr_api_service.dart           ← HTTP client → jeanrobert-novice.hf.space
+│   │       └── storage_service.dart           ← IndexedDB session CRUD + NDJSON export
+│   ├── providers/
+│   │   └── session_provider.dart          ← Riverpod LiveSessionNotifier; bpm/depth/compression state
 │   ├── features/
-│   │   ├── splash/                         ← animated entry
-│   │   ├── home/                           ← landing + navigation
-│   │   ├── training/                       ← camera + pose + inference screen
-│   │   ├── results/                        ← post-session metrics
-│   │   ├── history/                        ← past sessions list
-│   │   ├── demo/                           ← animated CPR technique guide
-│   │   └── settings/                       ← language, data export, about
+│   │   ├── splash/                        ← animated entry with model preload
+│   │   ├── home/                          ← landing; Start Training · Demo · History
+│   │   ├── training/                      ← camera + MediaPipe + inference + feedback
+│   │   ├── results/                       ← post-session metrics (CNN-BiLSTM / Rule-based tile)
+│   │   ├── history/                       ← past sessions list
+│   │   ├── demo/                          ← animated CPR technique guide (Flutter CustomPainter)
+│   │   ├── settings/                      ← language toggle, data export, about
+│   │   └── research/                      ← consent + survey + researcher dashboard
 │   └── widgets/
-│       ├── bpm_indicator.dart              ← animated arc ring
-│       ├── compression_gauge.dart          ← vertical bar with target markers
-│       ├── feedback_banner.dart
-│       └── pose_overlay.dart               ← CustomPainter skeleton
+│       ├── bpm_indicator.dart             ← animated arc ring
+│       ├── compression_gauge.dart         ← vertical depth bar with target markers
+│       ├── feedback_banner.dart           ← slide-in corrective prompt banner
+│       └── pose_overlay.dart             ← CustomPainter skeleton overlay
 │
-├── web/                               ← Web app (standalone JS)
-│   ├── index.html                          ← Phase 1 demo (self-contained)
-│   ├── package.json
-│   └── src/
-│       ├── services/
-│       │   ├── poseService.js              ← @mediapipe/pose WASM
-│       │   ├── inferenceService.js         ← TensorFlow.js BiLSTM
-│       │   ├── feedbackEngine.js           ← port of Dart FeedbackEngine
-│       │   ├── ttsService.js               ← Web Speech API + Umuganda HTTP
-│       │   └── sessionLogger.js            ← IndexedDB persistence
-│       └── utils/
-│           ├── constants.js                ← mirror of app_constants.dart
-│           └── landmarkMath.js             ← port of landmark_math.dart
+├── web/                               ← Compiled Flutter web output root
+│   ├── index.html                     ← Flutter bootstrap (loads flutter_service_worker.js)
+│   ├── manifest.json                  ← PWA manifest
+│   ├── flutter_pose_bridge.js         ← MediaPipe Pose WASM → Dart JS interop
+│   ├── flutter_inference_bridge.js    ← TF.js in-browser bridge (supplementary)
+│   ├── demo_standalone_reference.html ← standalone HTML reference demo (not deployed)
+│   └── assets/
+│       └── models/                    ← TFJS model shards (model.json + *.bin via Git LFS)
 │
 ├── assets/                            ← Flutter asset bundle
-│   ├── models/                             ← novice_cpr_classifier.tflite (Git LFS)
-│   ├── animations/                         ← cpr_instructor.riv (Rive, Phase 2)
-│   ├── audio/en/                           ← pre-recorded EN prompts (optional)
-│   └── audio/rw/                           ← pre-recorded RW prompts (TODO)
+│   ├── models/                        ← novice_cpr_classifier.tflite (Git LFS)
+│   ├── animations/                    ← cpr_instructor.riv (Phase 2 placeholder)
+│   ├── audio/en/                      ← pre-recorded EN prompts (optional TTS override)
+│   └── audio/rw/                      ← pre-recorded RW prompts (TODO)
 │
 ├── ml_pipeline/                       ← Python training pipeline
-│   ├── requirements.txt                    ← pinned, M1 Max + Metal GPU
-│   ├── config.yaml                         ← single source of truth for hyperparams
-│   ├── notebooks/
-│   │   └── 01_dataset_exploration.ipynb   ← Sample_Dataset analysis
-│   └── src/
-│       ├── data/
-│       │   ├── extract_landmarks.py        ← MediaPipe → .npy feature files
-│       │   └── dataset_loader.py           ← tf.data pipeline + augmentation
-│       ├── models/bilstm_model.py          ← BiLSTM architecture
-│       ├── training/
-│       │   ├── train.py                    ← full training loop + callbacks
-│       │   └── evaluate.py                 ← F1, confusion matrix, TFLite latency
-│       └── export/
-│           ├── convert_to_tflite.py        ← INT8 quantised .tflite
-│           └── convert_to_tfjs.py          ← TFJS graph model for web
+│   ├── requirements.txt               ← pinned for M1 Max + Metal GPU
+│   ├── CPR_Coach_Training.ipynb       ← full training notebook (Colab-ready)
+│   └── src/ (see docs/ML_PIPELINE.md for full structure)
 │
-├── scripts/
-│   └── clean_repo.sh                  ← removes ghost folders + root duplicates
+├── docs/                              ← Technical documentation
+│   ├── ARCHITECTURE.md                ← system design, data flow, inference pipeline
+│   ├── ML_PIPELINE.md                 ← training, evaluation, export guide
+│   ├── DEPLOYMENT.md                  ← Vercel config, env vars, known issues
+│   └── API.md                         ← CNN-BiLSTM Hugging Face API reference
 │
 ├── test/
-│   ├── unit/
-│   │   ├── landmark_math_test.dart
-│   │   └── feedback_engine_test.dart
-│   └── widget/                        ← widget tests (Phase 2)
+│   ├── unit/landmark_math_test.dart
+│   ├── unit/feedback_engine_test.dart
+│   └── widget_test.dart
 │
-└── vercel.json                        ← web deployment config
+└── scripts/
+    └── clean_repo.sh                  ← removes ghost folders + root duplicates
 ```
-
+ 
 ---
 
 ## Getting Started
@@ -189,75 +211,35 @@ npm run dev
 
 ---
 
-## Dataset
+### Dataset
+- `train_keypoints.pkl`: 1,344 entries
+- `test_keypoints.pkl`: 1,008 entries
+- Total unique physical videos: 2,352
+- Public dataset: [Google Drive](https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=drive_link)
 
-The pipeline uses the public dataset available here:
-
-https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=drive_link
-
-### Training setup
-
-```python
-from google.colab import drive
-from pathlib import Path
-import os, pickle, re, time, json, warnings
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, f1_score
-from sklearn.utils.class_weight import compute_class_weight
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers, callbacks, optimizers, losses, metrics
-
-warnings.filterwarnings('ignore')
-tf.random.set_seed(42)
-np.random.seed(42)
-
-gpus = tf.config.list_physical_devices('GPU')
-print(f'TensorFlow : {tf.__version__}')
-print(f'GPUs       : {len(gpus)}')
-if gpus:
-    print(f'GPU name   : {tf.test.gpu_device_name()}')
-    tf.config.experimental.set_memory_growth(gpus[0], True)
-
-DATA_ROOT      = Path('/content/drive/MyDrive/cpr_coach_data')
-KEYPOINTS_DIR  = DATA_ROOT / 'Keypoints'
-ANN_DIR        = DATA_ROOT / 'ann'
-CHECKPOINT_DIR = Path('/content/drive/MyDrive/cpr_coach_checkpoints_tf')
-CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-
-RESUME_FILE = CHECKPOINT_DIR / 'resume_state.json'
-
-print(f'Data root      : {DATA_ROOT}')
-print(f'Keypoints dir  : {KEYPOINTS_DIR}')
-print(f'Annotation dir : {ANN_DIR}')
-print(f'Checkpoint dir : {CHECKPOINT_DIR}')
-print('\n✓ Stage 1 complete')
-```
-
-### Dataset summary
-
-- `train_keypoints.pkl`: 1344 entries
-- `test_keypoints.pkl`: 1008 entries
-- `Unique physical videos`: 2352
-- `Matched annotation rows`: 2352
-
----
 
 ## ML Pipeline
-
-### Architecture
+ 
+### Model architecture
 ```
-Input: pose landmark sequence
-  → CNN encoder
-  → Bidirectional LSTM
+Input: (batch, 60, 12)   ← 60-frame window × 12 landmark features
+  → Conv1D encoder        ← local temporal pattern extraction
+  → Bidirectional LSTM    ← long-range sequence context
   → Dense + Dropout
-  → Softmax classification
+  → Softmax (8 classes)
 ```
+ 
+### Error classes (Wang et al., 2023)
+| Index | Label |
+|---|---|
+| 0 | `correct_compression` |
+| 1 | `hand_too_high` |
+| 2 | `hand_too_low` |
+| 3 | `bent_elbows` |
+| 4 | `body_lean` |
+| 5 | `too_shallow` |
+| 6 | `too_deep` |
+| 7 | `incomplete_decomp` |
 
 ### Model
 Production inference uses the **CNN-BiLSTM** model, which outperformed alternate architectures in sequence validation.
@@ -269,6 +251,18 @@ Production inference uses the **CNN-BiLSTM** model, which outperformed alternate
 | TFJS inference latency | < 100 ms per frame |
 | Model size | < 10 MB |
 
+---
+## CPR Clinical Thresholds
+ 
+All thresholds sourced from **Perkins et al. (2021) — ERC Guidelines 2021** (DOI: 10.1016/j.resuscitation.2021.02.009).
+ 
+| Parameter | Target |
+|---|---|
+| Compression rate | 100–120 bpm |
+| Compression depth | 5.0–6.0 cm |
+| Elbow lock angle | ≥ 160° |
+| Max spine lean | ≤ 15° from vertical |
+ 
 ---
 
 ## License

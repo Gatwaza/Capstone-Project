@@ -176,8 +176,8 @@ class _ResultsContentState extends State<_ResultsContent> {
                   _MetricTile(
                     label: 'AI MODEL',
                     value: widget.session.modelWasAvailable
-                        ? 'Active'
-                        : 'Demo mode',
+                        ? 'CNN-BiLSTM'
+                        : 'Rule-based',
                     valueColor: widget.session.modelWasAvailable
                         ? AppTheme.accent
                         : AppTheme.accentAmber,
