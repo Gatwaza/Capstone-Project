@@ -112,6 +112,12 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   Timer? _ticker;
   final List<double> _bpmHistory   = [];
   final List<double> _depthHistory = [];
+  
+  // Per-task accuracy tracking (CNN-BiLSTM multi-task evaluation)
+  final List<double> _rateAccuracies = [];
+  final List<double> _depthAccuracies = [];
+  final List<double> _recoilAccuracies = [];
+  Map<String, double> _taskConfidences = {'rate': 0.0, 'depth': 0.0, 'recoil': 0.0};
 
   // ── FIX 1: Compression state machine ───────────────────────────────────────
   // A compression is counted exactly once per downstroke→upstroke transition.
@@ -165,7 +171,11 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
         timestamp: DateTime.now(), topClassIndex: 0,
         topClassLabel: 'correct_compression', topClassConfidence: 0.5,
         allClassScores: const {}, currentBpm: 0, estimatedDepthCm: 0,
-        elbowAngleMean: 0, spineVerticalityDeg: 0, isSimulated: true,
+        elbowAngleMean: 0, spineVerticalityDeg: 0,
+        rateAccuracy: null, rateConfidence: null,
+        depthAccuracy: null, depthConfidence: null,
+        recoilAccuracy: null, recoilConfidence: null,
+        isSimulated: true,
       );
     }
   }
@@ -181,6 +191,11 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     // Reset compression state machine
     _compressionPhase = _CompressionPhase.idle;
     _descentFrameCount = 0;
+    // Reset per-task tracking
+    _rateAccuracies.clear();
+    _depthAccuracies.clear();
+    _recoilAccuracies.clear();
+    _taskConfidences = {'rate': 0.0, 'depth': 0.0, 'recoil': 0.0};
 
     _feedback.reset();
     state = state.copyWith(
@@ -200,23 +215,28 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     if (!state.isActive || _sessionStart == null) return null;
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final errorRates = _computeErrorRates();
+    
+    // Compute mean accuracy per task for multi-task quality score
+    final taskAccuracies = {
+      'rate': _rateAccuracies.isEmpty ? 0.0 : _rateAccuracies.reduce((a, b) => a + b) / _rateAccuracies.length,
+      'depth': _depthAccuracies.isEmpty ? 0.0 : _depthAccuracies.reduce((a, b) => a + b) / _depthAccuracies.length,
+      'recoil': _recoilAccuracies.isEmpty ? 0.0 : _recoilAccuracies.reduce((a, b) => a + b) / _recoilAccuracies.length,
+    };
+    
     final session = SessionModel(
       id: id, startedAt: _sessionStart!, endedAt: DateTime.now(),
       totalCompressions: state.compressions,
       meanBpm: _mean(_bpmHistory), meanDepthCm: _mean(_depthHistory),
       cprFraction: state.cprFraction,
-      qualityScore: _computeQualityScore(errorRates),
+      qualityScore: _computeQualityScore(errorRates, taskAccuracies),
       errorRates: errorRates, language: state.language,
-      // FIX: reflects whether the model actually graded any frame this
-      // session, not just whether the API happened to be reachable when
-      // Start was pressed.
+      taskAccuracies: taskAccuracies,
+      taskConfidences: _taskConfidences,
       modelWasAvailable: _modelUsedThisSession,
-      // FIX 3: persist raw frames for retraining pipeline
       rawFrames: List.unmodifiable(_frameBuffer),
     );
     await _storage.saveSession(session);
-    _log.i('Session saved: $id | compressions=${state.compressions} '
-           '| frames=${_frameBuffer.length} | modelGraded=$_modelUsedThisSession');
+    _log.i('Session saved: $id | compressions=${state.compressions} | rate=${(taskAccuracies['rate']! * 100).toStringAsFixed(1)}% | depth=${(taskAccuracies['depth']! * 100).toStringAsFixed(1)}% | recoil=${(taskAccuracies['recoil']! * 100).toStringAsFixed(1)}%');
     state = state.copyWith(isActive: false);
     return id;
   }
@@ -233,25 +253,43 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     );
   }
 
-  /// The session grade, built from what the model actually classified.
-  ///
-  /// Primary signal: the fraction of frames classified `correct_compression`
-  /// — i.e. the model's own assessment of technique quality across the
-  /// session, scaled to 0–100.
-  ///
-  /// One adjustment is layered on top: CPR fraction (time spent actively
-  /// compressing vs. paused). The classifier only ever sees frames where a
-  /// person is in frame and being assessed — it has no way to penalise
-  /// "stopped compressing for 20 seconds," since there's no frame-level
-  /// signal for an absence of action. That's a session-level timing metric,
-  /// not a per-frame technique classification, so it stays a separate
-  /// deduction rather than being folded into the model's vote.
-  int _computeQualityScore(Map<String, double> errorRates) {
+  /// Multi-task quality score, research-backed by CNN-BiLSTM evaluation.
+  /// Formula (evidence: ml_pipeline/CPR_Coach_Training.ipynb cell 35):
+  ///   - Normalize each task accuracy against test-set F1_w baseline
+  ///   - Weight by AUC-ROC reliability (Depth most reliable)
+  ///   - Apply CPR fraction penalty if <60%
+  ///   - Apply confidence bonus if avg confidence ≥80%
+  /// CNN-BiLSTM Test-Set Baselines:
+  ///   - Rate: F1_w=75.92%, AUC=81.10%
+  ///   - Depth: F1_w=94.05%, AUC=95.11%
+  ///   - Recoil: F1_w=74.79%, AUC=84.14%
+  int _computeQualityScore(Map<String, double> errorRates, Map<String, double> taskAccuracies) {
     if (_assessedFrameCount == 0) return 0;
-    final correctFraction = errorRates['correct_compression'] ?? 0.0;
-    double score = correctFraction * 100;
-    if (state.cprFraction < 0.6) score -= 10;
-    return score.clamp(0, 100).round();
+    
+    const double rateF1 = 0.7592;
+    const double depthF1 = 0.9405;
+    const double recoilF1 = 0.7479;
+    const double rateW = 0.8110;
+    const double depthW = 0.9511;
+    const double recoilW = 0.8414;
+    final double totalW = rateW + depthW + recoilW;
+    
+    final double rateAcc = (taskAccuracies['rate'] ?? 0.0).clamp(0, 2);
+    final double depthAcc = (taskAccuracies['depth'] ?? 0.0).clamp(0, 2);
+    final double recoilAcc = (taskAccuracies['recoil'] ?? 0.0).clamp(0, 2);
+    
+    final double rateScore = (rateAcc / rateF1) * 100;
+    final double depthScore = (depthAcc / depthF1) * 100;
+    final double recoilScore = (recoilAcc / recoilF1) * 100;
+    
+    double weightedScore = ((rateScore * rateW) + (depthScore * depthW) + (recoilScore * recoilW)) / totalW;
+    
+    if (state.cprFraction < 0.6) weightedScore -= 10.0;
+    
+    final double avgConfidence = ((_taskConfidences['rate'] ?? 0.0) + (_taskConfidences['depth'] ?? 0.0) + (_taskConfidences['recoil'] ?? 0.0)) / 3.0;
+    if (avgConfidence >= 0.80) weightedScore += 5.0;
+    
+    return weightedScore.clamp(0, 100).round();
   }
 
   void onFrame(LandmarkFrame frame) {
@@ -269,6 +307,20 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       ifAbsent: () => 1,
     );
     if (!result.isSimulated) _modelUsedThisSession = true;
+    
+    // NEW: Accumulate per-task accuracy and confidence
+    if (result.rateAccuracy != null) {
+      _rateAccuracies.add(result.rateAccuracy!);
+      _taskConfidences['rate'] = result.rateConfidence ?? 0.0;
+    }
+    if (result.depthAccuracy != null) {
+      _depthAccuracies.add(result.depthAccuracy!);
+      _taskConfidences['depth'] = result.depthConfidence ?? 0.0;
+    }
+    if (result.recoilAccuracy != null) {
+      _recoilAccuracies.add(result.recoilAccuracy!);
+      _taskConfidences['recoil'] = result.recoilConfidence ?? 0.0;
+    }
 
     if (result.currentBpm > 0) _bpmHistory.add(result.currentBpm);
     if (result.estimatedDepthCm > 0) _depthHistory.add(result.estimatedDepthCm);
