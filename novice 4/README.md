@@ -7,16 +7,16 @@
 [![TensorFlow.js](https://img.shields.io/badge/TF.js-Web-FF6F00?logo=tensorflow)](https://www.tensorflow.org/js)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Android%20%7C%20Web-lightgrey)](https://flutter.dev/multi-platform)
+[![Platform](https://img.shields.io/badge/Platform-Web-blue)](https://flutter.dev/web)
 [![Phase](https://img.shields.io/badge/Phase-1%20Demo-00E5A0)](SETUP.md)
 
 ---
 
 ## Overview
 
-**Novice** is a cross-platform real-time CPR coaching application that uses on-device pose estimation and a BiLSTM machine learning classifier to guide untrained bystanders through cardiopulmonary resuscitation — with **no internet connection required on mobile**.
+**Novice** is a web-based real-time CPR coaching application that uses pose estimation and a BiLSTM machine learning classifier to guide untrained bystanders through cardiopulmonary resuscitation.
 
-Developed as the capstone project for **The African Leadership University, Rwanda**.
+Developed as the capstone project for **The African Leadership University, Rwanda**. Currently focused on **web deployment only**.
 
 - **41%** of deaths in Sub-Saharan Africa are addressable by emergency interventions
 - Bystander CPR can **triple** survival chances; each minute without CPR cuts survival by ~10%
@@ -24,17 +24,14 @@ Developed as the capstone project for **The African Leadership University, Rwand
 
 ---
 
-## What's New in Phase 1
+## What's New in Phase 2
 
 | Change | Detail |
 |---|---|
-| App renamed | **Novice** (was CPR-AI Coach) |
-| Clean project structure | Removed ghost brace folders, root-level duplicates — see `scripts/clean_repo.sh` |
-| Phase 1 web demo | `web/` — fully functional browser demo, no install required |
-| Full Flutter app | All screens, services, providers wired — runs in rule-based demo mode until ML model is trained |
-| ML pipeline | Complete Python pipeline: extract → train → evaluate → export (TFLite + TFJS) |
-| Reproducible setup | Pinned deps for macOS M1 Max + Metal GPU |
-| Google Drive dataset | `Sample_Dataset` on Google Drive wired into `ml_pipeline/` — see [Setup](#getting-started) |
+| Web-only focus | Removed iOS, Android, and build folders — streamlined for web deployment |
+| Simplified codebase | Focused on Flutter web and supporting services |
+| ML pipeline intact | Complete Python pipeline: extract → train → evaluate → export (TFJS) |
+| Cleaner structure | Only active development folders remain |
 | GNU GPL v3 | All files carry license header |
 
 ---
@@ -74,21 +71,20 @@ cd web && npm install && npm run dev
 │              Shared business logic                    │
 │  CPR thresholds · Prompts · Session schema · Tests   │
 └──────────────────────┬───────────────────────────────┘
+            Web Application (Flutter + Dart)            │
+│    CPR thresholds · Prompts · Session schema · Tests │
+└──────────────────────┬───────────────────────────────┘
                        │
-          ┌────────────┴────────────┐
-          ▼                         ▼
-┌─────────────────────┐   ┌────────────────────────────┐
-│   iOS / Android      │   │   Web (Browser)             │
-│   Flutter + Dart     │   │   Vanilla JS + HTML5        │
-│                      │   │                             │
-│  Pose: google_mlkit  │   │  Pose: @mediapipe/pose WASM │
-│  Infer: tflite_flutter│   │  Infer: TensorFlow.js       │
-│  TTS: flutter_tts    │   │  TTS: Web Speech API        │
-│  Storage: sqflite    │   │  Storage: IndexedDB         │
-└─────────────────────┘   └────────────────────────────┘
-```
-
----
+                       ▼
+         ┌──────────────────────────────┐
+         │   Web (Browser)              │
+         │   Flutter Web + Dart         │
+         │                              │
+         │  Pose: @mediapipe/pose WASM  │
+         │  Infer: TensorFlow.js        │
+         │  TTS: Web Speech API         │
+         │  Storage: IndexedDB          │
+         └──
 
 ## Project Structure
 
@@ -185,7 +181,7 @@ novice/                                ← repo root (clean — no root-level pu
 ```
 
 ---
-
+vercel.json                        ← web deployment config
 ## Getting Started
 
 See **[SETUP.md](SETUP.md)** for the complete step-by-step guide for macOS + iOS.
