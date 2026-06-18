@@ -3,70 +3,157 @@
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 
 import 'package:flutter/material.dart';
+import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
+import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
 
-/// Draws the MediaPipe pose skeleton and CPR-specific overlays on the camera.
+/// Draws the real-time pose skeleton on top of the camera feed, built from
+/// the same shoulder/elbow/wrist/hip landmarks the model is trained on.
+///
+/// FIX: this painter used to be a placeholder — it drew a fixed dashed
+/// circle at a hardcoded 50%/55% screen position regardless of where the
+/// person actually was. It never received landmark data at all (only the
+/// aggregate [InferenceResult]), so nothing on screen tracked the user's
+/// real hands, elbows, or body. This version draws the actual tracked
+/// joints and limb segments every frame, so the overlay moves with the
+/// person instead of sitting still while they move around it.
 ///
 /// Connections are coloured by clinical importance:
-///   Green  = correct technique (elbow ≥ 160°)
-///   Red    = error detected (bent elbows, wrong depth)
-///   White  = structural (torso, hips)
+///   Green  = correct technique (elbow angle ≥ [AppConstants.elbowLockAngleDeg])
+///   Red    = error detected (bent elbow on that side)
+///   White  = structural (shoulders, torso, hips)
 ///
-/// The compression target circle pulses during active compressions.
+/// Landmark coordinates from MediaPipe/MLKit are normalized to the source
+/// video frame (0.0–1.0). The camera preview and the pose detector both read
+/// from the same unmirrored frame, so mapping x*width / y*height directly
+/// onto the canvas lines up correctly with what's on screen — no horizontal
+/// flip is applied here.
 class PoseOverlayPainter extends CustomPainter {
-  const PoseOverlayPainter({required this.inference});
+  const PoseOverlayPainter({required this.frame, required this.inference});
 
-  final InferenceResult inference;
+  /// Raw per-frame landmarks. Null only in the brief window before the
+  /// first valid pose has been detected.
+  final LandmarkFrame? frame;
+
+  /// Aggregate classification/depth/bpm for this moment. Used only for the
+  /// depth bar — the skeleton itself is driven entirely by [frame].
+  final InferenceResult? inference;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // NOTE: Landmark positions from PoseService are normalized 0–1.
-    // The LandmarkFrame is not directly on InferenceResult in Phase 1 —
-    // TODO: pass LandmarkFrame here once pose overlay is wired in Phase 2.
-    // For Phase 1 demo, this painter is a visual placeholder.
-    _drawCompressionTarget(canvas, size);
-    _drawDepthIndicator(canvas, size);
+    final f = frame;
+    if (f != null) {
+      _drawSkeleton(canvas, size, f);
+      _drawCompressionTarget(canvas, size, f);
+    }
+    if (inference != null) {
+      _drawDepthIndicator(canvas, size, inference!);
+    }
   }
 
-  void _drawCompressionTarget(Canvas canvas, Size size) {
-    // Approximate sternum position for placeholder overlay
-    final cx = size.width  * 0.5;
-    final cy = size.height * 0.55;
+  // ── Skeleton ─────────────────────────────────────────────
 
-    // Outer dashed ring
-    final dashedPaint = Paint()
-      ..color = AppTheme.accent.withOpacity(0.5)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+  Offset _pt(Size size, double nx, double ny) =>
+      Offset(nx * size.width, ny * size.height);
 
-    canvas.drawCircle(Offset(cx, cy), 20, dashedPaint);
+  void _drawSkeleton(Canvas canvas, Size size, LandmarkFrame f) {
+    final leftLocked = f.leftElbowAngle >= AppConstants.elbowLockAngleDeg;
+    final rightLocked = f.rightElbowAngle >= AppConstants.elbowLockAngleDeg;
 
-    // Center dot
+    final leftArmColor = leftLocked ? AppTheme.accent : AppTheme.accentWarn;
+    final rightArmColor = rightLocked ? AppTheme.accent : AppTheme.accentWarn;
+    const structuralColor = Color(0xB3FFFFFF); // ~70% white
+
+    final ls = _pt(size, f.leftShoulderX, f.leftShoulderY);
+    final rs = _pt(size, f.rightShoulderX, f.rightShoulderY);
+    final le = _pt(size, f.leftElbowX, f.leftElbowY);
+    final re = _pt(size, f.rightElbowX, f.rightElbowY);
+    final lw = _pt(size, f.leftWristX, f.leftWristY);
+    final rw = _pt(size, f.rightWristX, f.rightWristY);
+    final lh = _pt(size, f.leftHipX, f.leftHipY);
+    final rh = _pt(size, f.rightHipX, f.rightHipY);
+
+    void bone(Offset a, Offset b, Color color, {double width = 3}) {
+      canvas.drawLine(
+        a,
+        b,
+        Paint()
+          ..color = color
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    // Structural frame (shoulders, torso, hips)
+    bone(ls, rs, structuralColor, width: 2.5);
+    bone(ls, lh, structuralColor, width: 2.5);
+    bone(rs, rh, structuralColor, width: 2.5);
+    bone(lh, rh, structuralColor, width: 2.5);
+
+    // Arms — color-coded by elbow lock state, the thing the coaching
+    // feedback is actually about, so the overlay visually agrees with
+    // whatever the voice is saying.
+    bone(ls, le, leftArmColor);
+    bone(le, lw, leftArmColor);
+    bone(rs, re, rightArmColor);
+    bone(re, rw, rightArmColor);
+    bone(lw, rw,
+        leftLocked && rightLocked ? AppTheme.accent : AppTheme.accentWarn);
+
+    void joint(Offset p, Color color, double r) {
+      canvas.drawCircle(p, r, Paint()..color = color);
+      canvas.drawCircle(
+        p,
+        r,
+        Paint()
+          ..color = Colors.black.withOpacity(0.4)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
+
+    joint(ls, structuralColor, 4);
+    joint(rs, structuralColor, 4);
+    joint(le, leftArmColor, 4);
+    joint(re, rightArmColor, 4);
+    joint(lh, structuralColor, 3.5);
+    joint(rh, structuralColor, 3.5);
+    // Wrists are the compression point — make them the most prominent.
+    joint(lw, leftArmColor, 6);
+    joint(rw, rightArmColor, 6);
+  }
+
+  /// Small pulsing ring centered on the actual wrist midpoint (the real
+  /// compression point this person is using), not a fixed screen position.
+  void _drawCompressionTarget(Canvas canvas, Size size, LandmarkFrame f) {
+    final center = _pt(size, f.wristMidX, f.wristMidY);
     canvas.drawCircle(
-      Offset(cx, cy),
-      5,
-      Paint()..color = AppTheme.accent.withOpacity(0.8),
+      center,
+      16,
+      Paint()
+        ..color = AppTheme.accent.withOpacity(0.45)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke,
     );
   }
 
-  void _drawDepthIndicator(Canvas canvas, Size size) {
+  // ── Depth bar ────────────────────────────────────────────
+
+  void _drawDepthIndicator(
+      Canvas canvas, Size size, InferenceResult inference) {
     final depth = inference.estimatedDepthCm;
     if (depth <= 0) return;
 
-    final isGood = depth >= 5.0 && depth <= 6.0;
+    final isGood = depth >= AppConstants.cprMinDepthCm &&
+        depth <= AppConstants.cprMaxDepthCm;
     final color = isGood ? AppTheme.accent : AppTheme.accentWarn;
-
-    final paint = Paint()
-      ..color = color.withOpacity(0.8)
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
 
     // Depth bar on left edge
     const barX = 32.0;
     const barTop = 100.0;
     const barHeight = 120.0;
+    const maxDepthCm = 10.0; // matches the clamp in InferenceServiceWeb
 
     // Background track
     canvas.drawLine(
@@ -79,7 +166,7 @@ class PoseOverlayPainter extends CustomPainter {
     );
 
     // Fill to current depth
-    final fillPct = (depth / 6.0).clamp(0.0, 1.0);
+    final fillPct = (depth / maxDepthCm).clamp(0.0, 1.0);
     final fillHeight = barHeight * fillPct;
 
     canvas.drawLine(
@@ -91,27 +178,24 @@ class PoseOverlayPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Target zone markers (5–6 cm = 83–100% of 6 cm max)
-    final targetTop    = barTop + barHeight * (1 - 6.0 / 6.0); // 0%
-    final targetBottom = barTop + barHeight * (1 - 5.0 / 6.0); // 17%
+    // Target zone markers (ERC 2021: 5–6 cm)
+    final targetTop =
+        barTop + barHeight * (1 - AppConstants.cprMaxDepthCm / maxDepthCm);
+    final targetBottom =
+        barTop + barHeight * (1 - AppConstants.cprMinDepthCm / maxDepthCm);
 
-    canvas.drawLine(
-      Offset(barX - 8, targetTop),
-      Offset(barX + 8, targetTop),
-      Paint()
-        ..color = AppTheme.accent.withOpacity(0.6)
-        ..strokeWidth = 1,
-    );
-    canvas.drawLine(
-      Offset(barX - 8, targetBottom),
-      Offset(barX + 8, targetBottom),
-      Paint()
-        ..color = AppTheme.accent.withOpacity(0.6)
-        ..strokeWidth = 1,
-    );
+    for (final y in [targetTop, targetBottom]) {
+      canvas.drawLine(
+        Offset(barX - 8, y),
+        Offset(barX + 8, y),
+        Paint()
+          ..color = AppTheme.accent.withOpacity(0.6)
+          ..strokeWidth = 1,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(PoseOverlayPainter old) =>
-      old.inference != inference;
+      old.frame != frame || old.inference != inference;
 }

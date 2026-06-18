@@ -22,8 +22,8 @@ class SessionModel with _$SessionModel {
     required double meanBpm,
     required double meanDepthCm,
     required double cprFraction,  // % of session time actively compressing
-    required int qualityScore,    // 0–100 composite
-    required Map<String, double> errorRates, // errorKey → mean confidence
+    required int qualityScore,    // 0–100, derived from the model's classified correct-technique fraction across the session (see LiveSessionNotifier._computeQualityScore)
+    required Map<String, double> errorRates, // classLabel → fraction of session frames classified as that label (model-derived)
     @Default('en') String language,
     @Default(false) bool modelWasAvailable,
     /// Device identifier for performance tracking across sessions

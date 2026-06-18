@@ -187,6 +187,17 @@ class _ResultsContentState extends State<_ResultsContent> {
 
               const SizedBox(height: 32),
 
+              // ── Error breakdown (model-derived) ───────────────
+              // FIX: this is the piece that was missing — the score above
+              // is now built from exactly this data (the model's own
+              // per-frame classifications aggregated across the session),
+              // so showing the breakdown is what makes that score legible
+              // instead of a single opaque number.
+              if (widget.session.errorRates.isNotEmpty) ...[
+                _ErrorBreakdown(errorRates: widget.session.errorRates),
+                const SizedBox(height: 32),
+              ],
+
               // ── Researcher review panel ──────────────────────
               if (widget.session.rawFrames.isNotEmpty ||
                   widget.session.reviewLabel != null) ...[
@@ -442,6 +453,132 @@ class _ReviewPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Error breakdown (model-derived) ─────────────────────────────────────────
+
+class _ErrorBreakdown extends StatelessWidget {
+  const _ErrorBreakdown({required this.errorRates});
+  final Map<String, double> errorRates;
+
+  static const Map<String, String> _displayNames = {
+    'correct_compression': 'Correct technique',
+    'hand_too_high':       'Hands too high',
+    'hand_too_low':        'Hands too low',
+    'bent_elbows':         'Bent elbows',
+    'body_lean':           'Body lean',
+    'too_shallow':         'Too shallow',
+    'too_deep':            'Too deep',
+    'incomplete_decomp':   'Incomplete release',
+    'rate_too_slow':       'Rate too slow',
+    'rate_too_fast':       'Rate too fast',
+  };
+
+  String _label(String key) => _displayNames[key] ?? key.replaceAll('_', ' ');
+
+  @override
+  Widget build(BuildContext context) {
+    final correct = errorRates['correct_compression'] ?? 0.0;
+    final errors = errorRates.entries
+        .where((e) => e.key != 'correct_compression' && e.value >= 0.01)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Technique Breakdown',
+              style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
+          Text(
+            'What the model classified across every frame of this session.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppTheme.textSecondary, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+          _BreakdownRow(
+            label: _label('correct_compression'),
+            fraction: correct,
+            color: AppTheme.accent,
+          ),
+          if (errors.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                'No recurring technique errors detected.',
+                style: TextStyle(
+                    color: AppTheme.textSecondary, fontSize: 12),
+              ),
+            )
+          else
+            ...errors.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: _BreakdownRow(
+                  label: _label(e.key),
+                  fraction: e.value,
+                  color: AppTheme.accentWarn,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakdownRow extends StatelessWidget {
+  const _BreakdownRow({
+    required this.label,
+    required this.fraction,
+    required this.color,
+  });
+  final String label;
+  final double fraction;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (fraction * 100).clamp(0, 100);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+            ),
+            Text('${pct.round()}%',
+                style: TextStyle(
+                    color: color, fontSize: 13, fontWeight: FontWeight.w700)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: pct / 100,
+            minHeight: 6,
+            backgroundColor: Colors.white.withOpacity(0.08),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
     );
   }
 }

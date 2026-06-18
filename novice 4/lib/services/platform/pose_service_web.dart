@@ -6,6 +6,7 @@
 import 'dart:js' as js;
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/utils/landmark_math.dart';
 import '../../models/landmark_frame.dart';
 import 'pose_service_interface.dart';
 
@@ -57,21 +58,17 @@ class PoseServiceWeb implements PoseServiceInterface {
       _prevWristY   = wmy;
       _prevWristVY  = wristVY;
 
-      double elbowAngle(
-        double ax, double ay, double bx, double by, double cx, double cy,
-      ) {
-        final v1x = ax-bx; final v1y = ay-by;
-        final v2x = cx-bx; final v2y = cy-by;
-        final dot = v1x*v2x + v1y*v2y;
-        final mag = (v1x*v1x + v1y*v1y) * (v2x*v2x + v2y*v2y);
-        if (mag <= 0) return 180;
-        return (180/3.14159265) * (dot / mag.abs()).clamp(-1.0, 1.0).abs();
-      }
-
+      // FIX: the previous inline implementation here computed
+      // (180/pi) * clamp(dot/mag) WITHOUT taking acos() first — i.e. it
+      // returned a rescaled cosine, not an actual angle in degrees. That
+      // silently fed wrong numbers into every "are the elbows locked"
+      // decision on web (bent_elbows feedback, the skeleton color-coding,
+      // and the BiLSTM feature vector). Mobile never had this bug because
+      // it already calls LandmarkMath.jointAngleDeg. Use the same function
+      // here so both platforms agree.
       final smx = (lsx+rsx)/2; final smy = (lsy+rsy)/2;
       final hmx = (lhx+rhx)/2; final hmy = (lhy+rhy)/2;
-      final spineVerticality =
-          (smx-hmx).abs() / ((smy-hmy).abs() + 0.001) * 90;
+      final spineVerticality = LandmarkMath.spineVerticalityDeg(smx, smy, hmx, hmy);
 
       return LandmarkFrame(
         capturedAt:             now,
@@ -87,8 +84,8 @@ class PoseServiceWeb implements PoseServiceInterface {
         rightElbowVisibility:   v(14),
         leftWristVisibility:    v(15),
         rightWristVisibility:   v(16),
-        leftElbowAngle:         elbowAngle(lsx,lsy,lex,ley,lwx,lwy),
-        rightElbowAngle:        elbowAngle(rsx,rsy,rex,rey,rwx,rwy),
+        leftElbowAngle:         LandmarkMath.jointAngleDeg(lsx,lsy,lex,ley,lwx,lwy),
+        rightElbowAngle:        LandmarkMath.jointAngleDeg(rsx,rsy,rex,rey,rwx,rwy),
         spineVerticality:       spineVerticality,
         wristMidX:              wmx,
         wristMidY:              wmy,

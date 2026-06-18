@@ -5,6 +5,7 @@
 // Web ML inference — calls hosted CNN_BiLSTM API.
 // Falls back to rule-based classification when API is unreachable.
 
+import 'dart:async';
 import 'dart:collection';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:js' as js;
@@ -19,6 +20,24 @@ class InferenceServiceWeb {
   final _frameBuffer   = ListQueue<List<double>>();
   final _wristYHistory = ListQueue<_TimedSample>();
   final _api           = CprApiService();
+
+  // ── FIX: the real model's prediction was being computed and thrown away ──
+  // `infer()` (called every frame) used to fire `inferAsync()` without
+  // awaiting it, then immediately return a rule-based result regardless of
+  // what the trained BiLSTM API said. That meant:
+  //   1. The actual ML model never drove feedback on web — only the rule
+  //      fallback did, even when `modelAvailable` was true.
+  //   2. Every single frame sent a full (60×12) HTTP POST to the hosted
+  //      Hugging Face Space, fire-and-forget, regardless of how fast the
+  //      caller polled — at 25 Hz that's 25 overlapping requests/sec.
+  // Fix: cache the latest real prediction and use it when fresh; only issue
+  // a new API call when the previous one has resolved and enough time has
+  // passed (the 60-frame window doesn't change meaningfully frame-to-frame).
+  InferenceResult? _lastApiResult;
+  DateTime? _lastApiCallAt;
+  bool _apiCallInFlight = false;
+  static const Duration _apiCallInterval = Duration(milliseconds: 600);
+  static const Duration _apiResultMaxAge = Duration(milliseconds: 1500);
 
   // ── FIX: Depth calibration ─────────────────────────────────────────────────
   // Track wrist Y range within the session to normalise depth dynamically.
@@ -40,7 +59,52 @@ class InferenceServiceWeb {
     await _api.checkHealth();
   }
 
-  Future<InferenceResult> inferAsync(LandmarkFrame frame) async {
+  /// Fires the remote BiLSTM prediction when appropriate and caches the
+  /// result. This is fire-and-forget by design (it updates `_lastApiResult`
+  /// asynchronously) but — unlike before — that cached result is now
+  /// actually consumed by `infer()` below instead of being thrown away.
+  Future<void> _maybeCallApi(LandmarkFrame frame) async {
+    if (!_api.isReachable) return;
+    if (_apiCallInFlight) return;
+    if (_frameBuffer.length < AppConstants.temporalWindowFrames) return;
+
+    final now = DateTime.now();
+    if (_lastApiCallAt != null &&
+        now.difference(_lastApiCallAt!) < _apiCallInterval) {
+      return;
+    }
+
+    _apiCallInFlight = true;
+    _lastApiCallAt = now;
+    try {
+      final sequence   = _frameBuffer.toList();
+      final prediction = await _api.predict(sequence);
+      if (prediction != null) {
+        print('[InferenceServiceWeb] API → ${prediction.resolvedLabel} '
+              '(${prediction.resolvedConfidence.toStringAsFixed(2)})');
+        _lastApiResult = InferenceResult(
+          timestamp:           DateTime.now(),
+          topClassIndex:       0,
+          topClassLabel:       prediction.resolvedLabel,
+          topClassConfidence:  prediction.resolvedConfidence,
+          allClassScores: {
+            prediction.rateLabel:   prediction.rateConfidence,
+            prediction.depthLabel:  prediction.depthConfidence,
+            prediction.recoilLabel: prediction.recoilConfidence,
+          },
+          currentBpm:          _estimateBpm(),
+          estimatedDepthCm:    _estimateDepthCm(frame),
+          elbowAngleMean:      (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
+          spineVerticalityDeg: frame.spineVerticality,
+          isSimulated:         false,
+        );
+      }
+    } finally {
+      _apiCallInFlight = false;
+    }
+  }
+
+  InferenceResult infer(LandmarkFrame frame) {
     final features = _buildFeatures(frame);
 
     _frameBuffer.addLast(features);
@@ -58,41 +122,23 @@ class InferenceServiceWeb {
     final bpm   = _estimateBpm();
     final depth = _estimateDepthCm(frame);
 
-    if (_api.isReachable &&
-        _frameBuffer.length >= AppConstants.temporalWindowFrames) {
-      final sequence   = _frameBuffer.toList();
-      final prediction = await _api.predict(sequence);
+    // Kick off (or skip, if throttled/in-flight) a real-model prediction.
+    // This updates `_lastApiResult` in the background — it does not block
+    // this frame's return, which is what keeps the UI/audio responsive.
+    unawaited(_maybeCallApi(frame));
 
-      if (prediction != null) {
-        print('[InferenceServiceWeb] API → ${prediction.resolvedLabel} '
-              '(${prediction.resolvedConfidence.toStringAsFixed(2)})');
-        return InferenceResult(
-          timestamp:           DateTime.now(),
-          topClassIndex:       0,
-          topClassLabel:       prediction.resolvedLabel,
-          topClassConfidence:  prediction.resolvedConfidence,
-          allClassScores: {
-            prediction.rateLabel:   prediction.rateConfidence,
-            prediction.depthLabel:  prediction.depthConfidence,
-            prediction.recoilLabel: prediction.recoilConfidence,
-          },
-          currentBpm:          bpm,
-          estimatedDepthCm:    depth,
-          elbowAngleMean:      (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
-          spineVerticalityDeg: frame.spineVerticality,
-          isSimulated:         false,
-        );
-      }
+    // FIX: actually use the real model's prediction when we have a fresh
+    // one, instead of always returning the rule-based fallback. The rule
+    // fallback still drives every frame in between API responses (and
+    // whenever the model is unreachable), so feedback never stalls waiting
+    // on the network — it just gets corrected by the real model whenever a
+    // fresh prediction lands.
+    final cached = _lastApiResult;
+    if (cached != null &&
+        DateTime.now().difference(cached.timestamp) < _apiResultMaxAge) {
+      return cached.copyWith(currentBpm: bpm, estimatedDepthCm: depth);
     }
 
-    return _ruleBased(frame, bpm, depth);
-  }
-
-  InferenceResult infer(LandmarkFrame frame) {
-    inferAsync(frame);
-    _updateDepthCalibration(frame);
-    final bpm   = _estimateBpm();
-    final depth = _estimateDepthCm(frame);
     return _ruleBased(frame, bpm, depth);
   }
 

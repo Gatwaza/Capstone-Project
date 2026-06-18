@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart'
     if (dart.library.html) '../../core/utils/mlkit_stub.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/session_provider.dart';
 import '../../core/di/injection.dart';
@@ -135,8 +136,18 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   }
 
   void _startWebPoseLoop() {
+    // FIX: this was hardcoded to 200ms (5 fps), four times slower than the
+    // app's own documented target (AppConstants.poseEstimationTargetFps =
+    // 25fps, i.e. ~40ms). At 5fps the skeleton overlay visibly stair-steps
+    // and the compression-counting state machine only sees 5 velocity
+    // samples per second, which is also why feedback felt delayed — by the
+    // time a frame was sampled, evaluated, and spoken, the user had already
+    // moved well past the moment the feedback was about. Mobile never had
+    // this problem because it runs off the camera's native frame stream.
+    // We poll at the target rate here so web matches that responsiveness.
+    final intervalMs = (1000 / AppConstants.poseEstimationTargetFps).round();
     _webPoseTimer = Timer.periodic(
-      const Duration(milliseconds: 200),
+      Duration(milliseconds: intervalMs),
       (_) {
         final session = ref.read(liveSessionProvider);
         if (!session.isActive) return;
@@ -240,10 +251,17 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
               ),
             ),
 
-          // ── Pose skeleton overlay ────────────────────────
-          if (session.lastInference != null)
+          // ── Live skeleton overlay ─────────────────────────
+          // Draws the actual tracked shoulders/elbows/wrists/hips for this
+          // frame — the same landmarks the model is trained on — instead of
+          // a fixed placeholder circle, so what's on screen reflects the
+          // user's real movement.
+          if (session.lastFrame != null)
             CustomPaint(
-              painter: PoseOverlayPainter(inference: session.lastInference!),
+              painter: PoseOverlayPainter(
+                frame: session.lastFrame,
+                inference: session.lastInference,
+              ),
             ),
 
           // ── Scan frame corners ───────────────────────────

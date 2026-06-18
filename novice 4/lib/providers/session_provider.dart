@@ -25,6 +25,7 @@ class LiveSessionState {
     this.elapsedSeconds = 0,
     this.currentPrompt,
     this.lastInference,
+    this.lastFrame,
     this.language = 'en',
     this.modelAvailable = false,
   });
@@ -36,6 +37,10 @@ class LiveSessionState {
   final int elapsedSeconds;
   final FeedbackPrompt? currentPrompt;
   final InferenceResult? lastInference;
+  // Most recent raw landmark frame (shoulders/elbows/wrists/hips) — drives
+  // the live skeleton overlay. This is the same data used to train the
+  // model, not a derived/aggregate value.
+  final LandmarkFrame? lastFrame;
   final String language;
   final bool modelAvailable;
 
@@ -56,6 +61,12 @@ class LiveSessionState {
     return ((compressions * 0.52) / elapsedSeconds).clamp(0.0, 1.0);
   }
 
+  // NOTE: this is a lightweight *live* estimate only (bpm/depth/cprFraction
+  // thresholds), useful if a future HUD wants to show a rough running
+  // score during the session. It is NOT what gets saved to SessionModel —
+  // the authoritative end-of-session grade is computed in
+  // LiveSessionNotifier._computeQualityScore() from the model's own
+  // per-frame classifications, aggregated over the whole session.
   int get qualityScore {
     if (compressions == 0) return 0;
     double score = 100;
@@ -69,6 +80,7 @@ class LiveSessionState {
     bool? isActive, double? bpm, double? depthCm,
     int? compressions, int? elapsedSeconds,
     FeedbackPrompt? currentPrompt, InferenceResult? lastInference,
+    LandmarkFrame? lastFrame,
     String? language, bool? modelAvailable,
   }) => LiveSessionState(
     isActive: isActive ?? this.isActive,
@@ -78,6 +90,7 @@ class LiveSessionState {
     elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
     currentPrompt: currentPrompt ?? this.currentPrompt,
     lastInference: lastInference ?? this.lastInference,
+    lastFrame: lastFrame ?? this.lastFrame,
     language: language ?? this.language,
     modelAvailable: modelAvailable ?? this.modelAvailable,
   );
@@ -118,6 +131,24 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   final List<LandmarkFrame> _frameBuffer = [];
   DateTime? _sessionStart;
 
+  // ── Model-derived grading ───────────────────────────────────────────────
+  // This is what actually answers "how did I do" with the trained
+  // CNN-BiLSTM's own classifications, instead of a separate hand-rolled
+  // heuristic that never looked at the model's output at all.
+  //
+  // `_classFrameCounts` tallies, for every frame assessed this session, what
+  // the active inference path (real model OR rule-based fallback — whichever
+  // one actually ran) classified that frame as. At session end this becomes
+  // both the displayed error-rate breakdown and the basis for the score.
+  final Map<String, int> _classFrameCounts = {};
+  int _assessedFrameCount = 0;
+  // True the moment any frame in this session was classified by the real
+  // model rather than the rule-based fallback (network down, model not
+  // loaded yet, etc). Checked per-frame rather than once at session start,
+  // because "was the API reachable when I clicked Start" is not the same
+  // claim as "did the model actually grade this session."
+  bool _modelUsedThisSession = false;
+
   bool get _modelAvailable {
     try {
       if (kIsWeb) return getIt<InferenceServiceWeb>().isModelLoaded;
@@ -144,6 +175,9 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _bpmHistory.clear();
     _depthHistory.clear();
     _frameBuffer.clear();
+    _classFrameCounts.clear();
+    _assessedFrameCount = 0;
+    _modelUsedThisSession = false;
     // Reset compression state machine
     _compressionPhase = _CompressionPhase.idle;
     _descentFrameCount = 0;
@@ -165,21 +199,59 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _ticker?.cancel();
     if (!state.isActive || _sessionStart == null) return null;
     final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final errorRates = _computeErrorRates();
     final session = SessionModel(
       id: id, startedAt: _sessionStart!, endedAt: DateTime.now(),
       totalCompressions: state.compressions,
       meanBpm: _mean(_bpmHistory), meanDepthCm: _mean(_depthHistory),
-      cprFraction: state.cprFraction, qualityScore: state.qualityScore,
-      errorRates: {}, language: state.language,
-      modelWasAvailable: state.modelAvailable,
+      cprFraction: state.cprFraction,
+      qualityScore: _computeQualityScore(errorRates),
+      errorRates: errorRates, language: state.language,
+      // FIX: reflects whether the model actually graded any frame this
+      // session, not just whether the API happened to be reachable when
+      // Start was pressed.
+      modelWasAvailable: _modelUsedThisSession,
       // FIX 3: persist raw frames for retraining pipeline
       rawFrames: List.unmodifiable(_frameBuffer),
     );
     await _storage.saveSession(session);
     _log.i('Session saved: $id | compressions=${state.compressions} '
-           '| frames=${_frameBuffer.length}');
+           '| frames=${_frameBuffer.length} | modelGraded=$_modelUsedThisSession');
     state = state.copyWith(isActive: false);
     return id;
+  }
+
+  /// Fraction of assessed frames the active inference path (model or rule
+  /// fallback, whichever actually ran on each frame) put in each class.
+  /// e.g. {'bent_elbows': 0.18, 'correct_compression': 0.71, ...}
+  /// This is literally the model's own output aggregated across the
+  /// session — not a separate guess at how the session went.
+  Map<String, double> _computeErrorRates() {
+    if (_assessedFrameCount == 0) return {};
+    return _classFrameCounts.map(
+      (label, count) => MapEntry(label, count / _assessedFrameCount),
+    );
+  }
+
+  /// The session grade, built from what the model actually classified.
+  ///
+  /// Primary signal: the fraction of frames classified `correct_compression`
+  /// — i.e. the model's own assessment of technique quality across the
+  /// session, scaled to 0–100.
+  ///
+  /// One adjustment is layered on top: CPR fraction (time spent actively
+  /// compressing vs. paused). The classifier only ever sees frames where a
+  /// person is in frame and being assessed — it has no way to penalise
+  /// "stopped compressing for 20 seconds," since there's no frame-level
+  /// signal for an absence of action. That's a session-level timing metric,
+  /// not a per-frame technique classification, so it stays a separate
+  /// deduction rather than being folded into the model's vote.
+  int _computeQualityScore(Map<String, double> errorRates) {
+    if (_assessedFrameCount == 0) return 0;
+    final correctFraction = errorRates['correct_compression'] ?? 0.0;
+    double score = correctFraction * 100;
+    if (state.cprFraction < 0.6) score -= 10;
+    return score.clamp(0, 100).round();
   }
 
   void onFrame(LandmarkFrame frame) {
@@ -189,6 +261,15 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     final result = _runInference(frame);
     final prompt = _feedback.process(result, state.language);
 
+    // Tally this frame's classification toward the end-of-session grade.
+    _assessedFrameCount++;
+    _classFrameCounts.update(
+      result.topClassLabel,
+      (n) => n + 1,
+      ifAbsent: () => 1,
+    );
+    if (!result.isSimulated) _modelUsedThisSession = true;
+
     if (result.currentBpm > 0) _bpmHistory.add(result.currentBpm);
     if (result.estimatedDepthCm > 0) _depthHistory.add(result.estimatedDepthCm);
 
@@ -197,7 +278,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
     state = state.copyWith(
       bpm: result.currentBpm, depthCm: result.estimatedDepthCm,
-      currentPrompt: prompt, lastInference: result,
+      currentPrompt: prompt, lastInference: result, lastFrame: frame,
     );
     if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
   }

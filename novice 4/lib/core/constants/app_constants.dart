@@ -44,7 +44,15 @@ class AppConstants {
   // ── Session ──────────────────────────────────────────────
   static const int sessionInferenceHz        = 5;
   static const int poseEstimationTargetFps   = 25;
-  static const int voiceCoachingCooldownMs   = 4000;
+  // FIX: was 4000ms (and effectively 8000ms for a repeated cue, since
+  // shouldSpeak() blocks repeats for cooldown*2). For a live physical
+  // correction like "lock your elbows," 4–8 seconds of silence after the
+  // error is detected means the person has already done another 6–10 bad
+  // compressions before they hear about the first one — that's the
+  // "delayed, not real-time" feeling. 1800ms is short enough to feel like
+  // live coaching while still leaving room between cues so they don't
+  // overlap or talk over each other.
+  static const int voiceCoachingCooldownMs   = 1800;
 
   // ── Depth estimation calibration ─────────────────────────
   //
@@ -106,20 +114,25 @@ class AppConstants {
   static const double fallbackTorsoHeightCm = 8.0;
 
   // ── TTS prompts — English ────────────────────────────────
+  // FIX: the old phrasing read like a textbook checklist item read aloud
+  // ("Straighten your arms. Lock your elbows.") rather than a live cue. A
+  // person mid-compression needs something short, specific, and actionable
+  // — what to change, not a restatement of the rule. Kept short enough to
+  // speak in well under voiceCoachingCooldownMs.
   static const Map<String, String> promptsEn = {
-    'start':            'Place your hands on the center of the chest.',
-    'good':             'Good technique — keep going.',
-    'bent_elbows':      'Straighten your arms. Lock your elbows.',
-    'hand_too_high':    'Move hands down. Center of the chest.',
-    'hand_too_low':     'Move hands up slightly.',
-    'too_shallow':      'Press deeper. Aim for five centimeters.',
-    'too_deep':         'Ease up. Five to six centimeters maximum.',
-    'rate_too_slow':    'Speed up. Keep a steady beat.',
-    'rate_too_fast':    'Slow down slightly.',
-    'body_lean':        'Lean forward. Keep your body vertical.',
-    'incomplete_decomp':'Release fully between compressions.',
-    'not_compressing':  'Place hands on chest and begin compressions.',
-    'pause_detected':   'Keep going. Do not stop compressions.',
+    'start':            'Hands on the center of the chest. Begin compressions.',
+    'good':             'Good rhythm — keep that up.',
+    'bent_elbows':      'Lock your elbows. Push straight down from your shoulders.',
+    'hand_too_high':    'A little lower — center of the chest.',
+    'hand_too_low':     'A little higher — center of the chest.',
+    'too_shallow':      'Push harder. Go deeper, about five centimeters.',
+    'too_deep':         'Ease off slightly — five to six centimeters is enough.',
+    'rate_too_slow':    'Faster. Push to the beat.',
+    'rate_too_fast':    'Ease back, you\'re rushing it.',
+    'body_lean':        'Shoulders directly over your hands.',
+    'incomplete_decomp':'Let the chest come all the way back up between pushes.',
+    'not_compressing':  'Hands on the chest — start compressing now.',
+    'pause_detected':   'Don\'t stop. Keep compressions going.',
   };
 
   // ── TTS prompts — Kinyarwanda ────────────────────────────
