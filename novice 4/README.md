@@ -1,49 +1,47 @@
-# Novice — CPR-AI Coach
-### *Empowering Every Bystander in Sub-Saharan Africa*
+# Novice — First Aid Assessment
+### *Real-time web-based first aid technique evaluation*
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)](https://dart.dev)
-[![TensorFlow Lite](https://img.shields.io/badge/TFLite-INT8-FF6F00?logo=tensorflow)](https://www.tensorflow.org/lite)
 [![TensorFlow.js](https://img.shields.io/badge/TF.js-Web-FF6F00?logo=tensorflow)](https://www.tensorflow.org/js)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Web-blue)](https://flutter.dev/web)
-[![Phase](https://img.shields.io/badge/Phase-1%20Demo-00E5A0)](SETUP.md)
+[![Phase](https://img.shields.io/badge/Phase-Web%20Deployment-00E5A0)](SETUP.md)
 
 ---
 
 ## Overview
 
-**Novice** is a web-based real-time CPR coaching application that uses pose estimation and a BiLSTM machine learning classifier to guide untrained bystanders through cardiopulmonary resuscitation.
+**Novice** is a web-first first aid assessment application that runs real-time pose estimation and model inference to evaluate technique and deliver corrective feedback in the browser.
 
-Developed as the capstone project for **The African Leadership University, Rwanda**. Currently focused on **web deployment only**.
+The active assessment model is a **CNN-BiLSTM** classifier that outperformed other sequence architectures in validation and drives the connected web inference flow.
 
-- **41%** of deaths in Sub-Saharan Africa are addressable by emergency interventions
-- Bystander CPR can **triple** survival chances; each minute without CPR cuts survival by ~10%
-- Smartphone penetration has grown from 32% (2012) to ~50% (2022) across SSA
+- Focused on **real-time web deployment**, not standalone demo mode
+- Uses pose landmarks + TF.js to run connected model assessment in-browser
+- Built for easy access in low-bandwidth settings and research-aware deployment
 
 ---
 
-## What's New in Phase 2
+## Current Status
 
 | Change | Detail |
 |---|---|
-| Web-only focus | Removed iOS, Android, and build folders — streamlined for web deployment |
-| Simplified codebase | Focused on Flutter web and supporting services |
-| ML pipeline intact | Complete Python pipeline: extract → train → evaluate → export (TFJS) |
-| Cleaner structure | Only active development folders remain |
-| GNU GPL v3 | All files carry license header |
+| Web-only deployment | Removed native iOS/Android folders and build artifacts |
+| Connected inference | TF.js pipeline uses the CNN-BiLSTM assessment model |
+| First aid focus | Broad first aid technique evaluation with CPR-related posture and compression metrics |
+| ML pipeline preserved | Python pipeline remains available for training and TFJS export |
+| Dataset link | Public dataset available via Google Drive |
 
 ---
 
-## Phase 1 Demo
+## Running the Web App
 
-Open `web/index.html` in Chrome — no server needed for the demo build.
-
-For the full wired web app:
 ```bash
-cd web && npm install && npm run dev
-# → http://localhost:3000
+cd web
+npm install
+npm run dev
+# open http://localhost:3000
 ```
 
 ---
@@ -52,40 +50,32 @@ cd web && npm install && npm run dev
 
 | Feature | Status | Notes |
 |---|---|---|
-| Real-time pose estimation | ✓ | MediaPipe BlazePose, 25–30 FPS |
-| BiLSTM error classification | ⏳ | Runs in rule-based mode until `novice_cpr_classifier.tflite` is trained |
-| Voice coaching EN + RW | ✓ | flutter_tts (EN offline), Umuganda TTS HTTP (RW) |
-| BPM detection (rule-based) | ✓ | Peak detection on wrist Y velocity |
-| Depth estimation | ✓ | Normalised wrist displacement proxy |
-| Session logging (SQLite) | ✓ | Offline, exportable JSON for pilot study |
-| Web app (TF.js) | ✓ | Same model, same prompts, browser-native |
-| Demo animation | ✓ | Flutter CustomPainter stick figure; Rive slot ready |
-| Kinyarwanda voice | ⏳ | Placeholder — needs Umuganda TTS endpoint or native speaker recording |
+| Real-time pose estimation | ✓ | Pose landmarks via @mediapipe/pose in browser |
+| Connected model assessment | ✓ | CNN-BiLSTM inference in TF.js |
+| First aid technique evaluation | ✓ | Focuses on posture and compression technique, not only CPR steps |
+| Web-native feedback | ✓ | Live browser rendering and corrective prompts |
+| Session persistence | ✓ | IndexedDB logging and export |
+| ML training pipeline | ✓ | Python pipeline with TFJS export |
 
 ---
 
 ## Platform Architecture
 
 ```
-┌──────────────────────────────────────────────────────┐
-│              Shared business logic                    │
-│  CPR thresholds · Prompts · Session schema · Tests   │
-└──────────────────────┬───────────────────────────────┘
-            Web Application (Flutter + Dart)            │
-│    CPR thresholds · Prompts · Session schema · Tests │
-└──────────────────────┬───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    Novice Web Application                     │
+│     Live pose capture · landmark extraction · inference       │
+└──────────────────────────────────────────────────────────────┘
                        │
                        ▼
-         ┌──────────────────────────────┐
-         │   Web (Browser)              │
-         │   Flutter Web + Dart         │
-         │                              │
-         │  Pose: @mediapipe/pose WASM  │
-         │  Infer: TensorFlow.js        │
-         │  TTS: Web Speech API         │
-         │  Storage: IndexedDB          │
-         └──
-
+         ┌──────────────────────────────────────────────────┐
+         │          Browser runtime                         │
+         │  - Pose: @mediapipe/pose WASM                    │
+         │  - Model: TF.js CNN-BiLSTM                       │
+         │  - Feedback: Web Speech API                      │
+         │  - Storage: IndexedDB                            │
+         └──────────────────────────────────────────────────┘
+```
 ## Project Structure
 
 ```
@@ -177,39 +167,84 @@ novice/                                ← repo root (clean — no root-level pu
 │   │   └── feedback_engine_test.dart
 │   └── widget/                        ← widget tests (Phase 2)
 │
-└── android/ ios/                      ← platform configs
+└── vercel.json                        ← web deployment config
 ```
 
 ---
-vercel.json                        ← web deployment config
+
 ## Getting Started
 
-See **[SETUP.md](SETUP.md)** for the complete step-by-step guide for macOS + iOS.
+See **[SETUP.md](SETUP.md)** for the complete web deployment and training guide.
 
 Quick start:
 ```bash
 git clone git@github.com:Gatwaza/Capstone-Project.git
-cd Capstone-Project
-./scripts/clean_repo.sh          # one-time repo cleanup
+cd "Capstone Project/novice 4"
+./scripts/clean_repo.sh
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
-flutter run
+cd web
+npm install
+npm run dev
 ```
 
-### Loading the Sample_Dataset
+---
 
-Your `Sample_Dataset` is on Google Drive. Two options:
+## Dataset
 
-**Option A — Google Drive connector (recommended):**
-Connect the Google Drive MCP connector in Claude, then ask Claude to access `Sample_Dataset` directly for pipeline runs.
+The pipeline uses the public dataset available here:
 
-**Option B — Manual:**
-```bash
-# Download Sample_Dataset from Google Drive → unzip
-cp -r ~/Downloads/Sample_Dataset ml_pipeline/data/raw/
-python ml_pipeline/src/data/extract_landmarks.py --config ml_pipeline/config.yaml
-python ml_pipeline/src/training/train.py --config ml_pipeline/config.yaml
+https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=drive_link
+
+### Training setup
+
+```python
+from google.colab import drive
+from pathlib import Path
+import os, pickle, re, time, json, warnings
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, f1_score
+from sklearn.utils.class_weight import compute_class_weight
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers, callbacks, optimizers, losses, metrics
+
+warnings.filterwarnings('ignore')
+tf.random.set_seed(42)
+np.random.seed(42)
+
+gpus = tf.config.list_physical_devices('GPU')
+print(f'TensorFlow : {tf.__version__}')
+print(f'GPUs       : {len(gpus)}')
+if gpus:
+    print(f'GPU name   : {tf.test.gpu_device_name()}')
+    tf.config.experimental.set_memory_growth(gpus[0], True)
+
+DATA_ROOT      = Path('/content/drive/MyDrive/cpr_coach_data')
+KEYPOINTS_DIR  = DATA_ROOT / 'Keypoints'
+ANN_DIR        = DATA_ROOT / 'ann'
+CHECKPOINT_DIR = Path('/content/drive/MyDrive/cpr_coach_checkpoints_tf')
+CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+
+RESUME_FILE = CHECKPOINT_DIR / 'resume_state.json'
+
+print(f'Data root      : {DATA_ROOT}')
+print(f'Keypoints dir  : {KEYPOINTS_DIR}')
+print(f'Annotation dir : {ANN_DIR}')
+print(f'Checkpoint dir : {CHECKPOINT_DIR}')
+print('\n✓ Stage 1 complete')
 ```
+
+### Dataset summary
+
+- `train_keypoints.pkl`: 1344 entries
+- `test_keypoints.pkl`: 1008 entries
+- `Unique physical videos`: 2352
+- `Matched annotation rows`: 2352
 
 ---
 
@@ -217,71 +252,22 @@ python ml_pipeline/src/training/train.py --config ml_pipeline/config.yaml
 
 ### Architecture
 ```
-Input: (batch, 30 frames, 12 features)
-  → BatchNorm
-  → Bidirectional LSTM(64)    ← captures downstroke + upstroke
-  → LSTM(32)
-  → Dense(32) + ReLU + Dropout(0.3)
-  → Dense(8, softmax)         ← 8 error classes
+Input: pose landmark sequence
+  → CNN encoder
+  → Bidirectional LSTM
+  → Dense + Dropout
+  → Softmax classification
 ```
 
-### Error classes (BiLSTM)
-| Index | Key | ERC Code |
-|---|---|---|
-| 0 | correct_compression | — |
-| 1 | hand_too_high | E01 |
-| 2 | hand_too_low | E02 |
-| 3 | bent_elbows | E05 |
-| 4 | body_lean | E06 |
-| 5 | too_shallow | E07 |
-| 6 | too_deep | E08 |
-| 7 | incomplete_decomp | E09 |
-
-Rate errors (E10/E11) are detected via rule-based peak detection on wrist Y velocity.
+### Model
+Production inference uses the **CNN-BiLSTM** model, which outperformed alternate architectures in sequence validation.
 
 ### Evaluation targets
 | Metric | Target |
 |---|---|
-| F1-score per class | ≥ 0.85 |
-| TFLite inference latency | < 100ms / frame |
-| BPM accuracy | ±5 bpm of true rate |
-| Model size | < 5 MB |
-
----
-
-## Research Context
-
-ALU Capstone Project — Rwanda.
-
-Key references:
-- Perkins et al. (2021) — ERC Guidelines 2021 (100–120 bpm, 5–6 cm depth)
-- Wang et al. (2023) — CPR-Coach dataset; ICCV 2023 Demo
-- Ecker et al. (2024) — Computer vision CPR feedback doubled correct depth proportions
-- GSMA Intelligence (2023) — Mobile Economy Sub-Saharan Africa
-
-**To request the full CPR-Coach dataset:**
-```
-Email: slwang19@fudan.edu.cn
-Subject: CPR-Coach Dataset Request — African Leadership University Capstone
-```
-
----
-
-## Contributing
-
-```bash
-# Branch naming
-feature/pose-pipeline
-feature/tfjs-inference
-fix/tts-kinyarwanda
-chore/update-deps
-
-# Commit style (Conventional Commits)
-feat: add compression rate peak detection
-feat(web): wire TensorFlow.js inference service
-fix: resolve MediaPipe landmark confidence threshold
-docs: update dataset instructions
-```
+| F1-weighted | ≥ 0.80 |
+| TFJS inference latency | < 100 ms per frame |
+| Model size | < 10 MB |
 
 ---
 
@@ -289,12 +275,4 @@ docs: update dataset instructions
 
 **GNU General Public License v3.0** — see [LICENSE](LICENSE).
 
-> **Medical Disclaimer:** Novice is a training and simulation aid only.
-> It does not replace formal CPR certification or professional medical advice.
-> Always call emergency services first.
-
 ---
-
-*"Buri mugenzi yagutabara" — Anyone can help*
-
-*Built for Rwanda and Sub-Saharan Africa · ALU Capstone 2024 · Jean Robert Gatwaza*
