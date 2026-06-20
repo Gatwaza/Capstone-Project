@@ -28,7 +28,15 @@ import 'package:permission_handler/permission_handler.dart'
     if (dart.library.html) '../../core/utils/permission_stub.dart';
 
 class TrainingScreen extends ConsumerStatefulWidget {
-  const TrainingScreen({super.key});
+  const TrainingScreen({super.key, required this.participantId});
+
+  /// The participant this session will be logged under. Required — there is
+  /// no anonymous training path. Comes from either a freshly-assigned ID
+  /// (ConsentScreen, new registration) or a chosen existing one
+  /// (ParticipantGateScreen, returning participant). The same ID can appear
+  /// on many sessions; the backend distinguishes sessions by session_id and
+  /// groups them by this participant_id (see participant_progress view).
+  final String participantId;
 
   @override
   ConsumerState<TrainingScreen> createState() => _TrainingScreenState();
@@ -182,7 +190,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
         context.pushReplacement('/results/$id');
       }
     } else {
-      ref.read(liveSessionProvider.notifier).startSession();
+      ref.read(liveSessionProvider.notifier).startSession(widget.participantId);
     }
   }
 

@@ -224,7 +224,8 @@ class _ResultsContentState extends State<_ResultsContent> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => context.go(AppRoutes.training),
+                  onPressed: () =>
+                      context.go('/training/${widget.session.participantId}'),
                   child: const Text('Practice Again'),
                 ),
               ),

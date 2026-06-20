@@ -16,6 +16,7 @@ part 'session_model.g.dart';
 class SessionModel with _$SessionModel {
   const factory SessionModel({
     required String id, // millisecondsSinceEpoch string
+    required String participantId, // FK -> participants.participant_id (Supabase)
     required DateTime startedAt,
     required DateTime endedAt,
     required int totalCompressions,

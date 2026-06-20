@@ -26,6 +26,7 @@ import 'package:logger/logger.dart';
 
 import '../../services/feedback_engine.dart';
 import '../../services/inference_service.dart';
+import '../../services/participant_service.dart';
 import '../../services/research_logger.dart';
 import '../../services/research_logger_web.dart';
 import '../../services/session_logger.dart';
@@ -60,6 +61,7 @@ Future<void> configureDependencies() async {
     StorageService(mobileLogger: sqliteLogger),
   );
   getIt.registerLazySingleton<TelemetryService>(() => TelemetryService());
+  getIt.registerLazySingleton<ParticipantService>(() => ParticipantService());
   // ── TTS ────────────────────────────────────────────────────────────────────
   const umugandaUrl =
       String.fromEnvironment('UMUGANDA_TTS_URL', defaultValue: '');

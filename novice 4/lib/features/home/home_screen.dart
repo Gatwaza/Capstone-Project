@@ -65,7 +65,7 @@ const SizedBox(height: 32),
                 iconColor: AppTheme.accent,
                 title: 'Start Training',
                 subtitle: 'Real-time CPR coaching with pose feedback',
-                onTap: () => context.push(AppRoutes.training),
+                onTap: () => context.push(AppRoutes.participantGate),
               ),
 
               const SizedBox(height: 12),

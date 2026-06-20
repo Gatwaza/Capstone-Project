@@ -19,7 +19,7 @@ class SessionLogger {
   SessionLogger();
 
   static const _dbName = 'novice_sessions.db';
-  static const _schemaVersion = 1;
+  static const _schemaVersion = 2;
   static const _table = 'sessions';
 
   Database? _db;
@@ -38,6 +38,7 @@ class SessionLogger {
     await db.execute('''
       CREATE TABLE $_table (
         id            TEXT PRIMARY KEY,
+        participant_id TEXT NOT NULL DEFAULT '',
         started_at    TEXT NOT NULL, ended_at TEXT NOT NULL,
         compressions  INTEGER NOT NULL, mean_bpm REAL NOT NULL,
         mean_depth_cm REAL NOT NULL,   cpr_fraction REAL NOT NULL,
@@ -48,12 +49,23 @@ class SessionLogger {
     ''');
   }
 
-  Future<void> _migrate(Database db, int o, int n) async {}
+  Future<void> _migrate(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Existing local rows predate participant attribution — backfill with
+      // empty string rather than failing the migration. These older rows
+      // simply won't be associated with a participant; new sessions always
+      // populate it (session_provider.dart now refuses to save otherwise).
+      await db.execute(
+        "ALTER TABLE $_table ADD COLUMN participant_id TEXT NOT NULL DEFAULT ''",
+      );
+    }
+  }
 
   Future<void> saveSession(SessionModel s) async {
     if (kIsWeb) return;
     await _db?.insert(_table, {
-      'id': s.id, 'started_at': s.startedAt.toIso8601String(),
+      'id': s.id, 'participant_id': s.participantId,
+      'started_at': s.startedAt.toIso8601String(),
       'ended_at': s.endedAt.toIso8601String(),
       'compressions': s.totalCompressions, 'mean_bpm': s.meanBpm,
       'mean_depth_cm': s.meanDepthCm, 'cpr_fraction': s.cprFraction,
@@ -86,6 +98,7 @@ class SessionLogger {
 
   SessionModel _row(Map<String, dynamic> r) => SessionModel(
     id: r['id'] as String,
+    participantId: r['participant_id'] as String? ?? '',
     startedAt: DateTime.parse(r['started_at'] as String),
     endedAt: DateTime.parse(r['ended_at'] as String),
     totalCompressions: r['compressions'] as int,

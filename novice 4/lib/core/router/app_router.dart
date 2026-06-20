@@ -14,6 +14,7 @@ import '../../features/history/history_screen.dart';
 import '../../features/demo/demo_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/research/consent_screen.dart';
+import '../../features/research/participant_gate_screen.dart';
 import '../../features/research/survey_screen.dart';
 import '../../features/research/researcher_dashboard.dart';
 
@@ -22,7 +23,8 @@ class AppRoutes {
   AppRoutes._();
   static const splash      = '/';
   static const home        = '/home';
-  static const training    = '/training';
+  static const participantGate = '/participant';
+  static const training    = '/training/:participantId';
   static const results     = '/results/:sessionId';
   static const history     = '/history';
   static const demo        = '/demo';
@@ -48,8 +50,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const HomeScreen(),
       ),
       GoRoute(
+        path: AppRoutes.participantGate,
+        builder: (_, __) => const ParticipantGateScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.training,
-        builder: (_, __) => const TrainingScreen(),
+        builder: (_, state) => TrainingScreen(
+          participantId: state.pathParameters['participantId']!,
+        ),
       ),
       GoRoute(
         path: '/results/:sessionId',

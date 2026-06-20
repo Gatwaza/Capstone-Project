@@ -18,8 +18,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/di/injection.dart';
 import '../../core/router/app_router.dart';
 import '../../models/research_models.dart';
+import '../../services/participant_service.dart';
 import '../../services/research_logger_adapter.dart';
 
 class ConsentScreen extends ConsumerStatefulWidget {
@@ -32,6 +34,7 @@ class ConsentScreen extends ConsumerStatefulWidget {
 class _ConsentScreenState extends ConsumerState<ConsentScreen> {
   final _formKey  = GlobalKey<FormState>();
   final _logger   = ResearchLoggerAdapter();
+  final _participants = getIt<ParticipantService>();
 
   String          _participantId  = '';
   StudyGroup      _group          = StudyGroup.groupA;
@@ -132,15 +135,27 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
             _label('PARTICIPANT DETAILS'),
             const SizedBox(height: 16),
 
-            TextFormField(
-              decoration: _inputDec(
-                  label: 'Participant ID',
-                  hint: 'e.g. P001 (assigned by researcher)'),
-              style: TextStyle(color: AppTheme.textPrimary),
-              textCapitalization: TextCapitalization.characters,
-              onChanged: (v) => _participantId = v.trim().toUpperCase(),
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Participant ID is required' : null,
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                  color: AppTheme.card,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.border)),
+              child: Row(
+                children: [
+                  Icon(Icons.badge_outlined, color: AppTheme.accent, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Your Participant ID will be assigned automatically '
+                      'once you confirm enrolment below — you do not need '
+                      'to enter one.',
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -299,9 +314,8 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
           ),
           const SizedBox(height: 40),
           ElevatedButton(
-            onPressed: () =>
-                context.go('/research/survey/pre/$_participantId'),
-            child: const Text('Start Pre-Session Survey →'),
+            onPressed: () => context.go('/training/$_participantId'),
+            child: const Text('Start Training →'),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
@@ -321,8 +335,22 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
+      // The server assigns the participant_id atomically (Postgres sequence
+      // + trigger — see participants_migration.sql). We never generate or
+      // type an ID client-side, so two people registering at the same
+      // moment from different devices can never collide.
+      final assignedId = await _participants.registerParticipant(
+        studyGroup: _group,
+        ageRange: _ageRange,
+        priorCprTraining: _priorTraining,
+        languagePreference: _language,
+      );
+      _participantId = assignedId;
+
+      // Mirror locally too, so existing on-device research-export tooling
+      // (CSV/JSON download) keeps working unchanged.
       await _logger.enrollParticipant(UserProfile(
-        userId:             _participantId,
+        userId:             assignedId,
         enrolledAt:         DateTime.now(),
         studyGroup:         _group,
         ageRange:           _ageRange,

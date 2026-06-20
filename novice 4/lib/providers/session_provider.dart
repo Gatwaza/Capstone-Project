@@ -115,6 +115,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   late final Logger _log;
 
   Timer? _ticker;
+  String _participantId = '';
   final List<double> _bpmHistory = [];
   final List<double> _depthHistory = [];
 
@@ -197,7 +198,8 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     }
   }
 
-  void startSession() {
+  void startSession(String participantId) {
+    _participantId = participantId;
     _sessionStart = DateTime.now();
     _bpmHistory.clear();
     _depthHistory.clear();
@@ -235,6 +237,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   Future<String?> stopSession() async {
     _ticker?.cancel();
     if (!state.isActive || _sessionStart == null) return null;
+    if (_participantId.isEmpty) {
+      _log.w('stopSession called with no participantId set — '
+          'startSession() must be called with a valid participant ID. '
+          'Refusing to save an unattributed session.');
+      state = state.copyWith(isActive: false);
+      return null;
+    }
 
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final errorRates = _computeErrorRates();
@@ -247,6 +256,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
     final session = SessionModel(
       id: id,
+      participantId: _participantId,
       startedAt: _sessionStart!,
       endedAt: DateTime.now(),
       totalCompressions: state.compressions,
@@ -284,41 +294,62 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     );
   }
 
-  /// Multi-task quality score, research-backed by CNN-BiLSTM evaluation.
+  /// Multi-task quality score.
   ///
-  /// Formula (evidence: ml_pipeline/CPR_Coach_Training.ipynb cell 35):
-  ///   - Each task accuracy normalized against test-set F1_w baseline
-  ///   - Weighted by AUC-ROC reliability (Depth most reliable at 95.11%)
-  ///   - CPR fraction penalty: −10 if < 60%
-  ///   - Confidence bonus: +5 if mean confidence ≥ 80%
+  /// IMPORTANT: this scores the TRAINEE's technique, not the model's
+  /// classification quality. Earlier versions divided each task's measured
+  /// accuracy by the CNN-BiLSTM test-set F1_w (e.g. recoilAcc / 0.7479),
+  /// which is wrong: F1_w describes how well the *model* classifies on a
+  /// held-out test set, not a scale for trainee performance. That produced
+  /// scores like 33/100 for a session where the model was simply uncertain
+  /// (low confidence -> empty accuracy lists -> task defaults to 0) sitting
+  /// next to a 100% recoil reading that got inflated past 100 before being
+  /// weighted back down. Removed entirely.
   ///
-  /// CNN-BiLSTM Test-Set Baselines:
-  ///   Rate:   F1_w=75.92%, AUC=81.10%
-  ///   Depth:  F1_w=94.05%, AUC=95.11%
-  ///   Recoil: F1_w=74.79%, AUC=84.14%
+  /// New formula:
+  ///   - Each task's measured accuracy (0-100) is used directly, no rescaling.
+  ///   - Tasks are weighted by the model's AUC-ROC as a *trust* weight only
+  ///     (how much to lean on that task's judgment), never as a divisor.
+  ///   - A task with zero assessed frames (confidence never cleared the
+  ///     threshold) is EXCLUDED from the weighted average rather than
+  ///     silently counted as 0 — a task we have no signal for should not
+  ///     drag the score down.
+  ///   - CPR-fraction penalty/bonus and the minimum-sample gate avoid
+  ///     wild swings from 1-2 compression sessions.
   int _computeQualityScore(
     Map<String, double> errorRates,
     Map<String, double> taskAccuracies,
   ) {
     if (_assessedFrameCount == 0) return 0;
 
-    const double rateF1  = 0.7592;
-    const double depthF1 = 0.9405;
-    const double recoilF1 = 0.7479;
-    const double rateW   = 0.8110;
-    const double depthW  = 0.9511;
-    const double recoilW = 0.8414;
-    final double totalW  = rateW + depthW + recoilW;
+    // Require a minimum number of compressions before scoring meaningfully.
+    // Below this, per-task means are too noisy to be informative (e.g. a
+    // single recoil reading swinging the whole score to 100% or 0%).
+    const int minCompressionsForScore = 5;
+    if (state.compressions < minCompressionsForScore) return 0;
 
-    final double rateAcc   = (taskAccuracies['rate']   ?? 0.0).clamp(0.0, 1.0);
-    final double depthAcc  = (taskAccuracies['depth']  ?? 0.0).clamp(0.0, 1.0);
-    final double recoilAcc = (taskAccuracies['recoil'] ?? 0.0).clamp(0.0, 1.0);
+    const double rateTrust   = 0.8110; // model AUC-ROC, used as a weight only
+    const double depthTrust  = 0.9511;
+    const double recoilTrust = 0.8414;
 
-    final double rateScore   = (rateAcc   / rateF1)   * 100;
-    final double depthScore  = (depthAcc  / depthF1)  * 100;
-    final double recoilScore = (recoilAcc / recoilF1) * 100;
+    final entries = <MapEntry<double, double>>[]; // (accuracy 0-100, trust weight)
 
-    double weighted = ((rateScore * rateW) + (depthScore * depthW) + (recoilScore * recoilW)) / totalW;
+    if (_rateAccuracies.isNotEmpty) {
+      entries.add(MapEntry((taskAccuracies['rate'] ?? 0.0).clamp(0.0, 1.0) * 100, rateTrust));
+    }
+    if (_depthAccuracies.isNotEmpty) {
+      entries.add(MapEntry((taskAccuracies['depth'] ?? 0.0).clamp(0.0, 1.0) * 100, depthTrust));
+    }
+    if (_recoilAccuracies.isNotEmpty) {
+      entries.add(MapEntry((taskAccuracies['recoil'] ?? 0.0).clamp(0.0, 1.0) * 100, recoilTrust));
+    }
+
+    // No task ever cleared its confidence threshold this session — nothing
+    // reliable to score on.
+    if (entries.isEmpty) return 0;
+
+    final double totalTrust = entries.fold(0.0, (sum, e) => sum + e.value);
+    double weighted = entries.fold(0.0, (sum, e) => sum + e.key * e.value) / totalTrust;
 
     if (state.cprFraction < 0.6) weighted -= 10.0;
 

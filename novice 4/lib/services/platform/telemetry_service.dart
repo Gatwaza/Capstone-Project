@@ -94,6 +94,7 @@ class TelemetryService {
 
     return {
       'session_id':         session.id,
+      'participant_id':     session.participantId,
       'started_at':         session.startedAt.toIso8601String(),
       'ended_at':           session.endedAt.toIso8601String(),
       'duration_seconds':   dur,

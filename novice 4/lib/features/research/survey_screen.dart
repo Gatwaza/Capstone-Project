@@ -238,7 +238,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
               ElevatedButton(
                 onPressed: () => isPost
                     ? context.go(AppRoutes.home)
-                    : context.go(AppRoutes.training),
+                    : context.go('/training/${widget.sessionId}'),
                 child: Text(isPost
                     ? 'Return to Home'
                     : 'Start Training Session →'),
