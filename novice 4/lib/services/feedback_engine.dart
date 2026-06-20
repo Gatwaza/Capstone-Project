@@ -2,124 +2,152 @@
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 
-import '../core/constants/app_constants.dart';
+/// FeedbackEngine — priority-queue voice coaching.
+///
+/// Key behaviours (updated):
+///   1. SILENCE when technique is correct. The absence of speech IS positive
+///      feedback. Only speak when there is an active error to correct.
+///   2. Optional PRAISE once per streak: after [_praiseAfterCompressions]
+///      consecutive correct compressions, speak one praise cue, then go
+///      silent again until the next error.
+///   3. Error cues obey a [_errorCooldown] so we don't repeat the same
+///      correction every 200 ms. Different errors can speak sooner.
+///   4. The last-key debounce only applies to error cues — good frames never
+///      update _lastKey or _lastErrorTime, so the next real error after a
+///      good streak speaks immediately without cooldown interference.
+
+import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
+import 'inference_service.dart';
 
-/// Converts [InferenceResult] into a [FeedbackPrompt] using a
-/// priority queue that prevents prompt flooding.
-///
-/// Priority order (highest → lowest):
-///   1. not_compressing / pause_detected  — CRITICAL
-///   2. rate errors (too slow / too fast) — WARNING (safety-critical per ERC 2021)
-///   3. depth errors                      — WARNING
-///   4. hand placement errors             — WARNING
-///   5. bent elbows / body lean           — WARNING
-///   6. good technique                    — INFO (positive reinforcement)
-///
-/// Voice prompts are gated by [AppConstants.voiceCoachingCooldownMs] to
-/// avoid cognitive overload (NASA-TLX target ≤ 40 per research protocol).
 class FeedbackEngine {
-  FeedbackEngine();
+  // Minimum gap between any two error speech cues.
+  static const Duration _errorCooldown = Duration(seconds: 4);
+  // Praise spoken once after this many consecutive correct compressions.
+  static const int _praiseAfterCompressions = 10;
 
-  DateTime? _lastPromptTime;
-  String _lastKey = '';
+  DateTime? _lastErrorTime;
+  String? _lastErrorKey;
+  int _consecutiveCorrect = 0;
+  bool _praisedThisStreak = false;
 
-  // ── Priority mapping ─────────────────────────────────────
-  static const _priority = <String, int>{
-    'not_compressing':  10,
-    'pause_detected':   10,
-    'rate_too_slow':     8,
-    'rate_too_fast':     8,
-    'too_shallow':       7,
-    'too_deep':          7,
-    'hand_too_high':     5,
-    'hand_too_low':      5,
-    'bent_elbows':       4,
-    'body_lean':         4,
-    'incomplete_decomp': 3,
-    'correct_compression': 1,
-    'good':              1,
-  };
-
-  // ── Severity mapping ─────────────────────────────────────
-  static FeedbackSeverity _severity(String key) {
-    if (key == 'not_compressing' || key == 'pause_detected') {
-      return FeedbackSeverity.critical;
-    }
-    if (key == 'correct_compression' || key == 'good') {
-      return FeedbackSeverity.good;
-    }
-    return FeedbackSeverity.warning;
-  }
-
-  /// Process an [InferenceResult] and return a [FeedbackPrompt].
-  ///
-  /// Returns the current best prompt — callers should check
-  /// [shouldSpeak] before invoking TTS.
+  /// Derives a FeedbackPrompt from the latest InferenceResult.
+  /// Call once per assessed frame.
   FeedbackPrompt process(InferenceResult result, String language) {
-    final key = _resolveKey(result);
-    final prompts = language == 'rw'
-        ? AppConstants.promptsRw
-        : AppConstants.promptsEn;
-    final message = prompts[key] ?? prompts['good']!;
+    final label = result.topClassLabel;
 
-    return FeedbackPrompt(
-      key: key,
-      message: message,
-      severity: _severity(key),
-      issuedAt: DateTime.now(),
-    );
+    // Map model output labels to prioritised feedback prompts.
+    // Order matters: critical errors take priority over warnings.
+    switch (label) {
+      case 'rate_too_fast':
+        return FeedbackPrompt(
+          key: 'rate_too_fast',
+          severity: FeedbackSeverity.critical,
+          message: 'Slow down',
+          issuedAt: DateTime.now(),
+        );
+      case 'rate_too_slow':
+        return FeedbackPrompt(
+          key: 'rate_too_slow',
+          severity: FeedbackSeverity.warning,
+          message: 'Speed up',
+          issuedAt: DateTime.now(),
+        );
+      case 'too_shallow':
+        return FeedbackPrompt(
+          key: 'too_shallow',
+          severity: FeedbackSeverity.critical,
+          message: 'Push deeper',
+          issuedAt: DateTime.now(),
+        );
+      case 'too_deep':
+        return FeedbackPrompt(
+          key: 'too_deep',
+          severity: FeedbackSeverity.warning,
+          message: 'Ease back',
+          issuedAt: DateTime.now(),
+        );
+      case 'incomplete_decomp':
+        return FeedbackPrompt(
+          key: 'incomplete_decomp',
+          severity: FeedbackSeverity.critical,
+          message: 'Full release',
+          issuedAt: DateTime.now(),
+        );
+      case 'bent_elbows':
+        return FeedbackPrompt(
+          key: 'bent_elbows',
+          severity: FeedbackSeverity.warning,
+          message: 'Lock your elbows',
+          issuedAt: DateTime.now(),
+        );
+      case 'body_lean':
+        return FeedbackPrompt(
+          key: 'body_lean',
+          severity: FeedbackSeverity.warning,
+          message: 'Stay upright',
+          issuedAt: DateTime.now(),
+        );
+      default:
+        return FeedbackPrompt(
+          key: 'correct_compression',
+          severity: FeedbackSeverity.good,
+          message: '',
+          issuedAt: DateTime.now(),
+        );
+    }
   }
 
-  /// Whether enough time has passed to speak a new prompt.
-  /// Critical errors bypass the cooldown.
+  /// Returns true only when TTS should fire.
+  ///
+  /// FIX — silence-on-correct behaviour:
+  ///   • FeedbackSeverity.good → never speaks (except one optional praise
+  ///     cue per sustained-correct streak).
+  ///   • Errors speak immediately after the cooldown window, never blocked
+  ///     by prior good frames.
   bool shouldSpeak(FeedbackPrompt prompt) {
-    if (prompt.severity == FeedbackSeverity.critical) {
-      _lastPromptTime = DateTime.now();
-      _lastKey = prompt.key;
-      return true;
+    // ── Correct technique path ──────────────────────────────────────────────
+    if (prompt.severity == FeedbackSeverity.good) {
+      _consecutiveCorrect++;
+
+      // Speak ONE praise cue after a sustained correct streak, then silence.
+      if (!_praisedThisStreak && _consecutiveCorrect >= _praiseAfterCompressions) {
+        _praisedThisStreak = true;
+        // Note: we deliberately do NOT update _lastErrorTime/_lastErrorKey
+        // here — this praise cue must not delay the next error correction.
+        return true;
+      }
+      return false; // silence while doing well
     }
+
+    // ── Error path ──────────────────────────────────────────────────────────
+    _consecutiveCorrect = 0;
+    _praisedThisStreak = false;
 
     final now = DateTime.now();
-    final cooldown = Duration(milliseconds: AppConstants.voiceCoachingCooldownMs);
-    final sinceLastSpeak = _lastPromptTime == null
+    final sinceLastError = _lastErrorTime == null
         ? const Duration(days: 1)
-        : now.difference(_lastPromptTime!);
+        : now.difference(_lastErrorTime!);
 
-    // Don't repeat the same non-critical prompt
-    if (prompt.key == _lastKey && sinceLastSpeak < cooldown * 2) return false;
+    // Respect cooldown between consecutive error cues.
+    if (sinceLastError < _errorCooldown) return false;
 
-    if (sinceLastSpeak >= cooldown) {
-      _lastPromptTime = now;
-      _lastKey = prompt.key;
-      return true;
+    // Don't repeat the exact same error within a longer window (2× cooldown),
+    // but DO allow a different error to speak after just one cooldown.
+    if (prompt.key == _lastErrorKey &&
+        sinceLastError < _errorCooldown * 2) {
+      return false;
     }
-    return false;
+
+    _lastErrorKey = prompt.key;
+    _lastErrorTime = now;
+    return true;
   }
 
   void reset() {
-    _lastPromptTime = null;
-    _lastKey = '';
-  }
-
-  // ── Private ──────────────────────────────────────────────
-
-  String _resolveKey(InferenceResult result) {
-    // BPM check overrides model classification
-    if (result.currentBpm > 0) {
-      if (result.currentBpm < AppConstants.cprMinRateBpm) return 'rate_too_slow';
-      if (result.currentBpm > AppConstants.cprMaxRateBpm) return 'rate_too_fast';
-    }
-
-    final label = result.topClassLabel;
-
-    // Map 'correct_compression' → 'good' for display
-    if (label == 'correct_compression') return 'good';
-
-    // Return model label if it has a corresponding prompt
-    if (AppConstants.promptsEn.containsKey(label)) return label;
-
-    // Fallback
-    return 'good';
+    _lastErrorTime = null;
+    _lastErrorKey = null;
+    _consecutiveCorrect = 0;
+    _praisedThisStreak = false;
   }
 }

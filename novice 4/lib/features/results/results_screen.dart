@@ -55,12 +55,12 @@ class _ResultsContentState extends State<_ResultsContent> {
   String? _selectedLabel;
   final _noteController = TextEditingController();
   bool _labelSaved = false;
-  bool _exporting  = false;
+  bool _exporting = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedLabel       = widget.session.reviewLabel;
+    _selectedLabel = widget.session.reviewLabel;
     _noteController.text = widget.session.reviewNote ?? '';
   }
 
@@ -174,8 +174,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                   ),
                   _MetricTile(
                     label: 'CPR FRACTION',
-                    value:
-                        '${(widget.session.cprFraction * 100).round()}%',
+                    value: '${(widget.session.cprFraction * 100).round()}%',
                   ),
                   _MetricTile(
                     label: 'AI MODEL',
@@ -206,17 +205,17 @@ class _ResultsContentState extends State<_ResultsContent> {
               if (widget.session.rawFrames.isNotEmpty ||
                   widget.session.reviewLabel != null) ...[
                 _ReviewPanel(
-                  frameCount:     widget.session.rawFrames.length,
-                  selectedLabel:  _selectedLabel,
+                  frameCount: widget.session.rawFrames.length,
+                  selectedLabel: _selectedLabel,
                   noteController: _noteController,
-                  labelSaved:     _labelSaved,
-                  exporting:      _exporting,
+                  labelSaved: _labelSaved,
+                  exporting: _exporting,
                   onLabelChanged: (v) => setState(() {
                     _selectedLabel = v;
-                    _labelSaved    = false;
+                    _labelSaved = false;
                   }),
-                  onSave:         _saveLabel,
-                  onExport:       _exportFrames,
+                  onSave: _saveLabel,
+                  onExport: _exportFrames,
                 ),
                 const SizedBox(height: 24),
               ],
@@ -280,8 +279,7 @@ class _ResultsContentState extends State<_ResultsContent> {
     return AppTheme.accent;
   }
 
-  String _formatDateTime(DateTime dt) =>
-      '${dt.day}/${dt.month}/${dt.year}  '
+  String _formatDateTime(DateTime dt) => '${dt.day}/${dt.month}/${dt.year}  '
       '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
 
   String _formatDuration(Duration d) {
@@ -302,7 +300,7 @@ class _MetricGrid extends StatelessWidget {
     // Pair tiles into rows of 2
     final rows = <Widget>[];
     for (int i = 0; i < tiles.length; i += 2) {
-      final left  = tiles[i];
+      final left = tiles[i];
       final right = i + 1 < tiles.length ? tiles[i + 1] : const SizedBox();
       rows.add(
         IntrinsicHeight(
@@ -380,9 +378,7 @@ class _ReviewPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-
-          Text('Quality label',
-              style: Theme.of(context).textTheme.bodySmall),
+          Text('Quality label', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
@@ -394,26 +390,22 @@ class _ReviewPanel extends StatelessWidget {
                 onSelected: (_) => onLabelChanged(label),
                 selectedColor: AppTheme.accent.withOpacity(0.2),
                 labelStyle: TextStyle(
-                  color: selected
-                      ? AppTheme.accent
-                      : AppTheme.textSecondary,
+                  color: selected ? AppTheme.accent : AppTheme.textSecondary,
                   fontSize: 13,
                 ),
               );
             }).toList(),
           ),
           const SizedBox(height: 12),
-
           TextField(
             controller: noteController,
             maxLines: 2,
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Reviewer note (optional)',
-              hintStyle: TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 13),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
+              hintStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: AppTheme.border),
@@ -421,16 +413,13 @@ class _ReviewPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: selectedLabel != null ? onSave : null,
                   icon: Icon(
-                    labelSaved
-                        ? Icons.check_rounded
-                        : Icons.save_outlined,
+                    labelSaved ? Icons.check_rounded : Icons.save_outlined,
                     size: 16,
                   ),
                   label: Text(labelSaved ? 'Saved' : 'Save label'),
@@ -439,18 +428,15 @@ class _ReviewPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed:
-                      frameCount > 0 && !exporting ? onExport : null,
+                  onPressed: frameCount > 0 && !exporting ? onExport : null,
                   icon: exporting
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.download_outlined, size: 16),
-                  label:
-                      Text(exporting ? 'Exporting…' : 'Export frames'),
+                  label: Text(exporting ? 'Exporting…' : 'Export frames'),
                 ),
               ),
             ],
@@ -469,15 +455,15 @@ class _ErrorBreakdown extends StatelessWidget {
 
   static const Map<String, String> _displayNames = {
     'correct_compression': 'Correct technique',
-    'hand_too_high':       'Hands too high',
-    'hand_too_low':        'Hands too low',
-    'bent_elbows':         'Bent elbows',
-    'body_lean':           'Body lean',
-    'too_shallow':         'Too shallow',
-    'too_deep':            'Too deep',
-    'incomplete_decomp':   'Incomplete release',
-    'rate_too_slow':       'Rate too slow',
-    'rate_too_fast':       'Rate too fast',
+    'hand_too_high': 'Hands too high',
+    'hand_too_low': 'Hands too low',
+    'bent_elbows': 'Bent elbows',
+    'body_lean': 'Body lean',
+    'too_shallow': 'Too shallow',
+    'too_deep': 'Too deep',
+    'incomplete_decomp': 'Incomplete release',
+    'rate_too_slow': 'Rate too slow',
+    'rate_too_fast': 'Rate too fast',
   };
 
   String _label(String key) => _displayNames[key] ?? key.replaceAll('_', ' ');
@@ -521,8 +507,7 @@ class _ErrorBreakdown extends StatelessWidget {
               padding: const EdgeInsets.only(top: 10),
               child: Text(
                 'No recurring technique errors detected.',
-                style: TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 12),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
               ),
             )
           else
@@ -628,8 +613,7 @@ class _ScoreCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Overall score
-          Text('Quality Score',
-              style: Theme.of(context).textTheme.bodyMedium),
+          Text('Quality Score', style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -660,12 +644,10 @@ class _ScoreCard extends StatelessWidget {
                 : score >= 60
                     ? 'Good — keep practising'
                     : 'Needs improvement',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: color),
+            style:
+                Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
           ),
-          
+
           // Per-task breakdown (if available)
           if (taskAccuracies.isNotEmpty) ...[
             const SizedBox(height: 20),
@@ -677,7 +659,7 @@ class _ScoreCard extends StatelessWidget {
                       fontSize: 11,
                     )),
             const SizedBox(height: 12),
-            
+
             // Rate task
             _TaskScoreRow(
               taskName: 'Compression Rate',
@@ -687,7 +669,7 @@ class _ScoreCard extends StatelessWidget {
               icon: Icons.speed_rounded,
             ),
             const SizedBox(height: 10),
-            
+
             // Depth task
             _TaskScoreRow(
               taskName: 'Compression Depth',
@@ -697,7 +679,7 @@ class _ScoreCard extends StatelessWidget {
               icon: Icons.arrow_downward_rounded,
             ),
             const SizedBox(height: 10),
-            
+
             // Recoil task
             _TaskScoreRow(
               taskName: 'Chest Recoil',
@@ -706,7 +688,7 @@ class _ScoreCard extends StatelessWidget {
               confidence: taskConfidences['recoil'] ?? 0.0,
               icon: Icons.arrow_upward_rounded,
             ),
-            
+
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),

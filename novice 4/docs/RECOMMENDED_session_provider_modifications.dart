@@ -1,5 +1,5 @@
 /// MODIFIED: Key Sections of session_provider.dart
-/// 
+///
 /// EVIDENCE-BASED CHANGES:
 /// - Replaced single-metric qualityScore with multi-task weighted scoring
 /// - Integrated CNN-BiLSTM test-set F1-weighted and AUC-ROC baselines
@@ -20,7 +20,6 @@ import 'package:novice/models/landmark_frame.dart';
 // ... [Keep existing imports and class definition] ...
 
 class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
-  
   // Existing fields (unchanged):
   DateTime? _sessionStart;
   final List<double> _bpmHistory = [];
@@ -28,26 +27,26 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   final List<LandmarkFrame> _frameBuffer = [];
   int _assessedFrameCount = 0;
   Timer? _ticker;
-  
+
   // NEW: Per-task accuracy tracking
   /// Tracks accuracy for each frame's Rate classification (0.0–1.0)
   final List<double> _rateAccuracies = [];
-  
+
   /// Tracks accuracy for each frame's Depth classification (0.0–1.0)
   final List<double> _depthAccuracies = [];
-  
+
   /// Tracks accuracy for each frame's Recoil classification (0.0–1.0)
   final List<double> _recoilAccuracies = [];
-  
+
   // NEW: Per-task confidence tracking
   /// Model confidence for Rate task (0.0–1.0)
   Map<String, double> _taskConfidences = {'rate': 0, 'depth': 0, 'recoil': 0};
-  
+
   // Existing services (unchanged):
   late final SessionLoggerService _storage;
   late final FeedbackEngine _feedback;
   late final TtsService _tts;
-  
+
   // ... [Existing initState, startSession, stopSession, etc.] ...
 
   /// MODIFIED: Process each frame and accumulate per-task metrics
@@ -64,9 +63,9 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
     // NEW: Tally per-task classification accuracy and confidence
     _assessedFrameCount++;
-    
+
     // Extract per-task metrics from inference result
-    // (Assumes InferenceResult now has: 
+    // (Assumes InferenceResult now has:
     //   rateAccuracy, depthAccuracy, recoilAccuracy,
     //   rateConfidence, depthConfidence, recoilConfidence)
     if (result.rateAccuracy != null) {
@@ -89,10 +88,10 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _updateCompressionCount(frame);
 
     state = state.copyWith(
-      bpm: result.currentBpm, 
+      bpm: result.currentBpm,
       depthCm: result.estimatedDepthCm,
-      currentPrompt: prompt, 
-      lastInference: result, 
+      currentPrompt: prompt,
+      lastInference: result,
       lastFrame: frame,
     );
     if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
@@ -114,61 +113,69 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   ///  - Full analysis: docs/EVALUATION_METRICS_AUDIT.md § "PART 4.1"
   int _computeQualityScore() {
     if (_assessedFrameCount == 0) return 0;
-    
+
     // ─── CNN-BiLSTM Test-Set Baseline (Research) ───
     // Source: notebook cell 35, model ranking by mean F1 = 81.59%
-    const double rateF1Baseline = 75.92;      // CNN-BiLSTM Rate F1_w %
-    const double depthF1Baseline = 94.05;     // CNN-BiLSTM Depth F1_w %
-    const double recoilF1Baseline = 74.79;    // CNN-BiLSTM Recoil F1_w %
-    
+    const double rateF1Baseline = 75.92; // CNN-BiLSTM Rate F1_w %
+    const double depthF1Baseline = 94.05; // CNN-BiLSTM Depth F1_w %
+    const double recoilF1Baseline = 74.79; // CNN-BiLSTM Recoil F1_w %
+
     // ─── Weight by AUC-ROC (Test Set) ───
     // Higher AUC = more reliable classification; use as weight
-    const double rateWeight = 0.8110;         // Rate AUC-ROC
-    const double depthWeight = 0.9511;        // Depth AUC-ROC (highest)
-    const double recoilWeight = 0.8414;       // Recoil AUC-ROC
+    const double rateWeight = 0.8110; // Rate AUC-ROC
+    const double depthWeight = 0.9511; // Depth AUC-ROC (highest)
+    const double recoilWeight = 0.8414; // Recoil AUC-ROC
     final double totalWeight = rateWeight + depthWeight + recoilWeight;
-    
+
     // ─── Calculate Mean Accuracy per Task ───
-    double rateMeanAcc = _rateAccuracies.isEmpty ? 0 : 
-        (_rateAccuracies.reduce((a, b) => a + b) / _rateAccuracies.length) * 100;
-    
-    double depthMeanAcc = _depthAccuracies.isEmpty ? 0 : 
-        (_depthAccuracies.reduce((a, b) => a + b) / _depthAccuracies.length) * 100;
-    
-    double recoilMeanAcc = _recoilAccuracies.isEmpty ? 0 : 
-        (_recoilAccuracies.reduce((a, b) => a + b) / _recoilAccuracies.length) * 100;
-    
+    double rateMeanAcc = _rateAccuracies.isEmpty
+        ? 0
+        : (_rateAccuracies.reduce((a, b) => a + b) / _rateAccuracies.length) *
+            100;
+
+    double depthMeanAcc = _depthAccuracies.isEmpty
+        ? 0
+        : (_depthAccuracies.reduce((a, b) => a + b) / _depthAccuracies.length) *
+            100;
+
+    double recoilMeanAcc = _recoilAccuracies.isEmpty
+        ? 0
+        : (_recoilAccuracies.reduce((a, b) => a + b) /
+                _recoilAccuracies.length) *
+            100;
+
     // ─── Normalize Against Baseline ───
     // If user achieves same accuracy as test-set model, score = 100
     // If user achieves half the baseline accuracy, score = 50
     double rateScore = (rateMeanAcc / rateF1Baseline).clamp(0, 2) * 100;
     double depthScore = (depthMeanAcc / depthF1Baseline).clamp(0, 2) * 100;
     double recoilScore = (recoilMeanAcc / recoilF1Baseline).clamp(0, 2) * 100;
-    
+
     // ─── Weighted Average ───
     // Depth is most reliable (AUC=95%), so has highest weight
-    double weightedScore = (
-        (rateScore * rateWeight) +
-        (depthScore * depthWeight) +
-        (recoilScore * recoilWeight)
-    ) / totalWeight;
-    
+    double weightedScore = ((rateScore * rateWeight) +
+            (depthScore * depthWeight) +
+            (recoilScore * recoilWeight)) /
+        totalWeight;
+
     // ─── CPR Fraction Penalty ───
     // Rationale: Model can only assess frames where person is present.
     // If session < 60% active compression, penalize consistency.
     if (state.cprFraction < 0.6) {
       weightedScore -= 10.0;
     }
-    
+
     // ─── Confidence Bonus ───
     // If all three tasks have high confidence (≥80%), add reliability bonus
-    final double avgConfidence = (_taskConfidences['rate'] ?? 0.0 +
-                                  _taskConfidences['depth'] ?? 0.0 +
-                                  _taskConfidences['recoil'] ?? 0.0) / 3.0;
+    final double avgConfidence = (_taskConfidences['rate'] ??
+            0.0 + _taskConfidences['depth'] ??
+            0.0 + _taskConfidences['recoil'] ??
+            0.0) /
+        3.0;
     if (avgConfidence >= 0.80) {
-      weightedScore += 5.0;  // Bonus for high-confidence session
+      weightedScore += 5.0; // Bonus for high-confidence session
     }
-    
+
     // ─── Final Clamp ───
     return weightedScore.clamp(0, 100).round();
   }
@@ -182,42 +189,46 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   Future<String?> stopSession() async {
     _ticker?.cancel();
     if (!state.isActive || _sessionStart == null) return null;
-    
+
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    
+
     // NEW: Calculate mean per-task accuracy
     final taskAccuracies = {
-      'rate': _rateAccuracies.isEmpty ? 0.0 : 
-          _rateAccuracies.reduce((a, b) => a + b) / _rateAccuracies.length,
-      'depth': _depthAccuracies.isEmpty ? 0.0 : 
-          _depthAccuracies.reduce((a, b) => a + b) / _depthAccuracies.length,
-      'recoil': _recoilAccuracies.isEmpty ? 0.0 : 
-          _recoilAccuracies.reduce((a, b) => a + b) / _recoilAccuracies.length,
+      'rate': _rateAccuracies.isEmpty
+          ? 0.0
+          : _rateAccuracies.reduce((a, b) => a + b) / _rateAccuracies.length,
+      'depth': _depthAccuracies.isEmpty
+          ? 0.0
+          : _depthAccuracies.reduce((a, b) => a + b) / _depthAccuracies.length,
+      'recoil': _recoilAccuracies.isEmpty
+          ? 0.0
+          : _recoilAccuracies.reduce((a, b) => a + b) /
+              _recoilAccuracies.length,
     };
-    
+
     final session = SessionModel(
-      id: id, 
-      startedAt: _sessionStart!, 
+      id: id,
+      startedAt: _sessionStart!,
       endedAt: DateTime.now(),
       totalCompressions: state.compressions,
-      meanBpm: _mean(_bpmHistory), 
+      meanBpm: _mean(_bpmHistory),
       meanDepthCm: _mean(_depthHistory),
-      cprFraction: state.cprFraction, 
-      qualityScore: _computeQualityScore(),  // USES NEW FORMULA
+      cprFraction: state.cprFraction,
+      qualityScore: _computeQualityScore(), // USES NEW FORMULA
       errorRates: {},
-      taskAccuracies: taskAccuracies,        // NEW: Per-task tracking
-      taskConfidences: _taskConfidences,     // NEW: Confidence tracking
+      taskAccuracies: taskAccuracies, // NEW: Per-task tracking
+      taskConfidences: _taskConfidences, // NEW: Confidence tracking
       language: state.language,
       modelWasAvailable: state.modelAvailable,
       rawFrames: List.unmodifiable(_frameBuffer),
     );
-    
+
     await _storage.saveSession(session);
     _log.i('Session saved: $id | compressions=${state.compressions} '
-           '| rate=${taskAccuracies['rate']?.toStringAsFixed(2)}% '
-           '| depth=${taskAccuracies['depth']?.toStringAsFixed(2)}% '
-           '| recoil=${taskAccuracies['recoil']?.toStringAsFixed(2)}%');
-    
+        '| rate=${taskAccuracies['rate']?.toStringAsFixed(2)}% '
+        '| depth=${taskAccuracies['depth']?.toStringAsFixed(2)}% '
+        '| recoil=${taskAccuracies['recoil']?.toStringAsFixed(2)}%');
+
     state = state.copyWith(isActive: false);
     return id;
   }
@@ -236,7 +247,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 //   final String topClassLabel;
 //   final double topClassConfidence;
 //   // ... existing fields ...
-//   
+//
 //   // NEW:
 //   final double? rateAccuracy;        // Accuracy for rate classification
 //   final double? depthAccuracy;       // Accuracy for depth classification

@@ -78,9 +78,8 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
       front,
       ResolutionPreset.high,
       enableAudio: false,
-      imageFormatGroup: kIsWeb
-          ? ImageFormatGroup.jpeg
-          : ImageFormatGroup.bgra8888,
+      imageFormatGroup:
+          kIsWeb ? ImageFormatGroup.jpeg : ImageFormatGroup.bgra8888,
     );
 
     await _camera!.initialize();
@@ -107,11 +106,14 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   /// point PoseServiceWeb's own JS guard handles any remaining bad frames).
   void _waitForPoseBridgeReady() {
     const pollInterval = Duration(milliseconds: 100);
-    const maxWait      = Duration(seconds: 4);
-    final deadline     = DateTime.now().add(maxWait);
+    const maxWait = Duration(seconds: 4);
+    final deadline = DateTime.now().add(maxWait);
 
     _poseReadyPoller = Timer.periodic(pollInterval, (timer) {
-      if (!mounted) { timer.cancel(); return; }
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
 
       bool jsReady = false;
       try {
@@ -236,16 +238,16 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     'Initialising pose detection…',
-                    style: TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 12),
+                    style:
+                        TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                   ),
                 ),
               ),
@@ -350,8 +352,8 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
               ),
               child: Text(
                 session.isActive ? 'Stop Session' : 'Start Session',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 16),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ),
           ),
@@ -418,7 +420,11 @@ class _ScanFramePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     const len = 28.0;
     canvas.drawPath(
-        Path()..moveTo(0, len)..lineTo(0, 0)..lineTo(len, 0), paint);
+        Path()
+          ..moveTo(0, len)
+          ..lineTo(0, 0)
+          ..lineTo(len, 0),
+        paint);
     canvas.drawPath(
         Path()
           ..moveTo(size.width - len, 0)

@@ -11,7 +11,6 @@ import '../../models/landmark_frame.dart';
 import 'pose_service_interface.dart';
 
 class PoseServiceWeb implements PoseServiceInterface {
-  DateTime? _lastFrameTime;
   double _prevWristY  = 0;
   double _prevWristVY = 0;
 
@@ -48,13 +47,20 @@ class PoseServiceWeb implements PoseServiceInterface {
       final wmy = (lwy + rwy) / 2;
 
       final now = DateTime.now();
-      final dt  = _lastFrameTime != null
-          ? now.difference(_lastFrameTime!).inMilliseconds / 1000.0
-          : 0.033;
-      _lastFrameTime = now;
 
-      final wristVY = dt > 0 ? (wmy - _prevWristY)  / dt : 0.0;
-      final wristAY = dt > 0 ? (wristVY - _prevWristVY) / dt : 0.0;
+      // FIX: this used to divide by dt to produce a per-SECOND velocity
+      // (Δy / Δt), while the compression state machine's thresholds in
+      // session_provider.dart (_downThreshold = 0.006, _upThreshold =
+      // -0.004) — and pose_service_mobile.dart's LandmarkMath.wristVelocity
+      // — are tuned for a per-FRAME delta (Δy only, no /dt). At ~25–30fps
+      // that /dt was inflating every velocity reading ~25–30×, so ordinary
+      // hand jitter blew through both thresholds almost every frame: the
+      // compression counter incremented constantly with no real compression,
+      // and the BPM peak-detector (also velocity-based) whipsawed wildly.
+      // Use a plain per-frame delta here so web matches mobile's units and
+      // the existing thresholds behave as designed.
+      final wristVY = wmy - _prevWristY;
+      final wristAY = wristVY - _prevWristVY;
       _prevWristY   = wmy;
       _prevWristVY  = wristVY;
 

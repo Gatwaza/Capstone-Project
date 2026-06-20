@@ -1,30 +1,16 @@
 {
-  "buildCommand": "/tmp/flutter/bin/flutter build web --release --dart-define=RESEARCHER_PIN=2026",
+  "buildCommand": "/tmp/flutter/bin/flutter build web --release --dart-define=RESEARCHER_PIN=2026 --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY",
   "outputDirectory": "build/web",
   "installCommand": "git clone https://github.com/flutter/flutter.git --depth 1 -b 3.29.3 /tmp/flutter && /tmp/flutter/bin/flutter --version && /tmp/flutter/bin/flutter pub get",
   "framework": null,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         { "key": "Cross-Origin-Opener-Policy",   "value": "same-origin" },
-        { "key": "Cross-Origin-Embedder-Policy",  "value": "require-corp" },
-        { "key": "Cross-Origin-Resource-Policy",  "value": "cross-origin" }
-      ]
-    },
-    {
-      "source": "/flutter_service_worker.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" },
+        { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
       ]
     }
   ]

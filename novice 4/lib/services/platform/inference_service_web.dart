@@ -82,6 +82,19 @@ class InferenceServiceWeb {
       if (prediction != null) {
         print('[InferenceServiceWeb] API → ${prediction.resolvedLabel} '
               '(${prediction.resolvedConfidence.toStringAsFixed(2)})');
+        // FIX: rate/depth/recoil accuracy + confidence were never being
+        // read off `prediction` here — only `topClassLabel` and
+        // `allClassScores` (which nothing downstream even consumes) were
+        // set. session_provider.dart's onFrame() only accumulates into
+        // _rateAccuracies / _depthAccuracies / _recoilAccuracies when the
+        // corresponding field is non-null, so those histories stayed
+        // empty all session → mean defaults to 0.0 → the Rate/Depth/Recoil
+        // tiles and the final Quality Score were stuck at 0% regardless of
+        // actual performance, even though the API was returning real
+        // per-task predictions the whole time.
+        // Per-task accuracy is 1.0 when that task's label is 'Correct',
+        // 0.0 otherwise (mirrors the same 'Correct' check resolvedLabel
+        // already uses to decide which error to surface).
         _lastApiResult = InferenceResult(
           timestamp:           DateTime.now(),
           topClassIndex:       0,
@@ -96,6 +109,12 @@ class InferenceServiceWeb {
           estimatedDepthCm:    _estimateDepthCm(frame),
           elbowAngleMean:      (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
           spineVerticalityDeg: frame.spineVerticality,
+          rateAccuracy:        prediction.rateLabel   == 'Correct' ? 1.0 : 0.0,
+          rateConfidence:      prediction.rateConfidence,
+          depthAccuracy:       prediction.depthLabel  == 'Correct' ? 1.0 : 0.0,
+          depthConfidence:     prediction.depthConfidence,
+          recoilAccuracy:      prediction.recoilLabel == 'Correct' ? 1.0 : 0.0,
+          recoilConfidence:    prediction.recoilConfidence,
           isSimulated:         false,
         );
       }

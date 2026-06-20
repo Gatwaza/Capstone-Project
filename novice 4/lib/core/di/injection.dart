@@ -37,6 +37,7 @@ import '../../services/platform/pose_service_mobile.dart'
     show PoseServiceMobile;
 import '../../services/platform/pose_service_web.dart' show PoseServiceWeb;
 import '../../services/platform/storage_service.dart';
+import '../../services/platform/telemetry_service.dart';
 import '../../services/tts_service.dart';
 
 final getIt = GetIt.instance;
@@ -58,7 +59,7 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<StorageService>(
     StorageService(mobileLogger: sqliteLogger),
   );
-
+  getIt.registerLazySingleton<TelemetryService>(() => TelemetryService());
   // ── TTS ────────────────────────────────────────────────────────────────────
   const umugandaUrl =
       String.fromEnvironment('UMUGANDA_TTS_URL', defaultValue: '');
