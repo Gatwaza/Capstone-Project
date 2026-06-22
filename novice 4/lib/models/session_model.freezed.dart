@@ -33,7 +33,18 @@ mixin _$SessionModel {
   int get qualityScore => throw _privateConstructorUsedError;
 
   /// Per-frame class distribution: label → fraction of session frames.
-  Map<String, double> get errorRates =>
+  Map<String, double> get errorRates => throw _privateConstructorUsedError;
+
+  /// Schema generation for this session record.
+  ///   1 = pre-3-head-refactor: 8-class single-label output
+  ///       (error_rates keys like 'bent_elbows', 'hand_too_high', etc.,
+  ///       no rate/depth/recoil precision/recall/F1/AUC columns).
+  ///   2 = current: 3-head model (rate/depth/recoil independent labels),
+  ///       full per-task accuracy/precision/recall/F1/AUC populated.
+  /// Existing rows created before this field existed are migrated to 1
+  /// by scripts/migrate_schema_version.py — see that script for the CSV
+  /// heuristic used to tell old sessions apart from new ones.
+  int get schemaVersion =>
       throw _privateConstructorUsedError; // ── Research metrics: ACCURACY ──────────────────────────────────────────
 // Fraction of frames where the model classified the task as "Correct".
   double get rateAccuracy => throw _privateConstructorUsedError;
@@ -97,6 +108,7 @@ abstract class $SessionModelCopyWith<$Res> {
       double cprFraction,
       int qualityScore,
       Map<String, double> errorRates,
+      int schemaVersion,
       double rateAccuracy,
       double depthAccuracy,
       double recoilAccuracy,
@@ -147,6 +159,7 @@ class _$SessionModelCopyWithImpl<$Res, $Val extends SessionModel>
     Object? cprFraction = null,
     Object? qualityScore = null,
     Object? errorRates = null,
+    Object? schemaVersion = null,
     Object? rateAccuracy = null,
     Object? depthAccuracy = null,
     Object? recoilAccuracy = null,
@@ -211,6 +224,10 @@ class _$SessionModelCopyWithImpl<$Res, $Val extends SessionModel>
           ? _value.errorRates
           : errorRates // ignore: cast_nullable_to_non_nullable
               as Map<String, double>,
+      schemaVersion: null == schemaVersion
+          ? _value.schemaVersion
+          : schemaVersion // ignore: cast_nullable_to_non_nullable
+              as int,
       rateAccuracy: null == rateAccuracy
           ? _value.rateAccuracy
           : rateAccuracy // ignore: cast_nullable_to_non_nullable
@@ -322,6 +339,7 @@ abstract class _$$SessionModelImplCopyWith<$Res>
       double cprFraction,
       int qualityScore,
       Map<String, double> errorRates,
+      int schemaVersion,
       double rateAccuracy,
       double depthAccuracy,
       double recoilAccuracy,
@@ -370,6 +388,7 @@ class __$$SessionModelImplCopyWithImpl<$Res>
     Object? cprFraction = null,
     Object? qualityScore = null,
     Object? errorRates = null,
+    Object? schemaVersion = null,
     Object? rateAccuracy = null,
     Object? depthAccuracy = null,
     Object? recoilAccuracy = null,
@@ -434,6 +453,10 @@ class __$$SessionModelImplCopyWithImpl<$Res>
           ? _value._errorRates
           : errorRates // ignore: cast_nullable_to_non_nullable
               as Map<String, double>,
+      schemaVersion: null == schemaVersion
+          ? _value.schemaVersion
+          : schemaVersion // ignore: cast_nullable_to_non_nullable
+              as int,
       rateAccuracy: null == rateAccuracy
           ? _value.rateAccuracy
           : rateAccuracy // ignore: cast_nullable_to_non_nullable
@@ -540,6 +563,7 @@ class _$SessionModelImpl implements _SessionModel {
       required this.cprFraction,
       required this.qualityScore,
       required final Map<String, double> errorRates,
+      this.schemaVersion = 2,
       this.rateAccuracy = 0.0,
       this.depthAccuracy = 0.0,
       this.recoilAccuracy = 0.0,
@@ -602,6 +626,18 @@ class _$SessionModelImpl implements _SessionModel {
     return EqualUnmodifiableMapView(_errorRates);
   }
 
+  /// Schema generation for this session record.
+  ///   1 = pre-3-head-refactor: 8-class single-label output
+  ///       (error_rates keys like 'bent_elbows', 'hand_too_high', etc.,
+  ///       no rate/depth/recoil precision/recall/F1/AUC columns).
+  ///   2 = current: 3-head model (rate/depth/recoil independent labels),
+  ///       full per-task accuracy/precision/recall/F1/AUC populated.
+  /// Existing rows created before this field existed are migrated to 1
+  /// by scripts/migrate_schema_version.py — see that script for the CSV
+  /// heuristic used to tell old sessions apart from new ones.
+  @override
+  @JsonKey()
+  final int schemaVersion;
 // ── Research metrics: ACCURACY ──────────────────────────────────────────
 // Fraction of frames where the model classified the task as "Correct".
   @override
@@ -695,7 +731,7 @@ class _$SessionModelImpl implements _SessionModel {
 
   @override
   String toString() {
-    return 'SessionModel(id: $id, participantId: $participantId, startedAt: $startedAt, endedAt: $endedAt, totalCompressions: $totalCompressions, meanBpm: $meanBpm, meanDepthCm: $meanDepthCm, cprFraction: $cprFraction, qualityScore: $qualityScore, errorRates: $errorRates, rateAccuracy: $rateAccuracy, depthAccuracy: $depthAccuracy, recoilAccuracy: $recoilAccuracy, ratePrecision: $ratePrecision, depthPrecision: $depthPrecision, recoilPrecision: $recoilPrecision, rateRecall: $rateRecall, depthRecall: $depthRecall, recoilRecall: $recoilRecall, rateF1: $rateF1, depthF1: $depthF1, recoilF1: $recoilF1, rateAuc: $rateAuc, depthAuc: $depthAuc, recoilAuc: $recoilAuc, taskConfidences: $taskConfidences, language: $language, modelWasAvailable: $modelWasAvailable, deviceModel: $deviceModel, rawFrames: $rawFrames, reviewLabel: $reviewLabel, reviewNote: $reviewNote)';
+    return 'SessionModel(id: $id, participantId: $participantId, startedAt: $startedAt, endedAt: $endedAt, totalCompressions: $totalCompressions, meanBpm: $meanBpm, meanDepthCm: $meanDepthCm, cprFraction: $cprFraction, qualityScore: $qualityScore, errorRates: $errorRates, schemaVersion: $schemaVersion, rateAccuracy: $rateAccuracy, depthAccuracy: $depthAccuracy, recoilAccuracy: $recoilAccuracy, ratePrecision: $ratePrecision, depthPrecision: $depthPrecision, recoilPrecision: $recoilPrecision, rateRecall: $rateRecall, depthRecall: $depthRecall, recoilRecall: $recoilRecall, rateF1: $rateF1, depthF1: $depthF1, recoilF1: $recoilF1, rateAuc: $rateAuc, depthAuc: $depthAuc, recoilAuc: $recoilAuc, taskConfidences: $taskConfidences, language: $language, modelWasAvailable: $modelWasAvailable, deviceModel: $deviceModel, rawFrames: $rawFrames, reviewLabel: $reviewLabel, reviewNote: $reviewNote)';
   }
 
   @override
@@ -720,6 +756,8 @@ class _$SessionModelImpl implements _SessionModel {
                 other.qualityScore == qualityScore) &&
             const DeepCollectionEquality()
                 .equals(other._errorRates, _errorRates) &&
+            (identical(other.schemaVersion, schemaVersion) ||
+                other.schemaVersion == schemaVersion) &&
             (identical(other.rateAccuracy, rateAccuracy) ||
                 other.rateAccuracy == rateAccuracy) &&
             (identical(other.depthAccuracy, depthAccuracy) ||
@@ -777,6 +815,7 @@ class _$SessionModelImpl implements _SessionModel {
         cprFraction,
         qualityScore,
         const DeepCollectionEquality().hash(_errorRates),
+        schemaVersion,
         rateAccuracy,
         depthAccuracy,
         recoilAccuracy,
@@ -829,6 +868,7 @@ abstract class _SessionModel implements SessionModel {
       required final double cprFraction,
       required final int qualityScore,
       required final Map<String, double> errorRates,
+      final int schemaVersion,
       final double rateAccuracy,
       final double depthAccuracy,
       final double recoilAccuracy,
@@ -879,8 +919,19 @@ abstract class _SessionModel implements SessionModel {
 
   /// Per-frame class distribution: label → fraction of session frames.
   @override
-  Map<String, double>
-      get errorRates; // ── Research metrics: ACCURACY ──────────────────────────────────────────
+  Map<String, double> get errorRates;
+
+  /// Schema generation for this session record.
+  ///   1 = pre-3-head-refactor: 8-class single-label output
+  ///       (error_rates keys like 'bent_elbows', 'hand_too_high', etc.,
+  ///       no rate/depth/recoil precision/recall/F1/AUC columns).
+  ///   2 = current: 3-head model (rate/depth/recoil independent labels),
+  ///       full per-task accuracy/precision/recall/F1/AUC populated.
+  /// Existing rows created before this field existed are migrated to 1
+  /// by scripts/migrate_schema_version.py — see that script for the CSV
+  /// heuristic used to tell old sessions apart from new ones.
+  @override
+  int get schemaVersion; // ── Research metrics: ACCURACY ──────────────────────────────────────────
 // Fraction of frames where the model classified the task as "Correct".
   @override
   double get rateAccuracy;
@@ -963,7 +1014,14 @@ mixin _$InferenceResult {
   double? get depthAccuracy => throw _privateConstructorUsedError;
   double? get depthConfidence => throw _privateConstructorUsedError;
   double? get recoilAccuracy => throw _privateConstructorUsedError;
-  double? get recoilConfidence => throw _privateConstructorUsedError;
+  double? get recoilConfidence =>
+      throw _privateConstructorUsedError; // Direct per-task labels from the 3-head web/API path (e.g. 'Correct',
+// 'Too_Fast', 'Too_Shallow', 'Incomplete'). Null on mobile — the
+// rule-based/8-class inference_service.dart never sets these, so
+// consumers must fall back to topClassLabel/allClassScores when null.
+  String? get rateLabel => throw _privateConstructorUsedError;
+  String? get depthLabel => throw _privateConstructorUsedError;
+  String? get recoilLabel => throw _privateConstructorUsedError;
   bool get isSimulated => throw _privateConstructorUsedError;
 
   /// Create a copy of InferenceResult
@@ -995,6 +1053,9 @@ abstract class $InferenceResultCopyWith<$Res> {
       double? depthConfidence,
       double? recoilAccuracy,
       double? recoilConfidence,
+      String? rateLabel,
+      String? depthLabel,
+      String? recoilLabel,
       bool isSimulated});
 }
 
@@ -1028,6 +1089,9 @@ class _$InferenceResultCopyWithImpl<$Res, $Val extends InferenceResult>
     Object? depthConfidence = freezed,
     Object? recoilAccuracy = freezed,
     Object? recoilConfidence = freezed,
+    Object? rateLabel = freezed,
+    Object? depthLabel = freezed,
+    Object? recoilLabel = freezed,
     Object? isSimulated = null,
   }) {
     return _then(_value.copyWith(
@@ -1091,6 +1155,18 @@ class _$InferenceResultCopyWithImpl<$Res, $Val extends InferenceResult>
           ? _value.recoilConfidence
           : recoilConfidence // ignore: cast_nullable_to_non_nullable
               as double?,
+      rateLabel: freezed == rateLabel
+          ? _value.rateLabel
+          : rateLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
+      depthLabel: freezed == depthLabel
+          ? _value.depthLabel
+          : depthLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
+      recoilLabel: freezed == recoilLabel
+          ? _value.recoilLabel
+          : recoilLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
       isSimulated: null == isSimulated
           ? _value.isSimulated
           : isSimulated // ignore: cast_nullable_to_non_nullable
@@ -1123,6 +1199,9 @@ abstract class _$$InferenceResultImplCopyWith<$Res>
       double? depthConfidence,
       double? recoilAccuracy,
       double? recoilConfidence,
+      String? rateLabel,
+      String? depthLabel,
+      String? recoilLabel,
       bool isSimulated});
 }
 
@@ -1154,6 +1233,9 @@ class __$$InferenceResultImplCopyWithImpl<$Res>
     Object? depthConfidence = freezed,
     Object? recoilAccuracy = freezed,
     Object? recoilConfidence = freezed,
+    Object? rateLabel = freezed,
+    Object? depthLabel = freezed,
+    Object? recoilLabel = freezed,
     Object? isSimulated = null,
   }) {
     return _then(_$InferenceResultImpl(
@@ -1217,6 +1299,18 @@ class __$$InferenceResultImplCopyWithImpl<$Res>
           ? _value.recoilConfidence
           : recoilConfidence // ignore: cast_nullable_to_non_nullable
               as double?,
+      rateLabel: freezed == rateLabel
+          ? _value.rateLabel
+          : rateLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
+      depthLabel: freezed == depthLabel
+          ? _value.depthLabel
+          : depthLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
+      recoilLabel: freezed == recoilLabel
+          ? _value.recoilLabel
+          : recoilLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
       isSimulated: null == isSimulated
           ? _value.isSimulated
           : isSimulated // ignore: cast_nullable_to_non_nullable
@@ -1244,6 +1338,9 @@ class _$InferenceResultImpl implements _InferenceResult {
       this.depthConfidence,
       this.recoilAccuracy,
       this.recoilConfidence,
+      this.rateLabel,
+      this.depthLabel,
+      this.recoilLabel,
       this.isSimulated = false})
       : _allClassScores = allClassScores;
 
@@ -1284,13 +1381,23 @@ class _$InferenceResultImpl implements _InferenceResult {
   final double? recoilAccuracy;
   @override
   final double? recoilConfidence;
+// Direct per-task labels from the 3-head web/API path (e.g. 'Correct',
+// 'Too_Fast', 'Too_Shallow', 'Incomplete'). Null on mobile — the
+// rule-based/8-class inference_service.dart never sets these, so
+// consumers must fall back to topClassLabel/allClassScores when null.
+  @override
+  final String? rateLabel;
+  @override
+  final String? depthLabel;
+  @override
+  final String? recoilLabel;
   @override
   @JsonKey()
   final bool isSimulated;
 
   @override
   String toString() {
-    return 'InferenceResult(timestamp: $timestamp, topClassIndex: $topClassIndex, topClassLabel: $topClassLabel, topClassConfidence: $topClassConfidence, allClassScores: $allClassScores, currentBpm: $currentBpm, estimatedDepthCm: $estimatedDepthCm, elbowAngleMean: $elbowAngleMean, spineVerticalityDeg: $spineVerticalityDeg, rateAccuracy: $rateAccuracy, rateConfidence: $rateConfidence, depthAccuracy: $depthAccuracy, depthConfidence: $depthConfidence, recoilAccuracy: $recoilAccuracy, recoilConfidence: $recoilConfidence, isSimulated: $isSimulated)';
+    return 'InferenceResult(timestamp: $timestamp, topClassIndex: $topClassIndex, topClassLabel: $topClassLabel, topClassConfidence: $topClassConfidence, allClassScores: $allClassScores, currentBpm: $currentBpm, estimatedDepthCm: $estimatedDepthCm, elbowAngleMean: $elbowAngleMean, spineVerticalityDeg: $spineVerticalityDeg, rateAccuracy: $rateAccuracy, rateConfidence: $rateConfidence, depthAccuracy: $depthAccuracy, depthConfidence: $depthConfidence, recoilAccuracy: $recoilAccuracy, recoilConfidence: $recoilConfidence, rateLabel: $rateLabel, depthLabel: $depthLabel, recoilLabel: $recoilLabel, isSimulated: $isSimulated)';
   }
 
   @override
@@ -1328,29 +1435,39 @@ class _$InferenceResultImpl implements _InferenceResult {
                 other.recoilAccuracy == recoilAccuracy) &&
             (identical(other.recoilConfidence, recoilConfidence) ||
                 other.recoilConfidence == recoilConfidence) &&
+            (identical(other.rateLabel, rateLabel) ||
+                other.rateLabel == rateLabel) &&
+            (identical(other.depthLabel, depthLabel) ||
+                other.depthLabel == depthLabel) &&
+            (identical(other.recoilLabel, recoilLabel) ||
+                other.recoilLabel == recoilLabel) &&
             (identical(other.isSimulated, isSimulated) ||
                 other.isSimulated == isSimulated));
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      timestamp,
-      topClassIndex,
-      topClassLabel,
-      topClassConfidence,
-      const DeepCollectionEquality().hash(_allClassScores),
-      currentBpm,
-      estimatedDepthCm,
-      elbowAngleMean,
-      spineVerticalityDeg,
-      rateAccuracy,
-      rateConfidence,
-      depthAccuracy,
-      depthConfidence,
-      recoilAccuracy,
-      recoilConfidence,
-      isSimulated);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        timestamp,
+        topClassIndex,
+        topClassLabel,
+        topClassConfidence,
+        const DeepCollectionEquality().hash(_allClassScores),
+        currentBpm,
+        estimatedDepthCm,
+        elbowAngleMean,
+        spineVerticalityDeg,
+        rateAccuracy,
+        rateConfidence,
+        depthAccuracy,
+        depthConfidence,
+        recoilAccuracy,
+        recoilConfidence,
+        rateLabel,
+        depthLabel,
+        recoilLabel,
+        isSimulated
+      ]);
 
   /// Create a copy of InferenceResult
   /// with the given fields replaced by the non-null parameter values.
@@ -1379,6 +1496,9 @@ abstract class _InferenceResult implements InferenceResult {
       final double? depthConfidence,
       final double? recoilAccuracy,
       final double? recoilConfidence,
+      final String? rateLabel,
+      final String? depthLabel,
+      final String? recoilLabel,
       final bool isSimulated}) = _$InferenceResultImpl;
 
   @override
@@ -1411,7 +1531,17 @@ abstract class _InferenceResult implements InferenceResult {
   @override
   double? get recoilAccuracy;
   @override
-  double? get recoilConfidence;
+  double?
+      get recoilConfidence; // Direct per-task labels from the 3-head web/API path (e.g. 'Correct',
+// 'Too_Fast', 'Too_Shallow', 'Incomplete'). Null on mobile — the
+// rule-based/8-class inference_service.dart never sets these, so
+// consumers must fall back to topClassLabel/allClassScores when null.
+  @override
+  String? get rateLabel;
+  @override
+  String? get depthLabel;
+  @override
+  String? get recoilLabel;
   @override
   bool get isSimulated;
 

@@ -20,6 +20,7 @@ _$SessionModelImpl _$$SessionModelImplFromJson(Map<String, dynamic> json) =>
       errorRates: (json['errorRates'] as Map<String, dynamic>).map(
         (k, e) => MapEntry(k, (e as num).toDouble()),
       ),
+      schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 2,
       rateAccuracy: (json['rateAccuracy'] as num?)?.toDouble() ?? 0.0,
       depthAccuracy: (json['depthAccuracy'] as num?)?.toDouble() ?? 0.0,
       recoilAccuracy: (json['recoilAccuracy'] as num?)?.toDouble() ?? 0.0,
@@ -58,6 +59,7 @@ Map<String, dynamic> _$$SessionModelImplToJson(_$SessionModelImpl instance) =>
       'cprFraction': instance.cprFraction,
       'qualityScore': instance.qualityScore,
       'errorRates': instance.errorRates,
+      'schemaVersion': instance.schemaVersion,
       'rateAccuracy': instance.rateAccuracy,
       'depthAccuracy': instance.depthAccuracy,
       'recoilAccuracy': instance.recoilAccuracy,

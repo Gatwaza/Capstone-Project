@@ -31,6 +31,17 @@ class SessionModel with _$SessionModel {
     /// Per-frame class distribution: label → fraction of session frames.
     required Map<String, double> errorRates,
 
+    /// Schema generation for this session record.
+    ///   1 = pre-3-head-refactor: 8-class single-label output
+    ///       (error_rates keys like 'bent_elbows', 'hand_too_high', etc.,
+    ///       no rate/depth/recoil precision/recall/F1/AUC columns).
+    ///   2 = current: 3-head model (rate/depth/recoil independent labels),
+    ///       full per-task accuracy/precision/recall/F1/AUC populated.
+    /// Existing rows created before this field existed are migrated to 1
+    /// by scripts/migrate_schema_version.py — see that script for the CSV
+    /// heuristic used to tell old sessions apart from new ones.
+    @Default(2) int schemaVersion,
+
     // ── Research metrics: ACCURACY ──────────────────────────────────────────
     // Fraction of frames where the model classified the task as "Correct".
     @Default(0.0) double rateAccuracy,
@@ -100,6 +111,13 @@ class InferenceResult with _$InferenceResult {
     double? depthConfidence,
     double? recoilAccuracy,
     double? recoilConfidence,
+    // Direct per-task labels from the 3-head web/API path (e.g. 'Correct',
+    // 'Too_Fast', 'Too_Shallow', 'Incomplete'). Null on mobile — the
+    // rule-based/8-class inference_service.dart never sets these, so
+    // consumers must fall back to topClassLabel/allClassScores when null.
+    String? rateLabel,
+    String? depthLabel,
+    String? recoilLabel,
     @Default(false) bool isSimulated,
   }) = _InferenceResult;
 }

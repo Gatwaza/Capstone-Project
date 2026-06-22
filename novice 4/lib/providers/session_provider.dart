@@ -269,6 +269,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       cprFraction: state.cprFraction,
       qualityScore: qualityScore,
       errorRates: errorRates,
+      schemaVersion: 2,
       // Research metrics
       rateAccuracy:   taskAccuracies['rate']   ?? 0.0,
       depthAccuracy:  taskAccuracies['depth']  ?? 0.0,
@@ -415,10 +416,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
           (result.rateConfidence ?? 0.0) >= _taskConfidenceThreshold) {
         _rateAccuracies.add(result.rateAccuracy!);
         _taskConfidences['rate'] = result.rateConfidence!;
-        // Tally class for precision/recall computation
-        final rateLabel = result.allClassScores.entries
-            .where((e) => ['Correct','Too_Fast','Too_Slow'].contains(e.key))
-            .fold('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
+        // Prefer the direct per-task label from the 3-head web/API path.
+        // Falls back to the allClassScores rescan only for mobile, whose
+        // rule-based inference_service.dart never sets rateLabel.
+        final rateLabel = result.rateLabel ??
+            result.allClassScores.entries
+                .where((e) => ['Correct','Too_Fast','Too_Slow'].contains(e.key))
+                .fold<String>('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
         if (rateLabel.isNotEmpty) {
           _rateClassCounts.update(rateLabel, (n) => n + 1, ifAbsent: () => 1);
         }
@@ -429,9 +433,10 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
           (result.depthConfidence ?? 0.0) >= _depthConfidenceThreshold) {
         _depthAccuracies.add(result.depthAccuracy!);
         _taskConfidences['depth'] = result.depthConfidence!;
-        final depthLabel = result.allClassScores.entries
-            .where((e) => ['Correct','Too_Shallow','Too_Deep'].contains(e.key))
-            .fold('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
+        final depthLabel = result.depthLabel ??
+            result.allClassScores.entries
+                .where((e) => ['Correct','Too_Shallow','Too_Deep'].contains(e.key))
+                .fold<String>('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
         if (depthLabel.isNotEmpty) {
           _depthClassCounts.update(depthLabel, (n) => n + 1, ifAbsent: () => 1);
         }
@@ -442,9 +447,10 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
           (result.recoilConfidence ?? 0.0) >= _taskConfidenceThreshold) {
         _recoilAccuracies.add(result.recoilAccuracy!);
         _taskConfidences['recoil'] = result.recoilConfidence!;
-        final recoilLabel = result.allClassScores.entries
-            .where((e) => ['Correct','Incomplete'].contains(e.key))
-            .fold('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
+        final recoilLabel = result.recoilLabel ??
+            result.allClassScores.entries
+                .where((e) => ['Correct','Incomplete'].contains(e.key))
+                .fold<String>('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
         if (recoilLabel.isNotEmpty) {
           _recoilClassCounts.update(recoilLabel, (n) => n + 1, ifAbsent: () => 1);
         }
