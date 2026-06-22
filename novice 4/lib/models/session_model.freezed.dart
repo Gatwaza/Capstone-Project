@@ -20,48 +20,54 @@ SessionModel _$SessionModelFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$SessionModel {
-  String get id =>
-      throw _privateConstructorUsedError; // millisecondsSinceEpoch string
-  String get participantId =>
-      throw _privateConstructorUsedError; // FK -> participants.participant_id (Supabase)
+  String get id => throw _privateConstructorUsedError;
+  String get participantId => throw _privateConstructorUsedError;
   DateTime get startedAt => throw _privateConstructorUsedError;
   DateTime get endedAt => throw _privateConstructorUsedError;
   int get totalCompressions => throw _privateConstructorUsedError;
   double get meanBpm => throw _privateConstructorUsedError;
   double get meanDepthCm => throw _privateConstructorUsedError;
-  double get cprFraction =>
-      throw _privateConstructorUsedError; // % of session time actively compressing
-  int get qualityScore =>
-      throw _privateConstructorUsedError; // 0–100, derived from CNN-BiLSTM multi-task weighted formula (research: ml_pipeline/CPR_Coach_Training.ipynb cell 35)
-  Map<String, double> get errorRates =>
-      throw _privateConstructorUsedError; // classLabel → fraction of session frames classified as that label (model-derived)
-  /// Per-task model accuracies from CNN-BiLSTM (test-set baseline reference)
-  /// Example: {'rate': 0.76, 'depth': 0.94, 'recoil': 0.75}
-  /// Research basis: Rate F1_w=75.92%, Depth F1_w=94.05%, Recoil F1_w=74.79%
-  Map<String, double> get taskAccuracies => throw _privateConstructorUsedError;
+  double get cprFraction => throw _privateConstructorUsedError;
 
-  /// Per-task model confidence scores from inference
-  /// Example: {'rate': 0.89, 'depth': 0.92, 'recoil': 0.81}
-  /// Used for quality score weighting and session reliability assessment
+  /// 0–100 weighted multi-task quality score (CNN-BiLSTM AUC-weighted).
+  int get qualityScore => throw _privateConstructorUsedError;
+
+  /// Per-frame class distribution: label → fraction of session frames.
+  Map<String, double> get errorRates =>
+      throw _privateConstructorUsedError; // ── Research metrics: ACCURACY ──────────────────────────────────────────
+// Fraction of frames where the model classified the task as "Correct".
+  double get rateAccuracy => throw _privateConstructorUsedError;
+  double get depthAccuracy => throw _privateConstructorUsedError;
+  double get recoilAccuracy =>
+      throw _privateConstructorUsedError; // ── Research metrics: PRECISION ─────────────────────────────────────────
+// Macro-averaged precision per task (client-side, from frame tally).
+  double get ratePrecision => throw _privateConstructorUsedError;
+  double get depthPrecision => throw _privateConstructorUsedError;
+  double get recoilPrecision =>
+      throw _privateConstructorUsedError; // ── Research metrics: RECALL ────────────────────────────────────────────
+  double get rateRecall => throw _privateConstructorUsedError;
+  double get depthRecall => throw _privateConstructorUsedError;
+  double get recoilRecall =>
+      throw _privateConstructorUsedError; // ── Research metrics: F1-SCORE ──────────────────────────────────────────
+// Weighted F1 per task (matches notebook evaluation: F1_w).
+  double get rateF1 => throw _privateConstructorUsedError;
+  double get depthF1 => throw _privateConstructorUsedError;
+  double get recoilF1 =>
+      throw _privateConstructorUsedError; // ── Research metrics: ROC-AUC ───────────────────────────────────────────
+// Mean model confidence used as probabilistic score for AUC estimation.
+  double get rateAuc => throw _privateConstructorUsedError;
+  double get depthAuc => throw _privateConstructorUsedError;
+  double get recoilAuc =>
+      throw _privateConstructorUsedError; // ── Legacy per-task confidence (kept for quality score weighting) ───────
   Map<String, double> get taskConfidences => throw _privateConstructorUsedError;
   String get language => throw _privateConstructorUsedError;
   bool get modelWasAvailable => throw _privateConstructorUsedError;
-
-  /// Device identifier for performance tracking across sessions
   String? get deviceModel => throw _privateConstructorUsedError;
 
   /// Raw per-frame landmark data for retraining pipeline.
-  /// Excluded from json_serializable — StorageService serialises frames
-  /// manually via _frameToMap / exportFramesNdjson so we keep full control
-  /// over the wire format and avoid bloating the freezed generated code.
   @JsonKey(includeFromJson: false, includeToJson: false)
   List<LandmarkFrame> get rawFrames => throw _privateConstructorUsedError;
-
-  /// Reviewer label assigned after session review (null = not yet reviewed).
-  /// Values: 'correct' | 'incorrect' | 'partial'
   String? get reviewLabel => throw _privateConstructorUsedError;
-
-  /// Optional free-text note from reviewer or researcher.
   String? get reviewNote => throw _privateConstructorUsedError;
 
   /// Serializes this SessionModel to a JSON map.
@@ -91,7 +97,21 @@ abstract class $SessionModelCopyWith<$Res> {
       double cprFraction,
       int qualityScore,
       Map<String, double> errorRates,
-      Map<String, double> taskAccuracies,
+      double rateAccuracy,
+      double depthAccuracy,
+      double recoilAccuracy,
+      double ratePrecision,
+      double depthPrecision,
+      double recoilPrecision,
+      double rateRecall,
+      double depthRecall,
+      double recoilRecall,
+      double rateF1,
+      double depthF1,
+      double recoilF1,
+      double rateAuc,
+      double depthAuc,
+      double recoilAuc,
       Map<String, double> taskConfidences,
       String language,
       bool modelWasAvailable,
@@ -127,7 +147,21 @@ class _$SessionModelCopyWithImpl<$Res, $Val extends SessionModel>
     Object? cprFraction = null,
     Object? qualityScore = null,
     Object? errorRates = null,
-    Object? taskAccuracies = null,
+    Object? rateAccuracy = null,
+    Object? depthAccuracy = null,
+    Object? recoilAccuracy = null,
+    Object? ratePrecision = null,
+    Object? depthPrecision = null,
+    Object? recoilPrecision = null,
+    Object? rateRecall = null,
+    Object? depthRecall = null,
+    Object? recoilRecall = null,
+    Object? rateF1 = null,
+    Object? depthF1 = null,
+    Object? recoilF1 = null,
+    Object? rateAuc = null,
+    Object? depthAuc = null,
+    Object? recoilAuc = null,
     Object? taskConfidences = null,
     Object? language = null,
     Object? modelWasAvailable = null,
@@ -177,10 +211,66 @@ class _$SessionModelCopyWithImpl<$Res, $Val extends SessionModel>
           ? _value.errorRates
           : errorRates // ignore: cast_nullable_to_non_nullable
               as Map<String, double>,
-      taskAccuracies: null == taskAccuracies
-          ? _value.taskAccuracies
-          : taskAccuracies // ignore: cast_nullable_to_non_nullable
-              as Map<String, double>,
+      rateAccuracy: null == rateAccuracy
+          ? _value.rateAccuracy
+          : rateAccuracy // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthAccuracy: null == depthAccuracy
+          ? _value.depthAccuracy
+          : depthAccuracy // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilAccuracy: null == recoilAccuracy
+          ? _value.recoilAccuracy
+          : recoilAccuracy // ignore: cast_nullable_to_non_nullable
+              as double,
+      ratePrecision: null == ratePrecision
+          ? _value.ratePrecision
+          : ratePrecision // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthPrecision: null == depthPrecision
+          ? _value.depthPrecision
+          : depthPrecision // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilPrecision: null == recoilPrecision
+          ? _value.recoilPrecision
+          : recoilPrecision // ignore: cast_nullable_to_non_nullable
+              as double,
+      rateRecall: null == rateRecall
+          ? _value.rateRecall
+          : rateRecall // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthRecall: null == depthRecall
+          ? _value.depthRecall
+          : depthRecall // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilRecall: null == recoilRecall
+          ? _value.recoilRecall
+          : recoilRecall // ignore: cast_nullable_to_non_nullable
+              as double,
+      rateF1: null == rateF1
+          ? _value.rateF1
+          : rateF1 // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthF1: null == depthF1
+          ? _value.depthF1
+          : depthF1 // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilF1: null == recoilF1
+          ? _value.recoilF1
+          : recoilF1 // ignore: cast_nullable_to_non_nullable
+              as double,
+      rateAuc: null == rateAuc
+          ? _value.rateAuc
+          : rateAuc // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthAuc: null == depthAuc
+          ? _value.depthAuc
+          : depthAuc // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilAuc: null == recoilAuc
+          ? _value.recoilAuc
+          : recoilAuc // ignore: cast_nullable_to_non_nullable
+              as double,
       taskConfidences: null == taskConfidences
           ? _value.taskConfidences
           : taskConfidences // ignore: cast_nullable_to_non_nullable
@@ -232,7 +322,21 @@ abstract class _$$SessionModelImplCopyWith<$Res>
       double cprFraction,
       int qualityScore,
       Map<String, double> errorRates,
-      Map<String, double> taskAccuracies,
+      double rateAccuracy,
+      double depthAccuracy,
+      double recoilAccuracy,
+      double ratePrecision,
+      double depthPrecision,
+      double recoilPrecision,
+      double rateRecall,
+      double depthRecall,
+      double recoilRecall,
+      double rateF1,
+      double depthF1,
+      double recoilF1,
+      double rateAuc,
+      double depthAuc,
+      double recoilAuc,
       Map<String, double> taskConfidences,
       String language,
       bool modelWasAvailable,
@@ -266,7 +370,21 @@ class __$$SessionModelImplCopyWithImpl<$Res>
     Object? cprFraction = null,
     Object? qualityScore = null,
     Object? errorRates = null,
-    Object? taskAccuracies = null,
+    Object? rateAccuracy = null,
+    Object? depthAccuracy = null,
+    Object? recoilAccuracy = null,
+    Object? ratePrecision = null,
+    Object? depthPrecision = null,
+    Object? recoilPrecision = null,
+    Object? rateRecall = null,
+    Object? depthRecall = null,
+    Object? recoilRecall = null,
+    Object? rateF1 = null,
+    Object? depthF1 = null,
+    Object? recoilF1 = null,
+    Object? rateAuc = null,
+    Object? depthAuc = null,
+    Object? recoilAuc = null,
     Object? taskConfidences = null,
     Object? language = null,
     Object? modelWasAvailable = null,
@@ -316,10 +434,66 @@ class __$$SessionModelImplCopyWithImpl<$Res>
           ? _value._errorRates
           : errorRates // ignore: cast_nullable_to_non_nullable
               as Map<String, double>,
-      taskAccuracies: null == taskAccuracies
-          ? _value._taskAccuracies
-          : taskAccuracies // ignore: cast_nullable_to_non_nullable
-              as Map<String, double>,
+      rateAccuracy: null == rateAccuracy
+          ? _value.rateAccuracy
+          : rateAccuracy // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthAccuracy: null == depthAccuracy
+          ? _value.depthAccuracy
+          : depthAccuracy // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilAccuracy: null == recoilAccuracy
+          ? _value.recoilAccuracy
+          : recoilAccuracy // ignore: cast_nullable_to_non_nullable
+              as double,
+      ratePrecision: null == ratePrecision
+          ? _value.ratePrecision
+          : ratePrecision // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthPrecision: null == depthPrecision
+          ? _value.depthPrecision
+          : depthPrecision // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilPrecision: null == recoilPrecision
+          ? _value.recoilPrecision
+          : recoilPrecision // ignore: cast_nullable_to_non_nullable
+              as double,
+      rateRecall: null == rateRecall
+          ? _value.rateRecall
+          : rateRecall // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthRecall: null == depthRecall
+          ? _value.depthRecall
+          : depthRecall // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilRecall: null == recoilRecall
+          ? _value.recoilRecall
+          : recoilRecall // ignore: cast_nullable_to_non_nullable
+              as double,
+      rateF1: null == rateF1
+          ? _value.rateF1
+          : rateF1 // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthF1: null == depthF1
+          ? _value.depthF1
+          : depthF1 // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilF1: null == recoilF1
+          ? _value.recoilF1
+          : recoilF1 // ignore: cast_nullable_to_non_nullable
+              as double,
+      rateAuc: null == rateAuc
+          ? _value.rateAuc
+          : rateAuc // ignore: cast_nullable_to_non_nullable
+              as double,
+      depthAuc: null == depthAuc
+          ? _value.depthAuc
+          : depthAuc // ignore: cast_nullable_to_non_nullable
+              as double,
+      recoilAuc: null == recoilAuc
+          ? _value.recoilAuc
+          : recoilAuc // ignore: cast_nullable_to_non_nullable
+              as double,
       taskConfidences: null == taskConfidences
           ? _value._taskConfidences
           : taskConfidences // ignore: cast_nullable_to_non_nullable
@@ -366,7 +540,21 @@ class _$SessionModelImpl implements _SessionModel {
       required this.cprFraction,
       required this.qualityScore,
       required final Map<String, double> errorRates,
-      final Map<String, double> taskAccuracies = const {},
+      this.rateAccuracy = 0.0,
+      this.depthAccuracy = 0.0,
+      this.recoilAccuracy = 0.0,
+      this.ratePrecision = 0.0,
+      this.depthPrecision = 0.0,
+      this.recoilPrecision = 0.0,
+      this.rateRecall = 0.0,
+      this.depthRecall = 0.0,
+      this.recoilRecall = 0.0,
+      this.rateF1 = 0.0,
+      this.depthF1 = 0.0,
+      this.recoilF1 = 0.0,
+      this.rateAuc = 0.0,
+      this.depthAuc = 0.0,
+      this.recoilAuc = 0.0,
       final Map<String, double> taskConfidences = const {},
       this.language = 'en',
       this.modelWasAvailable = false,
@@ -376,7 +564,6 @@ class _$SessionModelImpl implements _SessionModel {
       this.reviewLabel,
       this.reviewNote})
       : _errorRates = errorRates,
-        _taskAccuracies = taskAccuracies,
         _taskConfidences = taskConfidences,
         _rawFrames = rawFrames;
 
@@ -385,10 +572,8 @@ class _$SessionModelImpl implements _SessionModel {
 
   @override
   final String id;
-// millisecondsSinceEpoch string
   @override
   final String participantId;
-// FK -> participants.participant_id (Supabase)
   @override
   final DateTime startedAt;
   @override
@@ -401,12 +586,15 @@ class _$SessionModelImpl implements _SessionModel {
   final double meanDepthCm;
   @override
   final double cprFraction;
-// % of session time actively compressing
+
+  /// 0–100 weighted multi-task quality score (CNN-BiLSTM AUC-weighted).
   @override
   final int qualityScore;
-// 0–100, derived from CNN-BiLSTM multi-task weighted formula (research: ml_pipeline/CPR_Coach_Training.ipynb cell 35)
+
+  /// Per-frame class distribution: label → fraction of session frames.
   final Map<String, double> _errorRates;
-// 0–100, derived from CNN-BiLSTM multi-task weighted formula (research: ml_pipeline/CPR_Coach_Training.ipynb cell 35)
+
+  /// Per-frame class distribution: label → fraction of session frames.
   @override
   Map<String, double> get errorRates {
     if (_errorRates is EqualUnmodifiableMapView) return _errorRates;
@@ -414,31 +602,63 @@ class _$SessionModelImpl implements _SessionModel {
     return EqualUnmodifiableMapView(_errorRates);
   }
 
-// classLabel → fraction of session frames classified as that label (model-derived)
-  /// Per-task model accuracies from CNN-BiLSTM (test-set baseline reference)
-  /// Example: {'rate': 0.76, 'depth': 0.94, 'recoil': 0.75}
-  /// Research basis: Rate F1_w=75.92%, Depth F1_w=94.05%, Recoil F1_w=74.79%
-  final Map<String, double> _taskAccuracies;
-// classLabel → fraction of session frames classified as that label (model-derived)
-  /// Per-task model accuracies from CNN-BiLSTM (test-set baseline reference)
-  /// Example: {'rate': 0.76, 'depth': 0.94, 'recoil': 0.75}
-  /// Research basis: Rate F1_w=75.92%, Depth F1_w=94.05%, Recoil F1_w=74.79%
+// ── Research metrics: ACCURACY ──────────────────────────────────────────
+// Fraction of frames where the model classified the task as "Correct".
   @override
   @JsonKey()
-  Map<String, double> get taskAccuracies {
-    if (_taskAccuracies is EqualUnmodifiableMapView) return _taskAccuracies;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableMapView(_taskAccuracies);
-  }
-
-  /// Per-task model confidence scores from inference
-  /// Example: {'rate': 0.89, 'depth': 0.92, 'recoil': 0.81}
-  /// Used for quality score weighting and session reliability assessment
+  final double rateAccuracy;
+  @override
+  @JsonKey()
+  final double depthAccuracy;
+  @override
+  @JsonKey()
+  final double recoilAccuracy;
+// ── Research metrics: PRECISION ─────────────────────────────────────────
+// Macro-averaged precision per task (client-side, from frame tally).
+  @override
+  @JsonKey()
+  final double ratePrecision;
+  @override
+  @JsonKey()
+  final double depthPrecision;
+  @override
+  @JsonKey()
+  final double recoilPrecision;
+// ── Research metrics: RECALL ────────────────────────────────────────────
+  @override
+  @JsonKey()
+  final double rateRecall;
+  @override
+  @JsonKey()
+  final double depthRecall;
+  @override
+  @JsonKey()
+  final double recoilRecall;
+// ── Research metrics: F1-SCORE ──────────────────────────────────────────
+// Weighted F1 per task (matches notebook evaluation: F1_w).
+  @override
+  @JsonKey()
+  final double rateF1;
+  @override
+  @JsonKey()
+  final double depthF1;
+  @override
+  @JsonKey()
+  final double recoilF1;
+// ── Research metrics: ROC-AUC ───────────────────────────────────────────
+// Mean model confidence used as probabilistic score for AUC estimation.
+  @override
+  @JsonKey()
+  final double rateAuc;
+  @override
+  @JsonKey()
+  final double depthAuc;
+  @override
+  @JsonKey()
+  final double recoilAuc;
+// ── Legacy per-task confidence (kept for quality score weighting) ───────
   final Map<String, double> _taskConfidences;
-
-  /// Per-task model confidence scores from inference
-  /// Example: {'rate': 0.89, 'depth': 0.92, 'recoil': 0.81}
-  /// Used for quality score weighting and session reliability assessment
+// ── Legacy per-task confidence (kept for quality score weighting) ───────
   @override
   @JsonKey()
   Map<String, double> get taskConfidences {
@@ -453,21 +673,13 @@ class _$SessionModelImpl implements _SessionModel {
   @override
   @JsonKey()
   final bool modelWasAvailable;
-
-  /// Device identifier for performance tracking across sessions
   @override
   final String? deviceModel;
 
   /// Raw per-frame landmark data for retraining pipeline.
-  /// Excluded from json_serializable — StorageService serialises frames
-  /// manually via _frameToMap / exportFramesNdjson so we keep full control
-  /// over the wire format and avoid bloating the freezed generated code.
   final List<LandmarkFrame> _rawFrames;
 
   /// Raw per-frame landmark data for retraining pipeline.
-  /// Excluded from json_serializable — StorageService serialises frames
-  /// manually via _frameToMap / exportFramesNdjson so we keep full control
-  /// over the wire format and avoid bloating the freezed generated code.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   List<LandmarkFrame> get rawFrames {
@@ -476,18 +688,14 @@ class _$SessionModelImpl implements _SessionModel {
     return EqualUnmodifiableListView(_rawFrames);
   }
 
-  /// Reviewer label assigned after session review (null = not yet reviewed).
-  /// Values: 'correct' | 'incorrect' | 'partial'
   @override
   final String? reviewLabel;
-
-  /// Optional free-text note from reviewer or researcher.
   @override
   final String? reviewNote;
 
   @override
   String toString() {
-    return 'SessionModel(id: $id, participantId: $participantId, startedAt: $startedAt, endedAt: $endedAt, totalCompressions: $totalCompressions, meanBpm: $meanBpm, meanDepthCm: $meanDepthCm, cprFraction: $cprFraction, qualityScore: $qualityScore, errorRates: $errorRates, taskAccuracies: $taskAccuracies, taskConfidences: $taskConfidences, language: $language, modelWasAvailable: $modelWasAvailable, deviceModel: $deviceModel, rawFrames: $rawFrames, reviewLabel: $reviewLabel, reviewNote: $reviewNote)';
+    return 'SessionModel(id: $id, participantId: $participantId, startedAt: $startedAt, endedAt: $endedAt, totalCompressions: $totalCompressions, meanBpm: $meanBpm, meanDepthCm: $meanDepthCm, cprFraction: $cprFraction, qualityScore: $qualityScore, errorRates: $errorRates, rateAccuracy: $rateAccuracy, depthAccuracy: $depthAccuracy, recoilAccuracy: $recoilAccuracy, ratePrecision: $ratePrecision, depthPrecision: $depthPrecision, recoilPrecision: $recoilPrecision, rateRecall: $rateRecall, depthRecall: $depthRecall, recoilRecall: $recoilRecall, rateF1: $rateF1, depthF1: $depthF1, recoilF1: $recoilF1, rateAuc: $rateAuc, depthAuc: $depthAuc, recoilAuc: $recoilAuc, taskConfidences: $taskConfidences, language: $language, modelWasAvailable: $modelWasAvailable, deviceModel: $deviceModel, rawFrames: $rawFrames, reviewLabel: $reviewLabel, reviewNote: $reviewNote)';
   }
 
   @override
@@ -512,8 +720,33 @@ class _$SessionModelImpl implements _SessionModel {
                 other.qualityScore == qualityScore) &&
             const DeepCollectionEquality()
                 .equals(other._errorRates, _errorRates) &&
-            const DeepCollectionEquality()
-                .equals(other._taskAccuracies, _taskAccuracies) &&
+            (identical(other.rateAccuracy, rateAccuracy) ||
+                other.rateAccuracy == rateAccuracy) &&
+            (identical(other.depthAccuracy, depthAccuracy) ||
+                other.depthAccuracy == depthAccuracy) &&
+            (identical(other.recoilAccuracy, recoilAccuracy) ||
+                other.recoilAccuracy == recoilAccuracy) &&
+            (identical(other.ratePrecision, ratePrecision) ||
+                other.ratePrecision == ratePrecision) &&
+            (identical(other.depthPrecision, depthPrecision) ||
+                other.depthPrecision == depthPrecision) &&
+            (identical(other.recoilPrecision, recoilPrecision) ||
+                other.recoilPrecision == recoilPrecision) &&
+            (identical(other.rateRecall, rateRecall) ||
+                other.rateRecall == rateRecall) &&
+            (identical(other.depthRecall, depthRecall) ||
+                other.depthRecall == depthRecall) &&
+            (identical(other.recoilRecall, recoilRecall) ||
+                other.recoilRecall == recoilRecall) &&
+            (identical(other.rateF1, rateF1) || other.rateF1 == rateF1) &&
+            (identical(other.depthF1, depthF1) || other.depthF1 == depthF1) &&
+            (identical(other.recoilF1, recoilF1) ||
+                other.recoilF1 == recoilF1) &&
+            (identical(other.rateAuc, rateAuc) || other.rateAuc == rateAuc) &&
+            (identical(other.depthAuc, depthAuc) ||
+                other.depthAuc == depthAuc) &&
+            (identical(other.recoilAuc, recoilAuc) ||
+                other.recoilAuc == recoilAuc) &&
             const DeepCollectionEquality()
                 .equals(other._taskConfidences, _taskConfidences) &&
             (identical(other.language, language) ||
@@ -532,26 +765,41 @@ class _$SessionModelImpl implements _SessionModel {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      participantId,
-      startedAt,
-      endedAt,
-      totalCompressions,
-      meanBpm,
-      meanDepthCm,
-      cprFraction,
-      qualityScore,
-      const DeepCollectionEquality().hash(_errorRates),
-      const DeepCollectionEquality().hash(_taskAccuracies),
-      const DeepCollectionEquality().hash(_taskConfidences),
-      language,
-      modelWasAvailable,
-      deviceModel,
-      const DeepCollectionEquality().hash(_rawFrames),
-      reviewLabel,
-      reviewNote);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        participantId,
+        startedAt,
+        endedAt,
+        totalCompressions,
+        meanBpm,
+        meanDepthCm,
+        cprFraction,
+        qualityScore,
+        const DeepCollectionEquality().hash(_errorRates),
+        rateAccuracy,
+        depthAccuracy,
+        recoilAccuracy,
+        ratePrecision,
+        depthPrecision,
+        recoilPrecision,
+        rateRecall,
+        depthRecall,
+        recoilRecall,
+        rateF1,
+        depthF1,
+        recoilF1,
+        rateAuc,
+        depthAuc,
+        recoilAuc,
+        const DeepCollectionEquality().hash(_taskConfidences),
+        language,
+        modelWasAvailable,
+        deviceModel,
+        const DeepCollectionEquality().hash(_rawFrames),
+        reviewLabel,
+        reviewNote
+      ]);
 
   /// Create a copy of SessionModel
   /// with the given fields replaced by the non-null parameter values.
@@ -581,7 +829,21 @@ abstract class _SessionModel implements SessionModel {
       required final double cprFraction,
       required final int qualityScore,
       required final Map<String, double> errorRates,
-      final Map<String, double> taskAccuracies,
+      final double rateAccuracy,
+      final double depthAccuracy,
+      final double recoilAccuracy,
+      final double ratePrecision,
+      final double depthPrecision,
+      final double recoilPrecision,
+      final double rateRecall,
+      final double depthRecall,
+      final double recoilRecall,
+      final double rateF1,
+      final double depthF1,
+      final double recoilF1,
+      final double rateAuc,
+      final double depthAuc,
+      final double recoilAuc,
       final Map<String, double> taskConfidences,
       final String language,
       final bool modelWasAvailable,
@@ -595,9 +857,9 @@ abstract class _SessionModel implements SessionModel {
       _$SessionModelImpl.fromJson;
 
   @override
-  String get id; // millisecondsSinceEpoch string
+  String get id;
   @override
-  String get participantId; // FK -> participants.participant_id (Supabase)
+  String get participantId;
   @override
   DateTime get startedAt;
   @override
@@ -609,46 +871,70 @@ abstract class _SessionModel implements SessionModel {
   @override
   double get meanDepthCm;
   @override
-  double get cprFraction; // % of session time actively compressing
+  double get cprFraction;
+
+  /// 0–100 weighted multi-task quality score (CNN-BiLSTM AUC-weighted).
   @override
-  int get qualityScore; // 0–100, derived from CNN-BiLSTM multi-task weighted formula (research: ml_pipeline/CPR_Coach_Training.ipynb cell 35)
+  int get qualityScore;
+
+  /// Per-frame class distribution: label → fraction of session frames.
   @override
   Map<String, double>
-      get errorRates; // classLabel → fraction of session frames classified as that label (model-derived)
-  /// Per-task model accuracies from CNN-BiLSTM (test-set baseline reference)
-  /// Example: {'rate': 0.76, 'depth': 0.94, 'recoil': 0.75}
-  /// Research basis: Rate F1_w=75.92%, Depth F1_w=94.05%, Recoil F1_w=74.79%
+      get errorRates; // ── Research metrics: ACCURACY ──────────────────────────────────────────
+// Fraction of frames where the model classified the task as "Correct".
   @override
-  Map<String, double> get taskAccuracies;
-
-  /// Per-task model confidence scores from inference
-  /// Example: {'rate': 0.89, 'depth': 0.92, 'recoil': 0.81}
-  /// Used for quality score weighting and session reliability assessment
+  double get rateAccuracy;
+  @override
+  double get depthAccuracy;
+  @override
+  double
+      get recoilAccuracy; // ── Research metrics: PRECISION ─────────────────────────────────────────
+// Macro-averaged precision per task (client-side, from frame tally).
+  @override
+  double get ratePrecision;
+  @override
+  double get depthPrecision;
+  @override
+  double
+      get recoilPrecision; // ── Research metrics: RECALL ────────────────────────────────────────────
+  @override
+  double get rateRecall;
+  @override
+  double get depthRecall;
+  @override
+  double
+      get recoilRecall; // ── Research metrics: F1-SCORE ──────────────────────────────────────────
+// Weighted F1 per task (matches notebook evaluation: F1_w).
+  @override
+  double get rateF1;
+  @override
+  double get depthF1;
+  @override
+  double
+      get recoilF1; // ── Research metrics: ROC-AUC ───────────────────────────────────────────
+// Mean model confidence used as probabilistic score for AUC estimation.
+  @override
+  double get rateAuc;
+  @override
+  double get depthAuc;
+  @override
+  double
+      get recoilAuc; // ── Legacy per-task confidence (kept for quality score weighting) ───────
   @override
   Map<String, double> get taskConfidences;
   @override
   String get language;
   @override
   bool get modelWasAvailable;
-
-  /// Device identifier for performance tracking across sessions
   @override
   String? get deviceModel;
 
   /// Raw per-frame landmark data for retraining pipeline.
-  /// Excluded from json_serializable — StorageService serialises frames
-  /// manually via _frameToMap / exportFramesNdjson so we keep full control
-  /// over the wire format and avoid bloating the freezed generated code.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   List<LandmarkFrame> get rawFrames;
-
-  /// Reviewer label assigned after session review (null = not yet reviewed).
-  /// Values: 'correct' | 'incorrect' | 'partial'
   @override
   String? get reviewLabel;
-
-  /// Optional free-text note from reviewer or researcher.
   @override
   String? get reviewNote;
 
@@ -671,19 +957,13 @@ mixin _$InferenceResult {
   double get estimatedDepthCm => throw _privateConstructorUsedError;
   double get elbowAngleMean => throw _privateConstructorUsedError;
   double get spineVerticalityDeg =>
-      throw _privateConstructorUsedError; // Per-task metrics from CNN-BiLSTM three-head model
-  double? get rateAccuracy =>
-      throw _privateConstructorUsedError; // Rate classification accuracy (0.0–1.0)
-  double? get rateConfidence =>
-      throw _privateConstructorUsedError; // Rate classification confidence
-  double? get depthAccuracy =>
-      throw _privateConstructorUsedError; // Depth classification accuracy (0.0–1.0)
-  double? get depthConfidence =>
-      throw _privateConstructorUsedError; // Depth classification confidence
-  double? get recoilAccuracy =>
-      throw _privateConstructorUsedError; // Recoil classification accuracy (0.0–1.0)
-  double? get recoilConfidence =>
-      throw _privateConstructorUsedError; // Recoil classification confidence
+      throw _privateConstructorUsedError; // Per-task accuracy and confidence from CNN-BiLSTM three-head model
+  double? get rateAccuracy => throw _privateConstructorUsedError;
+  double? get rateConfidence => throw _privateConstructorUsedError;
+  double? get depthAccuracy => throw _privateConstructorUsedError;
+  double? get depthConfidence => throw _privateConstructorUsedError;
+  double? get recoilAccuracy => throw _privateConstructorUsedError;
+  double? get recoilConfidence => throw _privateConstructorUsedError;
   bool get isSimulated => throw _privateConstructorUsedError;
 
   /// Create a copy of InferenceResult
@@ -991,25 +1271,19 @@ class _$InferenceResultImpl implements _InferenceResult {
   final double elbowAngleMean;
   @override
   final double spineVerticalityDeg;
-// Per-task metrics from CNN-BiLSTM three-head model
+// Per-task accuracy and confidence from CNN-BiLSTM three-head model
   @override
   final double? rateAccuracy;
-// Rate classification accuracy (0.0–1.0)
   @override
   final double? rateConfidence;
-// Rate classification confidence
   @override
   final double? depthAccuracy;
-// Depth classification accuracy (0.0–1.0)
   @override
   final double? depthConfidence;
-// Depth classification confidence
   @override
   final double? recoilAccuracy;
-// Recoil classification accuracy (0.0–1.0)
   @override
   final double? recoilConfidence;
-// Recoil classification confidence
   @override
   @JsonKey()
   final bool isSimulated;
@@ -1125,19 +1399,19 @@ abstract class _InferenceResult implements InferenceResult {
   double get elbowAngleMean;
   @override
   double
-      get spineVerticalityDeg; // Per-task metrics from CNN-BiLSTM three-head model
+      get spineVerticalityDeg; // Per-task accuracy and confidence from CNN-BiLSTM three-head model
   @override
-  double? get rateAccuracy; // Rate classification accuracy (0.0–1.0)
+  double? get rateAccuracy;
   @override
-  double? get rateConfidence; // Rate classification confidence
+  double? get rateConfidence;
   @override
-  double? get depthAccuracy; // Depth classification accuracy (0.0–1.0)
+  double? get depthAccuracy;
   @override
-  double? get depthConfidence; // Depth classification confidence
+  double? get depthConfidence;
   @override
-  double? get recoilAccuracy; // Recoil classification accuracy (0.0–1.0)
+  double? get recoilAccuracy;
   @override
-  double? get recoilConfidence; // Recoil classification confidence
+  double? get recoilConfidence;
   @override
   bool get isSimulated;
 
@@ -1151,10 +1425,8 @@ abstract class _InferenceResult implements InferenceResult {
 
 /// @nodoc
 mixin _$FeedbackPrompt {
-  String get key =>
-      throw _privateConstructorUsedError; // matches AppConstants.promptsEn keys
-  String get message =>
-      throw _privateConstructorUsedError; // resolved string in active language
+  String get key => throw _privateConstructorUsedError;
+  String get message => throw _privateConstructorUsedError;
   FeedbackSeverity get severity => throw _privateConstructorUsedError;
   DateTime get issuedAt => throw _privateConstructorUsedError;
 
@@ -1284,10 +1556,8 @@ class _$FeedbackPromptImpl implements _FeedbackPrompt {
 
   @override
   final String key;
-// matches AppConstants.promptsEn keys
   @override
   final String message;
-// resolved string in active language
   @override
   final FeedbackSeverity severity;
   @override
@@ -1333,9 +1603,9 @@ abstract class _FeedbackPrompt implements FeedbackPrompt {
       required final DateTime issuedAt}) = _$FeedbackPromptImpl;
 
   @override
-  String get key; // matches AppConstants.promptsEn keys
+  String get key;
   @override
-  String get message; // resolved string in active language
+  String get message;
   @override
   FeedbackSeverity get severity;
   @override

@@ -37,7 +37,7 @@ class HomeScreen extends ConsumerWidget {
                           style: Theme.of(context).textTheme.headlineLarge),
                       const SizedBox(height: 4),
                       Text(
-                        'CPR Sim · Your first step out of novelty',
+                        'First Aid CPR Training',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
@@ -64,7 +64,7 @@ const SizedBox(height: 32),
                 icon: Icons.monitor_heart_rounded,
                 iconColor: AppTheme.accent,
                 title: 'Start Training',
-                subtitle: 'Real-time CPR coaching with pose feedback',
+                subtitle: 'AI-guided CPR first-aid training with real-time feedback',
                 onTap: () => context.push(AppRoutes.participantGate),
               ),
 
@@ -109,7 +109,7 @@ const SizedBox(height: 32),
                 child: Column(
                   children: [
                     Text(
-                      'Only for first responders, but everyone can be one.',
+                      'Training first-aid responders with AI-guided CPR coaching.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontStyle: FontStyle.italic,
@@ -118,7 +118,7 @@ const SizedBox(height: 32),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'That 10 min before the ambulance arrives can be the difference between life and death.',
+                      'Practice correct compression rate, depth, and chest recoil with instant model feedback.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),

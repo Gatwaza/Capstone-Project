@@ -3,7 +3,7 @@
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 //
 // Web ML inference — calls hosted CNN_BiLSTM API.
-// Falls back to rule-based classification when API is unreachable.
+// Returns isSimulated=true (no accumulation) when the CNN-BiLSTM API is unreachable.
 
 import 'dart:async';
 import 'dart:collection';
@@ -146,19 +146,28 @@ class InferenceServiceWeb {
     // this frame's return, which is what keeps the UI/audio responsive.
     unawaited(_maybeCallApi(frame));
 
-    // FIX: actually use the real model's prediction when we have a fresh
-    // one, instead of always returning the rule-based fallback. The rule
-    // fallback still drives every frame in between API responses (and
-    // whenever the model is unreachable), so feedback never stalls waiting
-    // on the network — it just gets corrected by the real model whenever a
-    // fresh prediction lands.
+    // Return cached model result when fresh; otherwise return a null-signal
+    // result (isSimulated=true) so the provider skips accumulation.
+    // No rule-based fallback — model availability is tracked explicitly.
     final cached = _lastApiResult;
     if (cached != null &&
         DateTime.now().difference(cached.timestamp) < _apiResultMaxAge) {
       return cached.copyWith(currentBpm: bpm, estimatedDepthCm: depth);
     }
 
-    return _ruleBased(frame, bpm, depth);
+    // Model not yet loaded or API call in flight — return a non-accumulating result.
+    return InferenceResult(
+      timestamp:           DateTime.now(),
+      topClassIndex:       0,
+      topClassLabel:       'model_unavailable',
+      topClassConfidence:  0.0,
+      allClassScores:      const {},
+      currentBpm:          bpm,
+      estimatedDepthCm:    depth,
+      elbowAngleMean:      (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
+      spineVerticalityDeg: frame.spineVerticality,
+      isSimulated:         true,
+    );
   }
 
   List<double> _buildFeatures(LandmarkFrame frame) {
@@ -181,31 +190,6 @@ class InferenceServiceWeb {
     );
   }
 
-  InferenceResult _ruleBased(LandmarkFrame frame, double bpm, double depth) {
-    String label = 'correct_compression';
-    if (bpm > 0) {
-      if (bpm < AppConstants.cprMinRateBpm) label = 'rate_too_slow';
-      if (bpm > AppConstants.cprMaxRateBpm) label = 'rate_too_fast';
-    }
-    if (label == 'correct_compression') {
-      final meanElbow = (frame.leftElbowAngle + frame.rightElbowAngle) / 2;
-      if (meanElbow < AppConstants.elbowLockAngleDeg)            label = 'bent_elbows';
-      else if (depth > 0 && depth < AppConstants.cprMinDepthCm - 0.5) label = 'too_shallow';
-      else if (depth > AppConstants.cprMaxDepthCm + 0.5)         label = 'too_deep';
-    }
-    return InferenceResult(
-      timestamp:           DateTime.now(),
-      topClassIndex:       0,
-      topClassLabel:       label,
-      topClassConfidence:  0.85,
-      allClassScores:      {label: 0.85},
-      currentBpm:          bpm,
-      estimatedDepthCm:    depth,
-      elbowAngleMean:      (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
-      spineVerticalityDeg: frame.spineVerticality,
-      isSimulated:         true,
-    );
-  }
 
   // ── Depth calibration helpers ──────────────────────────────────────────────
 

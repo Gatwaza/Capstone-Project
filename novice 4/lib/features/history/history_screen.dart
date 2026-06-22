@@ -101,10 +101,14 @@ class HistoryScreen extends ConsumerWidget {
                               _formatDate(s.startedAt),
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
-                            // NEW: Per-task mini breakdown
-                            if (s.taskAccuracies.isNotEmpty) ...[
+                            // Per-task mini breakdown (from flat research metrics)
+                            if (s.rateAccuracy > 0 || s.depthAccuracy > 0 || s.recoilAccuracy > 0) ...[
                               const SizedBox(height: 8),
-                              _TaskMiniRow(taskAccuracies: s.taskAccuracies),
+                              _TaskMiniRow(taskAccuracies: {
+                                'rate':   s.rateAccuracy,
+                                'depth':  s.depthAccuracy,
+                                'recoil': s.recoilAccuracy,
+                              }),
                             ],
                           ],
                         ),

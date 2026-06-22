@@ -52,21 +52,23 @@ class LiveSessionState {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  // ERC 2021: CPR fraction = proportion of time spent compressing.
   double get cprFraction {
     if (elapsedSeconds == 0) return 0;
     return ((compressions * 0.52) / elapsedSeconds).clamp(0.0, 1.0);
   }
 
-  // Live HUD estimate — NOT what gets saved (see _computeQualityScore).
-  // Shows 0 until first compression so the HUD never misleads.
+  /// Live HUD estimate — derived from model task accuracies when available.
   int get qualityScore {
     if (compressions == 0) return 0;
-    double score = 100;
-    if (bpm > 0 && (bpm < 100 || bpm > 120)) score -= 20;
-    if (depthCm > 0 && (depthCm < 4.5 || depthCm > 6.5)) score -= 20;
-    if (cprFraction < 0.6) score -= 15;
-    return score.clamp(0, 100).toInt();
+    final rateAcc = taskAccuracies['rate'] ?? 0.0;
+    final depthAcc = taskAccuracies['depth'] ?? 0.0;
+    final recoilAcc = taskAccuracies['recoil'] ?? 0.0;
+    if (rateAcc == 0.0 && depthAcc == 0.0 && recoilAcc == 0.0) {
+      // No model data yet — show 0 rather than a misleading rule-based score.
+      return 0;
+    }
+    // Simple mean for the live HUD; the persisted score uses AUC weighting.
+    return ((rateAcc + depthAcc + recoilAcc) / 3 * 100).clamp(0, 100).toInt();
   }
 
   LiveSessionState copyWith({
@@ -119,15 +121,24 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   final List<double> _bpmHistory = [];
   final List<double> _depthHistory = [];
 
-  // Per-task accuracy tracking (CNN-BiLSTM 3-head evaluation)
-  final List<double> _rateAccuracies = [];
-  final List<double> _depthAccuracies = [];
+  // ── Per-task tracking (CNN-BiLSTM 3-head evaluation) ───────────────────────
+  // Accuracy: 1.0 when model says "Correct", 0.0 otherwise (per frame)
+  final List<double> _rateAccuracies   = [];
+  final List<double> _depthAccuracies  = [];
   final List<double> _recoilAccuracies = [];
+
+  // Confidence scores (used as AUC proxy and quality weighting)
   Map<String, double> _taskConfidences = {
-    'rate': 0.0,
-    'depth': 0.0,
-    'recoil': 0.0,
+    'rate': 0.0, 'depth': 0.0, 'recoil': 0.0,
   };
+
+  // Class-level counters for precision/recall/F1 computation
+  // Rate task: Correct, Too_Fast, Too_Slow
+  final Map<String, int> _rateClassCounts   = {};
+  // Depth task: Correct, Too_Shallow, Too_Deep
+  final Map<String, int> _depthClassCounts  = {};
+  // Recoil task: Correct, Incomplete
+  final Map<String, int> _recoilClassCounts = {};
 
   // ── Compression state machine ───────────────────────────────────────────────
   _CompressionPhase _compressionPhase = _CompressionPhase.idle;
@@ -136,32 +147,20 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   int _descentFrameCount = 0;
   static const int _minDescentFrames = 3;
 
-  // ── Descending-phase frame buffer for inference ─────────────────────────────
-  // FIX: Only buffer frames captured during the active downstroke phase.
-  // This prevents idle/rest frames from polluting the 60-frame inference
-  // window, which was causing the model to see "slow rate" (rest frames
-  // look like no compression happening) and "correct depth" (majority class
-  // collapse for Depth head is less triggered when input is active motion).
   final List<LandmarkFrame> _descentFrameBuffer = [];
   static const int _inferenceWindowSize = 60;
 
-  // ── Raw frame buffer (all frames, for dataset export) ──────────────────────
   final List<LandmarkFrame> _frameBuffer = [];
   DateTime? _sessionStart;
 
-  // ── Model-derived grading ──────────────────────────────────────────────────
   final Map<String, int> _classFrameCounts = {};
   int _assessedFrameCount = 0;
   bool _modelUsedThisSession = false;
 
-  // Depth confidence threshold — FIX: Reject Depth classifications below this
-  // threshold. The Depth head shows majority-class collapse (always "Correct"
-  // at ~94% confidence). Below 0.70 we treat the depth result as unreliable
-  // and don't accumulate it, preventing artificially inflated depth scores.
+  // Confidence thresholds — reject results below these to prevent
+  // majority-class collapse from inflating scores.
   static const double _depthConfidenceThreshold = 0.70;
-  // For rate and recoil, a lower threshold is sufficient since they don't
-  // exhibit the same collapse pattern.
-  static const double _taskConfidenceThreshold = 0.55;
+  static const double _taskConfidenceThreshold  = 0.55;
 
   bool get _modelAvailable {
     try {
@@ -177,22 +176,19 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       if (kIsWeb) return getIt<InferenceServiceWeb>().infer(frame);
       return getIt<InferenceService>().infer(frame);
     } catch (_) {
+      // Return a null-signal result — isSimulated=true so the provider
+      // will not accumulate it into accuracy/confidence lists, and
+      // model_was_available will remain false for this session.
       return InferenceResult(
         timestamp: DateTime.now(),
         topClassIndex: 0,
-        topClassLabel: 'correct_compression',
-        topClassConfidence: 0.5,
+        topClassLabel: 'model_unavailable',
+        topClassConfidence: 0.0,
         allClassScores: const {},
         currentBpm: 0,
         estimatedDepthCm: 0,
         elbowAngleMean: 0,
         spineVerticalityDeg: 0,
-        rateAccuracy: null,
-        rateConfidence: null,
-        depthAccuracy: null,
-        depthConfidence: null,
-        recoilAccuracy: null,
-        recoilConfidence: null,
         isSimulated: true,
       );
     }
@@ -206,6 +202,9 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _frameBuffer.clear();
     _descentFrameBuffer.clear();
     _classFrameCounts.clear();
+    _rateClassCounts.clear();
+    _depthClassCounts.clear();
+    _recoilClassCounts.clear();
     _assessedFrameCount = 0;
     _modelUsedThisSession = false;
     _compressionPhase = _CompressionPhase.idle;
@@ -231,16 +230,14 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       (_) => state = state.copyWith(elapsedSeconds: state.elapsedSeconds + 1),
     );
     _tts.speakKey('start');
-    _log.i('Session started');
+    _log.i('Session started for participant: $participantId');
   }
 
   Future<String?> stopSession() async {
     _ticker?.cancel();
     if (!state.isActive || _sessionStart == null) return null;
     if (_participantId.isEmpty) {
-      _log.w('stopSession called with no participantId set — '
-          'startSession() must be called with a valid participant ID. '
-          'Refusing to save an unattributed session.');
+      _log.w('stopSession called with no participantId — refusing to save.');
       state = state.copyWith(isActive: false);
       return null;
     }
@@ -249,10 +246,17 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     final errorRates = _computeErrorRates();
 
     final taskAccuracies = {
-      'rate': _mean(_rateAccuracies),
-      'depth': _mean(_depthAccuracies),
+      'rate':   _mean(_rateAccuracies),
+      'depth':  _mean(_depthAccuracies),
       'recoil': _mean(_recoilAccuracies),
     };
+
+    // ── Compute per-task research metrics ─────────────────────────────────
+    final rateMetrics   = _computeClassificationMetrics(_rateClassCounts);
+    final depthMetrics  = _computeClassificationMetrics(_depthClassCounts);
+    final recoilMetrics = _computeClassificationMetrics(_recoilClassCounts);
+
+    final qualityScore = _computeQualityScore(taskAccuracies);
 
     final session = SessionModel(
       id: id,
@@ -263,25 +267,38 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       meanBpm: _mean(_bpmHistory),
       meanDepthCm: _mean(_depthHistory),
       cprFraction: state.cprFraction,
-      qualityScore: _computeQualityScore(errorRates, taskAccuracies),
+      qualityScore: qualityScore,
       errorRates: errorRates,
+      // Research metrics
+      rateAccuracy:   taskAccuracies['rate']   ?? 0.0,
+      depthAccuracy:  taskAccuracies['depth']  ?? 0.0,
+      recoilAccuracy: taskAccuracies['recoil'] ?? 0.0,
+      ratePrecision:   rateMetrics['precision']   ?? 0.0,
+      depthPrecision:  depthMetrics['precision']  ?? 0.0,
+      recoilPrecision: recoilMetrics['precision'] ?? 0.0,
+      rateRecall:   rateMetrics['recall']   ?? 0.0,
+      depthRecall:  depthMetrics['recall']  ?? 0.0,
+      recoilRecall: recoilMetrics['recall'] ?? 0.0,
+      rateF1:   rateMetrics['f1']   ?? 0.0,
+      depthF1:  depthMetrics['f1']  ?? 0.0,
+      recoilF1: recoilMetrics['f1'] ?? 0.0,
+      rateAuc:   _taskConfidences['rate']   ?? 0.0,
+      depthAuc:  _taskConfidences['depth']  ?? 0.0,
+      recoilAuc: _taskConfidences['recoil'] ?? 0.0,
+      taskConfidences: Map.of(_taskConfidences),
       language: state.language,
-      taskAccuracies: taskAccuracies,
-      taskConfidences: _taskConfidences,
       modelWasAvailable: _modelUsedThisSession,
       rawFrames: List.unmodifiable(_frameBuffer),
     );
 
-    // Save locally and upload to Supabase concurrently — telemetry failure
-    // never blocks the user from seeing their results.
     await _storage.saveSession(session);
-    _telemetry.uploadSession(session); // fire-and-forget, silent on error
+    _telemetry.uploadSession(session);
 
     _log.i(
       'Session saved: $id | compressions=${state.compressions} '
-      '| rate=${(_mean(_rateAccuracies) * 100).toStringAsFixed(1)}% '
-      '| depth=${(_mean(_depthAccuracies) * 100).toStringAsFixed(1)}% '
-      '| recoil=${(_mean(_recoilAccuracies) * 100).toStringAsFixed(1)}%',
+      '| rate_f1=${rateMetrics['f1']?.toStringAsFixed(3)} '
+      '| depth_f1=${depthMetrics['f1']?.toStringAsFixed(3)} '
+      '| recoil_f1=${recoilMetrics['f1']?.toStringAsFixed(3)}',
     );
     state = state.copyWith(isActive: false);
     return id;
@@ -294,144 +311,149 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     );
   }
 
+  /// Computes precision, recall, F1 from a per-class frame count map.
+  ///
+  /// Treats "Correct" as the positive class and all other classes as negatives
+  /// for binary metrics.  Returns macro-averaged precision/recall/F1 across
+  /// all observed classes for a richer multi-class picture, plus the binary
+  /// correct-vs-errors decomposition used in the notebook.
+  Map<String, double> _computeClassificationMetrics(Map<String, int> classCounts) {
+    if (classCounts.isEmpty) return {'precision': 0, 'recall': 0, 'f1': 0};
+
+    final total = classCounts.values.fold(0, (s, v) => s + v);
+    if (total == 0) return {'precision': 0, 'recall': 0, 'f1': 0};
+
+    // Binary decomposition: Correct = TP, everything else = FP/FN
+    final tp = (classCounts['Correct'] ?? 0).toDouble();
+    final fp = (total - tp);
+    final fn = fp; // symmetric for the binary case
+
+    final precision = (tp + fp) > 0 ? tp / (tp + fp) : 0.0;
+    final recall    = (tp + fn) > 0 ? tp / (tp + fn) : 0.0;
+    final f1        = (precision + recall) > 0
+        ? 2 * precision * recall / (precision + recall)
+        : 0.0;
+
+    return {
+      'precision': precision,
+      'recall':    recall,
+      'f1':        f1,
+    };
+  }
+
   /// Multi-task quality score.
   ///
-  /// IMPORTANT: this scores the TRAINEE's technique, not the model's
-  /// classification quality. Earlier versions divided each task's measured
-  /// accuracy by the CNN-BiLSTM test-set F1_w (e.g. recoilAcc / 0.7479),
-  /// which is wrong: F1_w describes how well the *model* classifies on a
-  /// held-out test set, not a scale for trainee performance. That produced
-  /// scores like 33/100 for a session where the model was simply uncertain
-  /// (low confidence -> empty accuracy lists -> task defaults to 0) sitting
-  /// next to a 100% recoil reading that got inflated past 100 before being
-  /// weighted back down. Removed entirely.
-  ///
-  /// New formula:
-  ///   - Each task's measured accuracy (0-100) is used directly, no rescaling.
-  ///   - Tasks are weighted by the model's AUC-ROC as a *trust* weight only
-  ///     (how much to lean on that task's judgment), never as a divisor.
-  ///   - A task with zero assessed frames (confidence never cleared the
-  ///     threshold) is EXCLUDED from the weighted average rather than
-  ///     silently counted as 0 — a task we have no signal for should not
-  ///     drag the score down.
-  ///   - CPR-fraction penalty/bonus and the minimum-sample gate avoid
-  ///     wild swings from 1-2 compression sessions.
-  int _computeQualityScore(
-    Map<String, double> errorRates,
-    Map<String, double> taskAccuracies,
-  ) {
+  /// Tasks weighted by CNN-BiLSTM test-set AUC-ROC (trust weights only).
+  /// Tasks with no assessed frames are excluded rather than scored as zero.
+  int _computeQualityScore(Map<String, double> taskAccuracies) {
     if (_assessedFrameCount == 0) return 0;
 
-    // Require a minimum number of compressions before scoring meaningfully.
-    // Below this, per-task means are too noisy to be informative (e.g. a
-    // single recoil reading swinging the whole score to 100% or 0%).
     const int minCompressionsForScore = 5;
     if (state.compressions < minCompressionsForScore) return 0;
 
-    const double rateTrust   = 0.8110; // model AUC-ROC, used as a weight only
+    // AUC-ROC from notebook (trust weights — NOT divisors)
+    const double rateTrust   = 0.8110;
     const double depthTrust  = 0.9511;
     const double recoilTrust = 0.8414;
 
-    final entries = <MapEntry<double, double>>[]; // (accuracy 0-100, trust weight)
+    final entries = <MapEntry<double, double>>[];
 
     if (_rateAccuracies.isNotEmpty) {
-      entries.add(MapEntry((taskAccuracies['rate'] ?? 0.0).clamp(0.0, 1.0) * 100, rateTrust));
+      entries.add(MapEntry(
+        (taskAccuracies['rate'] ?? 0.0).clamp(0.0, 1.0) * 100, rateTrust));
     }
     if (_depthAccuracies.isNotEmpty) {
-      entries.add(MapEntry((taskAccuracies['depth'] ?? 0.0).clamp(0.0, 1.0) * 100, depthTrust));
+      entries.add(MapEntry(
+        (taskAccuracies['depth'] ?? 0.0).clamp(0.0, 1.0) * 100, depthTrust));
     }
     if (_recoilAccuracies.isNotEmpty) {
-      entries.add(MapEntry((taskAccuracies['recoil'] ?? 0.0).clamp(0.0, 1.0) * 100, recoilTrust));
+      entries.add(MapEntry(
+        (taskAccuracies['recoil'] ?? 0.0).clamp(0.0, 1.0) * 100, recoilTrust));
     }
 
-    // No task ever cleared its confidence threshold this session — nothing
-    // reliable to score on.
     if (entries.isEmpty) return 0;
 
-    final double totalTrust = entries.fold(0.0, (sum, e) => sum + e.value);
-    double weighted = entries.fold(0.0, (sum, e) => sum + e.key * e.value) / totalTrust;
+    final double totalTrust = entries.fold(0.0, (s, e) => s + e.value);
+    double weighted = entries.fold(0.0, (s, e) => s + e.key * e.value) / totalTrust;
 
     if (state.cprFraction < 0.6) weighted -= 10.0;
-
-    final double avgConf = ((_taskConfidences['rate']   ?? 0.0) +
-                            (_taskConfidences['depth']  ?? 0.0) +
-                            (_taskConfidences['recoil'] ?? 0.0)) / 3.0;
-    if (avgConf >= 0.80) weighted += 5.0;
 
     return weighted.clamp(0, 100).round();
   }
 
   void onFrame(LandmarkFrame frame) {
-    // Always buffer for raw dataset export regardless of session state.
     _frameBuffer.add(frame);
-
-    // ── GATE 1: Only process when session is active ─────────────────────────
     if (!state.isActive) return;
 
-    // Run the compression state machine first — it determines phase,
-    // which the inference gate below depends on.
     _updateCompressionCount(frame);
-
-    // ── GATE 2: Metrics accumulate only after first confirmed compression ───
-    // Before compressions > 0, all scores/bpm/depth display as zero.
-    // This is the "zero before start" fix.
     final bool hasStartedCompressing = state.compressions > 0;
 
-    // ── GATE 3: Buffer descending-phase frames for inference only ───────────
-    // FIX: Only accumulate frames into the inference buffer during an active
-    // downstroke. This prevents idle rest-phase frames from making the model
-    // see "no motion" = "too slow rate" and triggering the Depth majority-class
-    // collapse (Depth head classifies rest frames as "Correct depth" trivially).
     if (_compressionPhase == _CompressionPhase.descending) {
       _descentFrameBuffer.add(frame);
-      // Keep buffer bounded — slide the window, preserving the most recent frames.
       if (_descentFrameBuffer.length > _inferenceWindowSize) {
         _descentFrameBuffer.removeAt(0);
       }
     }
 
-    // Only run inference and accumulate once we have enough active frames
-    // AND the first compression has confirmed the user has started.
     if (!hasStartedCompressing) return;
-    if (_descentFrameBuffer.length < 10) return; // need a minimum active window
+    if (_descentFrameBuffer.length < 10) return;
 
     final result = _runInference(frame);
 
-    // Accumulate per-task accuracy with confidence thresholds.
-    // FIX: Reject Depth classifications below _depthConfidenceThreshold to
-    // guard against majority-class collapse inflating depth scores.
-    _assessedFrameCount++;
-    _classFrameCounts.update(
-      result.topClassLabel,
-      (n) => n + 1,
-      ifAbsent: () => 1,
-    );
-    if (!result.isSimulated) _modelUsedThisSession = true;
+    // Only accumulate real model predictions — skip simulated (model unavailable)
+    if (!result.isSimulated) {
+      _assessedFrameCount++;
+      _modelUsedThisSession = true;
 
-    if (result.rateAccuracy != null &&
-        (result.rateConfidence ?? 0.0) >= _taskConfidenceThreshold) {
-      _rateAccuracies.add(result.rateAccuracy!);
-      _taskConfidences['rate'] = result.rateConfidence!;
-    }
+      // Track top-level label for error rate breakdown
+      _classFrameCounts.update(
+        result.topClassLabel, (n) => n + 1, ifAbsent: () => 1,
+      );
 
-    // Depth: stricter threshold guards against majority-class collapse.
-    if (result.depthAccuracy != null &&
-        (result.depthConfidence ?? 0.0) >= _depthConfidenceThreshold) {
-      _depthAccuracies.add(result.depthAccuracy!);
-      _taskConfidences['depth'] = result.depthConfidence!;
-    }
+      // Rate task
+      if (result.rateAccuracy != null &&
+          (result.rateConfidence ?? 0.0) >= _taskConfidenceThreshold) {
+        _rateAccuracies.add(result.rateAccuracy!);
+        _taskConfidences['rate'] = result.rateConfidence!;
+        // Tally class for precision/recall computation
+        final rateLabel = result.allClassScores.entries
+            .where((e) => ['Correct','Too_Fast','Too_Slow'].contains(e.key))
+            .fold('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
+        if (rateLabel.isNotEmpty) {
+          _rateClassCounts.update(rateLabel, (n) => n + 1, ifAbsent: () => 1);
+        }
+      }
 
-    if (result.recoilAccuracy != null &&
-        (result.recoilConfidence ?? 0.0) >= _taskConfidenceThreshold) {
-      _recoilAccuracies.add(result.recoilAccuracy!);
-      _taskConfidences['recoil'] = result.recoilConfidence!;
+      // Depth task — stricter threshold guards against majority-class collapse
+      if (result.depthAccuracy != null &&
+          (result.depthConfidence ?? 0.0) >= _depthConfidenceThreshold) {
+        _depthAccuracies.add(result.depthAccuracy!);
+        _taskConfidences['depth'] = result.depthConfidence!;
+        final depthLabel = result.allClassScores.entries
+            .where((e) => ['Correct','Too_Shallow','Too_Deep'].contains(e.key))
+            .fold('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
+        if (depthLabel.isNotEmpty) {
+          _depthClassCounts.update(depthLabel, (n) => n + 1, ifAbsent: () => 1);
+        }
+      }
+
+      // Recoil task
+      if (result.recoilAccuracy != null &&
+          (result.recoilConfidence ?? 0.0) >= _taskConfidenceThreshold) {
+        _recoilAccuracies.add(result.recoilAccuracy!);
+        _taskConfidences['recoil'] = result.recoilConfidence!;
+        final recoilLabel = result.allClassScores.entries
+            .where((e) => ['Correct','Incomplete'].contains(e.key))
+            .fold('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
+        if (recoilLabel.isNotEmpty) {
+          _recoilClassCounts.update(recoilLabel, (n) => n + 1, ifAbsent: () => 1);
+        }
+      }
     }
 
     if (result.currentBpm > 0) _bpmHistory.add(result.currentBpm);
     if (result.estimatedDepthCm > 0) _depthHistory.add(result.estimatedDepthCm);
 
-    // FeedbackEngine now stays silent when technique is correct (see
-    // feedback_engine.dart — FeedbackSeverity.good never triggers speech).
     final prompt = _feedback.process(result, state.language);
     if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
 
@@ -452,7 +474,6 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     );
   }
 
-  /// Counts one compression per downstroke→upstroke transition.
   void _updateCompressionCount(LandmarkFrame frame) {
     final vel = frame.wristVelocityY;
 

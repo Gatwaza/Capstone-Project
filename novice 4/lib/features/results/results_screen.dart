@@ -133,24 +133,15 @@ class _ResultsContentState extends State<_ResultsContent> {
 
               const SizedBox(height: 28),
 
-              // ── Quality score (multi-task breakdown) ──────────
-              _ScoreCard(
-                score: widget.session.qualityScore,
-                taskAccuracies: widget.session.taskAccuracies,
-                taskConfidences: widget.session.taskConfidences,
-              ),
+              // ── Quality score ────────────────────────────────
+              _ScoreCard(score: widget.session.qualityScore),
 
               const SizedBox(height: 24),
 
-              // ── Metric grid ──────────────────────────────────
+              // ── CPR session metrics ──────────────────────────
               Text('Session Metrics',
                   style: Theme.of(context).textTheme.labelSmall),
               const SizedBox(height: 12),
-
-              // FIX: Replace GridView with a manual 2-column layout using
-              // intrinsic-height rows. GridView.count with a fixed
-              // childAspectRatio clips content on smaller/web viewports,
-              // rendering the cards as solid black boxes when text overflows.
               _MetricGrid(
                 tiles: [
                   _MetricTile(
@@ -168,8 +159,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                   ),
                   _MetricTile(
                     label: 'MEAN DEPTH',
-                    value:
-                        '${widget.session.meanDepthCm.toStringAsFixed(1)} cm',
+                    value: '${widget.session.meanDepthCm.toStringAsFixed(1)} cm',
                     valueColor: _depthColor(widget.session.meanDepthCm),
                   ),
                   _MetricTile(
@@ -177,25 +167,26 @@ class _ResultsContentState extends State<_ResultsContent> {
                     value: '${(widget.session.cprFraction * 100).round()}%',
                   ),
                   _MetricTile(
-                    label: 'AI MODEL',
+                    label: 'MODEL',
                     value: widget.session.modelWasAvailable
                         ? 'CNN-BiLSTM'
-                        : 'Rule-based',
+                        : 'Unavailable',
                     valueColor: widget.session.modelWasAvailable
                         ? AppTheme.accent
-                        : AppTheme.accentAmber,
+                        : AppTheme.accentWarn,
                   ),
                 ],
               ),
 
               const SizedBox(height: 32),
 
-              // ── Error breakdown (model-derived) ───────────────
-              // FIX: this is the piece that was missing — the score above
-              // is now built from exactly this data (the model's own
-              // per-frame classifications aggregated across the session),
-              // so showing the breakdown is what makes that score legible
-              // instead of a single opaque number.
+              // ── CNN-BiLSTM Research Metrics ──────────────────
+              if (widget.session.modelWasAvailable) ...[
+                _ResearchMetricsPanel(session: widget.session),
+                const SizedBox(height: 32),
+              ],
+
+              // ── Per-frame class distribution ─────────────────
               if (widget.session.errorRates.isNotEmpty) ...[
                 _ErrorBreakdown(errorRates: widget.session.errorRates),
                 const SizedBox(height: 32),
@@ -252,7 +243,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                   border: Border.all(color: AppTheme.border),
                 ),
                 child: Text(
-                  'Medical Disclaimer: Novice is a training simulation tool only. '
+                  'Medical Disclaimer: Novice is a first-aid training simulation. '
                   'It does not replace formal CPR certification or professional '
                   'medical advice. Always call emergency services first.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -290,7 +281,236 @@ class _ResultsContentState extends State<_ResultsContent> {
   }
 }
 
-// ── 2-column grid that sizes rows by content, not a fixed aspect ratio ─────────
+// ── CNN-BiLSTM Research Metrics Panel ──────────────────────────────────────────
+// Shows accuracy, precision, recall, F1-score, ROC-AUC per task.
+// These are the metrics recorded for the pilot study.
+
+class _ResearchMetricsPanel extends StatelessWidget {
+  const _ResearchMetricsPanel({required this.session});
+  final SessionModel session;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined, size: 16, color: AppTheme.accent),
+              const SizedBox(width: 8),
+              Text(
+                'CNN-BiLSTM Evaluation Metrics',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppTheme.accent,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Per-task research metrics for pilot study analysis.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppTheme.textSecondary, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+
+          // Column headers
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                const SizedBox(width: 90),
+                ..._metricHeaders(context),
+              ],
+            ),
+          ),
+
+          Divider(color: AppTheme.border, height: 1),
+          const SizedBox(height: 8),
+
+          // Rate task row
+          _TaskMetricRow(
+            taskName: 'Rate',
+            icon: Icons.speed_rounded,
+            accuracy:  session.rateAccuracy,
+            precision: session.ratePrecision,
+            recall:    session.rateRecall,
+            f1:        session.rateF1,
+            auc:       session.rateAuc,
+          ),
+          const SizedBox(height: 8),
+
+          // Depth task row
+          _TaskMetricRow(
+            taskName: 'Depth',
+            icon: Icons.arrow_downward_rounded,
+            accuracy:  session.depthAccuracy,
+            precision: session.depthPrecision,
+            recall:    session.depthRecall,
+            f1:        session.depthF1,
+            auc:       session.depthAuc,
+          ),
+          const SizedBox(height: 8),
+
+          // Recoil task row
+          _TaskMetricRow(
+            taskName: 'Recoil',
+            icon: Icons.arrow_upward_rounded,
+            accuracy:  session.recoilAccuracy,
+            precision: session.recoilPrecision,
+            recall:    session.recoilRecall,
+            f1:        session.recoilF1,
+            auc:       session.recoilAuc,
+          ),
+
+          const SizedBox(height: 12),
+          Divider(color: AppTheme.border, height: 1),
+          const SizedBox(height: 10),
+
+          // Model test-set baseline reference
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.bg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded,
+                        size: 13, color: AppTheme.textSecondary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'CNN-BiLSTM test-set baseline (notebook cell 35)',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppTheme.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Rate: F1=75.92% · AUC=81.10%\n'
+                  'Depth: F1=94.05% · AUC=95.11%\n'
+                  'Recoil: F1=74.79% · AUC=84.14%\n'
+                  'Mean F1=81.59%',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontSize: 10,
+                        height: 1.6,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _metricHeaders(BuildContext context) {
+    final labels = ['Acc', 'Prec', 'Rec', 'F1', 'AUC'];
+    return labels
+        .map((l) => Expanded(
+              child: Text(
+                l,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ))
+        .toList();
+  }
+}
+
+class _TaskMetricRow extends StatelessWidget {
+  const _TaskMetricRow({
+    required this.taskName,
+    required this.icon,
+    required this.accuracy,
+    required this.precision,
+    required this.recall,
+    required this.f1,
+    required this.auc,
+  });
+
+  final String taskName;
+  final IconData icon;
+  final double accuracy;
+  final double precision;
+  final double recall;
+  final double f1;
+  final double auc;
+
+  Color _color(double v) {
+    if (v >= 0.80) return AppTheme.accent;
+    if (v >= 0.60) return AppTheme.accentAmber;
+    return AppTheme.accentWarn;
+  }
+
+  String _pct(double v) => '${(v * 100).round()}%';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Row(
+              children: [
+                Icon(icon, size: 13, color: AppTheme.textSecondary),
+                const SizedBox(width: 5),
+                Text(
+                  taskName,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          ...[accuracy, precision, recall, f1, auc].map((v) => Expanded(
+                child: Text(
+                  _pct(v),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _color(v),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 2-column grid ─────────────────────────────────────────────────────────────
 
 class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.tiles});
@@ -298,7 +518,6 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pair tiles into rows of 2
     final rows = <Widget>[];
     for (int i = 0; i < tiles.length; i += 2) {
       final left = tiles[i];
@@ -358,8 +577,7 @@ class _ReviewPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.science_outlined,
-                  size: 16, color: AppTheme.accentAmber),
+              Icon(Icons.science_outlined, size: 16, color: AppTheme.accentAmber),
               const SizedBox(width: 8),
               Text(
                 'Researcher Review',
@@ -448,33 +666,36 @@ class _ReviewPanel extends StatelessWidget {
   }
 }
 
-// ── Error breakdown (model-derived) ─────────────────────────────────────────
+// ── Error / class breakdown ────────────────────────────────────────────────────
 
 class _ErrorBreakdown extends StatelessWidget {
   const _ErrorBreakdown({required this.errorRates});
   final Map<String, double> errorRates;
 
   static const Map<String, String> _displayNames = {
+    'Correct':      'Correct technique',
+    'Too_Fast':     'Rate too fast',
+    'Too_Slow':     'Rate too slow',
+    'Too_Shallow':  'Depth too shallow',
+    'Too_Deep':     'Depth too deep',
+    'Incomplete':   'Incomplete recoil',
+    // Legacy labels kept for backwards compat with old sessions
     'correct_compression': 'Correct technique',
-    'hand_too_high': 'Hands too high',
-    'hand_too_low': 'Hands too low',
-    'bent_elbows': 'Bent elbows',
-    'body_lean': 'Body lean',
-    'too_shallow': 'Too shallow',
-    'too_deep': 'Too deep',
-    'incomplete_decomp': 'Incomplete release',
-    'rate_too_slow': 'Rate too slow',
     'rate_too_fast': 'Rate too fast',
+    'rate_too_slow': 'Rate too slow',
+    'too_shallow':   'Depth too shallow',
+    'too_deep':      'Depth too deep',
+    'bent_elbows':   'Bent elbows',
   };
 
   String _label(String key) => _displayNames[key] ?? key.replaceAll('_', ' ');
 
+  bool _isCorrect(String key) =>
+      key == 'Correct' || key == 'correct_compression';
+
   @override
   Widget build(BuildContext context) {
-    final correct = errorRates['correct_compression'] ?? 0.0;
-    final errors = errorRates.entries
-        .where((e) => e.key != 'correct_compression' && e.value >= 0.01)
-        .toList()
+    final sorted = errorRates.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return Container(
@@ -487,41 +708,29 @@ class _ErrorBreakdown extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Technique Breakdown',
+          Text('Per-Frame Classification Breakdown',
               style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: 4),
           Text(
-            'What the model classified across every frame of this session.',
+            'Distribution of CNN-BiLSTM classifications across session frames.',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
                 ?.copyWith(color: AppTheme.textSecondary, fontSize: 11),
           ),
           const SizedBox(height: 16),
-          _BreakdownRow(
-            label: _label('correct_compression'),
-            fraction: correct,
-            color: AppTheme.accent,
-          ),
-          if (errors.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                'No recurring technique errors detected.',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-              ),
-            )
-          else
-            ...errors.map(
-              (e) => Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: _BreakdownRow(
-                  label: _label(e.key),
-                  fraction: e.value,
-                  color: AppTheme.accentWarn,
-                ),
-              ),
-            ),
+          ...sorted
+              .where((e) => e.value >= 0.01)
+              .map((e) => Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: _BreakdownRow(
+                      label: _label(e.key),
+                      fraction: e.value,
+                      color: _isCorrect(e.key)
+                          ? AppTheme.accent
+                          : AppTheme.accentWarn,
+                    ),
+                  )),
         ],
       ),
     );
@@ -555,7 +764,9 @@ class _BreakdownRow extends StatelessWidget {
             ),
             Text('${pct.round()}%',
                 style: TextStyle(
-                    color: color, fontSize: 13, fontWeight: FontWeight.w700)),
+                    color: color,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700)),
           ],
         ),
         const SizedBox(height: 6),
@@ -573,17 +784,11 @@ class _BreakdownRow extends StatelessWidget {
   }
 }
 
-// ── Score card with multi-task breakdown ──────────────────────────────────────
+// ── Score card ─────────────────────────────────────────────────────────────────
 
 class _ScoreCard extends StatelessWidget {
-  const _ScoreCard({
-    required this.score,
-    this.taskAccuracies = const {},
-    this.taskConfidences = const {},
-  });
+  const _ScoreCard({required this.score});
   final int score;
-  final Map<String, double> taskAccuracies;
-  final Map<String, double> taskConfidences;
 
   @override
   Widget build(BuildContext context) {
@@ -592,15 +797,6 @@ class _ScoreCard extends StatelessWidget {
         : score >= 60
             ? AppTheme.accentAmber
             : AppTheme.accentWarn;
-
-    // CNN-BiLSTM test-set baselines for reference
-    const double rateBaseline = 0.7592;
-    const double depthBaseline = 0.9405;
-    const double recoilBaseline = 0.7479;
-
-    final rateAcc = taskAccuracies['rate'] ?? 0.0;
-    final depthAcc = taskAccuracies['depth'] ?? 0.0;
-    final recoilAcc = taskAccuracies['recoil'] ?? 0.0;
 
     return Container(
       width: double.infinity,
@@ -613,7 +809,6 @@ class _ScoreCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Overall score
           Text('Quality Score', style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 4),
           Row(
@@ -644,179 +839,13 @@ class _ScoreCard extends StatelessWidget {
                 ? 'Excellent technique'
                 : score >= 60
                     ? 'Good — keep practising'
-                    : 'Needs improvement',
-            style:
-                Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
-          ),
-
-          // Per-task breakdown (if available)
-          if (taskAccuracies.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Divider(color: AppTheme.border, height: 1),
-            const SizedBox(height: 16),
-            Text('Per-Task Assessment',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
-                      fontSize: 11,
-                    )),
-            const SizedBox(height: 12),
-
-            // Rate task
-            _TaskScoreRow(
-              taskName: 'Compression Rate',
-              accuracy: rateAcc,
-              baseline: rateBaseline,
-              confidence: taskConfidences['rate'] ?? 0.0,
-              icon: Icons.speed_rounded,
-            ),
-            const SizedBox(height: 10),
-
-            // Depth task
-            _TaskScoreRow(
-              taskName: 'Compression Depth',
-              accuracy: depthAcc,
-              baseline: depthBaseline,
-              confidence: taskConfidences['depth'] ?? 0.0,
-              icon: Icons.arrow_downward_rounded,
-            ),
-            const SizedBox(height: 10),
-
-            // Recoil task
-            _TaskScoreRow(
-              taskName: 'Chest Recoil',
-              accuracy: recoilAcc,
-              baseline: recoilBaseline,
-              confidence: taskConfidences['recoil'] ?? 0.0,
-              icon: Icons.arrow_upward_rounded,
-            ),
-
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.bg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded,
-                      size: 14, color: AppTheme.textSecondary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Scores compare your accuracy to the trained model\'s performance.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.textSecondary,
-                            fontSize: 10,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ── Per-task score row ─────────────────────────────────────────────────────────
-
-class _TaskScoreRow extends StatelessWidget {
-  const _TaskScoreRow({
-    required this.taskName,
-    required this.accuracy,
-    required this.baseline,
-    required this.confidence,
-    required this.icon,
-  });
-
-  final String taskName;
-  final double accuracy;
-  final double baseline;
-  final double confidence;
-  final IconData icon;
-
-  Color _getAccuracyColor() {
-    final normalized = (accuracy / baseline).clamp(0, 1);
-    if (normalized >= 0.9) return AppTheme.accent;
-    if (normalized >= 0.75) return AppTheme.accentAmber;
-    return AppTheme.accentWarn;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final accuracyPct = (accuracy * 100).clamp(0, 100);
-    final normalized = (accuracy / baseline).clamp(0, 1);
-    final normalizedScore = normalized * 100;
-    final confPct = (confidence * 100).round();
-    final color = _getAccuracyColor();
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  taskName,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-              Text(
-                '${normalizedScore.round()}%',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: normalized.toDouble(),
-              minHeight: 4,
-              backgroundColor: Colors.white.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text(
-                '${accuracyPct.toStringAsFixed(1)}%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontSize: 11,
-                      color: AppTheme.textSecondary,
-                    ),
-              ),
-              const Spacer(),
-              Chip(
-                label: Text(
-                  'Confidence: $confPct%',
-                  style: const TextStyle(fontSize: 10),
-                ),
-                side: BorderSide(color: color.withOpacity(0.5)),
-                backgroundColor: color.withOpacity(0.1),
-                labelStyle: TextStyle(color: color, fontSize: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              ),
-            ],
+                    : score == 0
+                        ? 'Model was not available this session'
+                        : 'Needs improvement',
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: score == 0 ? AppTheme.textSecondary : color),
           ),
         ],
       ),
@@ -839,7 +868,6 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // No fixed height — sized by IntrinsicHeight in _MetricGrid
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       decoration: BoxDecoration(
         color: AppTheme.card,
