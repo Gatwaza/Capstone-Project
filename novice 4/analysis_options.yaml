@@ -8,6 +8,7 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "lib/core/di/injection.config.dart"
+    - "docs/**"
   errors:
     invalid_annotation_target: ignore
 

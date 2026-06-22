@@ -219,7 +219,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle_rounded,
+              const Icon(Icons.check_circle_rounded,
                   color: AppTheme.accent, size: 64),
               const SizedBox(height: 20),
               Text('Surveys Complete',

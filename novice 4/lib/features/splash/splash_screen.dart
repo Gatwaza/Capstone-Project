@@ -72,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen>
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppTheme.border),
                   ),
-                  child: Center(
+                  child: const Center(
                     child: Text(
                       'N',
                       style: TextStyle(
@@ -100,7 +100,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 48),
                 // Loading indicator
-                SizedBox(
+                const SizedBox(
                   width: 120,
                   child: LinearProgressIndicator(
                     backgroundColor: AppTheme.border,

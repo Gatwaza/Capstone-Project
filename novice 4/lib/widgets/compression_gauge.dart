@@ -57,7 +57,7 @@ class CompressionGauge extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
+          const Text(
             'DEPTH',
             style: TextStyle(
               color: AppTheme.textSecondary,

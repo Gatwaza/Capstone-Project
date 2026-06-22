@@ -2,133 +2,108 @@
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 //
-// On-device BiLSTM inference via TFLite (iOS/Android only).
-// On web, InferenceServiceWeb handles inference via TF.js.
-// This file compiles on web via tflite_compat.dart stub.
+// Mobile ML inference — on-device TFLite (INT8 quantized BiLSTM,
+// assets/models/novice_cpr_classifier.tflite). 8-class single-label output
+// (AppConstants.errorClassLabels), unlike the web path's 3-head API
+// (InferenceServiceWeb in platform/inference_service_web.dart), which
+// returns independent rate/depth/recoil labels. Both produce InferenceResult
+// so session_provider.dart can consume either without a platform check.
+//
+// rateAccuracy/depthAccuracy/recoilAccuracy/rateLabel/depthLabel/recoilLabel
+// are intentionally left null here — this model doesn't classify those
+// dimensions independently. session_provider falls back to topClassLabel
+// for per-task tallying on mobile (see SessionModel.rateAccuracy docs).
 
+import 'dart:async';
 import 'dart:collection';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:logger/logger.dart';
 
-import 'tflite_compat.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/landmark_math.dart';
 import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
+import 'tflite_compat.dart';
 
-/// On-device BiLSTM inference.
-/// Input:  [1, 30, 12] — 30 frames × 12 landmark features
-/// Output: [1, 8]      — softmax over 8 error classes
-///
-/// Gracefully falls back to rule-based classification when:
-///   • Model file not found in assets (rule-based fallback)
-///   • Running on web (always — use InferenceServiceWeb instead)
 class InferenceService {
   Interpreter? _interpreter;
-  bool _modelLoaded = false;
-  final _log = Logger();
+  final _frameBuffer = ListQueue<List<double>>();
+  final _wristYHistory = ListQueue<_TimedSample>();
 
-  final _frameBuffer  = ListQueue<List<double>>();
-  final _wristHistory = ListQueue<_TimedSample>();
+  double _shoulderWidthPxSum = 0;
+  int _shoulderWidthSamples = 0;
+  static const int _depthCalibFrames = 30;
 
-  bool get isModelLoaded => _modelLoaded;
+  bool get isModelLoaded => _interpreter != null;
 
   Future<void> loadModel() async {
-    if (kIsWeb) return; // Web uses InferenceServiceWeb
     try {
-      _interpreter = await Interpreter.fromAsset(
-        AppConstants.tfliteModelPath,
-        options: InterpreterOptions()..threads = 2,
-      );
-      _modelLoaded = true;
-      _log.i('InferenceService: model loaded');
+      _interpreter = await Interpreter.fromAsset(AppConstants.tfliteModelPath);
+      _interpreter!.allocateTensors();
     } catch (e) {
-      _log.w(
-        'InferenceService: model not found at ${AppConstants.tfliteModelPath}. '
-        'Running in rule-based fallback mode. '
-        'Train with ml_pipeline/ then run convert_to_tflite.py.',
-      );
-      _modelLoaded = false;
+      // Model asset missing or failed to load — infer() falls back to
+      // isSimulated=true results so the UI can show a clear "rule-based
+      // fallback" state instead of crashing.
+      _interpreter = null;
     }
   }
 
   InferenceResult infer(LandmarkFrame frame) {
-    final features = LandmarkMath.buildFeatureVector(
-      leftElbowAngle:     frame.leftElbowAngle,
-      rightElbowAngle:    frame.rightElbowAngle,
-      spineVerticality:   frame.spineVerticality,
-      wristY:             frame.wristMidY,
-      wristVelocityY:     frame.wristVelocityY,
-      wristAccelerationY: frame.wristAccelerationY,
-      normalizedDepth: LandmarkMath.normalizedWristDisplacement(
-        frame.wristMidY,
-        (frame.leftShoulderY + frame.rightShoulderY) / 2,
-        (frame.leftHipY + frame.rightHipY) / 2,
-      ),
-      shoulderWidth:    frame.shoulderWidth,
-      meanConfidence:   frame.meanLandmarkConfidence,
-      leftElbowVisible:  frame.leftElbowVisibility  > AppConstants.minLandmarkVisibility,
-      rightElbowVisible: frame.rightElbowVisibility > AppConstants.minLandmarkVisibility,
-    );
+    final features = _buildFeatures(frame);
 
     _frameBuffer.addLast(features);
     while (_frameBuffer.length > AppConstants.temporalWindowFrames) {
       _frameBuffer.removeFirst();
     }
 
-    _wristHistory.addLast(_TimedSample(frame.capturedAt, frame.wristMidY));
-    while (_wristHistory.length > AppConstants.bpmHistoryLength) {
-      _wristHistory.removeFirst();
+    _wristYHistory.addLast(_TimedSample(frame.capturedAt, frame.wristMidY));
+    while (_wristYHistory.length > AppConstants.bpmHistoryLength) {
+      _wristYHistory.removeFirst();
     }
 
-    final bpm   = _estimateBpm();
+    _updateDepthCalibration(frame);
+
+    final bpm = _estimateBpm();
     final depth = _estimateDepthCm(frame);
 
-    // Rate errors are rule-based (±5 bpm accuracy target from proposal §1.4)
-    String? rateError;
-    if (bpm > 0) {
-      if (bpm < AppConstants.cprMinRateBpm) rateError = 'rate_too_slow';
-      if (bpm > AppConstants.cprMaxRateBpm) rateError = 'rate_too_fast';
+    if (_interpreter == null ||
+        _frameBuffer.length < AppConstants.temporalWindowFrames) {
+      return InferenceResult(
+        timestamp: DateTime.now(),
+        topClassIndex: 0,
+        topClassLabel: 'model_unavailable',
+        topClassConfidence: 0.0,
+        allClassScores: const {},
+        currentBpm: bpm,
+        estimatedDepthCm: depth,
+        elbowAngleMean: (frame.leftElbowAngle + frame.rightElbowAngle) / 2,
+        spineVerticalityDeg: frame.spineVerticality,
+        isSimulated: true,
+      );
     }
 
-    if (_modelLoaded && _frameBuffer.length == AppConstants.temporalWindowFrames) {
-      return _runModel(frame, bpm, depth, rateError);
-    }
-    return _ruleBased(frame, bpm, depth, rateError);
-  }
+    final input = [_frameBuffer.toList()];
+    final output = [List.filled(AppConstants.errorClassLabels.length, 0.0)];
 
-  InferenceResult _runModel(
-    LandmarkFrame frame, double bpm, double depth, String? rateError,
-  ) {
-    final inputData = _frameBuffer.map((f) => List<double>.from(f)).toList();
-    final input     = [inputData];
-    final output    = [List.filled(8, 0.0)];
+    _interpreter!.run(input, output);
 
-    try {
-      _interpreter!.run(input, output);
-    } catch (e) {
-      _log.e('InferenceService: run failed — $e');
-      return _ruleBased(frame, bpm, depth, rateError);
-    }
-
-    final scores  = output[0];
-    int topIdx    = 0;
-    double topScore = scores[0];
+    final scores = output[0];
+    int topIndex = 0;
+    double topScore = scores.isEmpty ? 0.0 : scores[0];
     for (int i = 1; i < scores.length; i++) {
-      if (scores[i] > topScore) { topScore = scores[i]; topIdx = i; }
+      if (scores[i] > topScore) {
+        topScore = scores[i];
+        topIndex = i;
+      }
     }
 
-    final allScores = <String, double>{};
-    for (int i = 0; i < scores.length; i++) {
-      allScores[AppConstants.errorClassLabels[i] ?? 'class_$i'] = scores[i];
-    }
-
-    final label = rateError ?? (AppConstants.errorClassLabels[topIdx] ?? 'correct_compression');
+    final allScores = <String, double>{
+      for (int i = 0; i < scores.length; i++)
+        AppConstants.errorClassLabels[i] ?? 'class_$i': scores[i],
+    };
 
     return InferenceResult(
       timestamp: DateTime.now(),
-      topClassIndex: topIdx,
-      topClassLabel: label,
+      topClassIndex: topIndex,
+      topClassLabel: AppConstants.errorClassLabels[topIndex] ?? 'unknown',
       topClassConfidence: topScore,
       allClassScores: allScores,
       currentBpm: bpm,
@@ -139,49 +114,55 @@ class InferenceService {
     );
   }
 
-  InferenceResult _ruleBased(
-    LandmarkFrame? frame, double bpm, double depth, String? rateError,
-  ) {
-    String label = 'correct_compression';
-    if (rateError != null) {
-      label = rateError;
-    } else if (frame != null) {
-      final meanElbow = (frame.leftElbowAngle + frame.rightElbowAngle) / 2;
-      if (meanElbow < AppConstants.elbowLockAngleDeg) {
-        label = 'bent_elbows';
-      } else if (depth > 0 && depth < AppConstants.cprMinDepthCm - 0.5) {
-        label = 'too_shallow';
-      } else if (depth > AppConstants.cprMaxDepthCm + 0.5) {
-        label = 'too_deep';
-      } else {
-        final placement = LandmarkMath.assessHandPlacement(
-          frame.wristMidY, frame.leftShoulderY, frame.leftHipY,
-        );
-        if (placement == HandPlacementResult.tooHigh) label = 'hand_too_high';
-        if (placement == HandPlacementResult.tooLow)  label = 'hand_too_low';
-      }
-    }
-
-    return InferenceResult(
-      timestamp: DateTime.now(),
-      topClassIndex: 0,
-      topClassLabel: label,
-      topClassConfidence: 0.85,
-      allClassScores: {label: 0.85},
-      currentBpm: bpm,
-      estimatedDepthCm: depth,
-      elbowAngleMean: frame != null
-          ? (frame.leftElbowAngle + frame.rightElbowAngle) / 2 : 0,
-      spineVerticalityDeg: frame?.spineVerticality ?? 0,
-      isSimulated: true,
+  List<double> _buildFeatures(LandmarkFrame frame) {
+    return LandmarkMath.buildFeatureVector(
+      leftElbowAngle: frame.leftElbowAngle,
+      rightElbowAngle: frame.rightElbowAngle,
+      spineVerticality: frame.spineVerticality,
+      wristY: frame.wristMidY,
+      wristVelocityY: frame.wristVelocityY,
+      wristAccelerationY: frame.wristAccelerationY,
+      normalizedDepth: LandmarkMath.normalizedWristDisplacement(
+        frame.wristMidY, frame.leftShoulderY, frame.leftHipY,
+      ),
+      shoulderWidth: frame.shoulderWidth,
+      meanConfidence: frame.meanLandmarkConfidence,
+      leftElbowVisible:
+          frame.leftElbowVisibility > AppConstants.minLandmarkVisibility,
+      rightElbowVisible:
+          frame.rightElbowVisibility > AppConstants.minLandmarkVisibility,
     );
   }
 
-  // ── BPM via wrist Y-velocity peak detection ──────────────
-  // Mirrors InferenceServiceWeb._estimateBpm() and Python evaluate.py
+  void _updateDepthCalibration(LandmarkFrame frame) {
+    if (frame.shoulderWidth > 0.05) {
+      _shoulderWidthPxSum += frame.shoulderWidth;
+      _shoulderWidthSamples++;
+    }
+  }
+
+  double _estimateDepthCm(LandmarkFrame frame) {
+    final normDisp = LandmarkMath.normalizedWristDisplacement(
+      frame.wristMidY,
+      (frame.leftShoulderY + frame.rightShoulderY) / 2,
+      (frame.leftHipY + frame.rightHipY) / 2,
+    );
+
+    double torsoHeightCm;
+    if (_shoulderWidthSamples >= _depthCalibFrames) {
+      final meanShoulderWidthNorm = _shoulderWidthPxSum / _shoulderWidthSamples;
+      torsoHeightCm = (meanShoulderWidthNorm * AppConstants.normToPhysicalCmScale)
+          / AppConstants.shoulderWidthToTorsoRatio;
+    } else {
+      torsoHeightCm = AppConstants.fallbackTorsoHeightCm;
+    }
+
+    return (normDisp * torsoHeightCm).clamp(0.0, 10.0);
+  }
+
   double _estimateBpm() {
-    if (_wristHistory.length < 10) return 0.0;
-    final samples    = _wristHistory.toList();
+    if (_wristYHistory.length < 10) return 0;
+    final samples = _wristYHistory.toList();
     final velocities = <double>[];
     for (int i = 1; i < samples.length; i++) {
       velocities.add(samples[i].value - samples[i - 1].value);
@@ -190,35 +171,26 @@ class InferenceService {
     for (int i = 1; i < velocities.length - 1; i++) {
       if (velocities[i] > velocities[i - 1] &&
           velocities[i] > velocities[i + 1] &&
-          velocities[i] > 0.005) {
+          velocities[i] > 0.012) {
         peaks.add(samples[i + 1].timestamp);
       }
     }
-    if (peaks.length < 2) return 0.0;
+    if (peaks.length < 2) return 0;
     double totalMs = 0;
     for (int i = 1; i < peaks.length; i++) {
-      totalMs += peaks[i].difference(peaks[i - 1]).inMilliseconds.toDouble();
+      totalMs += peaks[i].difference(peaks[i - 1]).inMilliseconds;
     }
     final meanMs = totalMs / (peaks.length - 1);
-    return meanMs <= 0 ? 0.0 : (60000.0 / meanMs).clamp(0.0, 200.0);
+    return meanMs <= 0 ? 0 : (60000 / meanMs).clamp(0, 200);
   }
 
-  // ── Depth via wrist displacement proxy ──────────────────
-  // Calibrated against CPR-Coach dataset. Validate in pilot study (§3.6.2).
-  double _estimateDepthCm(LandmarkFrame frame) {
-    final normDisp = LandmarkMath.normalizedWristDisplacement(
-      frame.wristMidY,
-      (frame.leftShoulderY + frame.rightShoulderY) / 2,
-      (frame.leftHipY + frame.rightHipY) / 2,
-    );
-    return (normDisp * 50.0).clamp(0.0, 10.0);
+  void dispose() {
+    _interpreter?.close();
   }
-
-  void dispose() => _interpreter?.close();
 }
 
 class _TimedSample {
   final DateTime timestamp;
-  final double   value;
-  const _TimedSample(this.timestamp, this.value);
+  final double value;
+  _TimedSample(this.timestamp, this.value);
 }

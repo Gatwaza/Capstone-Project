@@ -7,8 +7,6 @@
 
 import 'dart:async';
 import 'dart:collection';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/landmark_math.dart';
@@ -95,15 +93,26 @@ class InferenceServiceWeb {
         // Per-task accuracy is 1.0 when that task's label is 'Correct',
         // 0.0 otherwise (mirrors the same 'Correct' check resolvedLabel
         // already uses to decide which error to surface).
+        //
+        // FIX (2026-06): allClassScores map keys are now namespaced with a
+        // task prefix ('rate_', 'depth_', 'recoil_') to prevent Dart
+        // map-literal duplicate-key collisions. When two or more tasks
+        // simultaneously predict 'Correct', the bare-key version silently
+        // dropped all but the last entry because Dart map literals use
+        // last-write-wins for duplicate keys. rateLabel/depthLabel/
+        // recoilLabel below are still set as plain 'Correct'/'Too_Fast' etc.
+        // — those are the values compared for accuracy and never go through
+        // allClassScores, so they're unaffected by the collision.
         _lastApiResult = InferenceResult(
           timestamp:           DateTime.now(),
           topClassIndex:       0,
           topClassLabel:       prediction.resolvedLabel,
           topClassConfidence:  prediction.resolvedConfidence,
           allClassScores: {
-            prediction.rateLabel:   prediction.rateConfidence,
-            prediction.depthLabel:  prediction.depthConfidence,
-            prediction.recoilLabel: prediction.recoilConfidence,
+            // Prefixed keys — no collision even when all three are 'Correct'.
+            'rate_${prediction.rateLabel}':     prediction.rateConfidence,
+            'depth_${prediction.depthLabel}':   prediction.depthConfidence,
+            'recoil_${prediction.recoilLabel}': prediction.recoilConfidence,
           },
           currentBpm:          _estimateBpm(),
           estimatedDepthCm:    _estimateDepthCm(frame),
@@ -115,6 +124,11 @@ class InferenceServiceWeb {
           depthConfidence:     prediction.depthConfidence,
           recoilAccuracy:      prediction.recoilLabel == 'Correct' ? 1.0 : 0.0,
           recoilConfidence:    prediction.recoilConfidence,
+          // Plain labels — used for accuracy comparison and class-count
+          // tallying in session_provider; they do NOT go into allClassScores.
+          rateLabel:   prediction.rateLabel,
+          depthLabel:  prediction.depthLabel,
+          recoilLabel: prediction.recoilLabel,
           isSimulated:         false,
         );
       }
@@ -237,6 +251,12 @@ class InferenceServiceWeb {
     return (normDisp * torsoHeightCm).clamp(0.0, 10.0);
   }
 
+  // FIX: 0.005 was inside the landmark-jitter noise floor — small
+  // frame-to-frame tracking wobble produced multiple false peaks per
+  // second even with hands still, inflating BPM to physically impossible
+  // values (200+ bpm) and feeding a falsely "too fast" signal into the
+  // hosted rate classifier. Raised to match the same threshold used for
+  // compression counting in session_provider.dart.
   double _estimateBpm() {
     if (_wristYHistory.length < 10) return 0;
     final samples    = _wristYHistory.toList();
@@ -248,7 +268,7 @@ class InferenceServiceWeb {
     for (int i = 1; i < velocities.length - 1; i++) {
       if (velocities[i] > velocities[i - 1] &&
           velocities[i] > velocities[i + 1] &&
-          velocities[i] > 0.005) {
+          velocities[i] > 0.012) {
         peaks.add(samples[i + 1].timestamp);
       }
     }

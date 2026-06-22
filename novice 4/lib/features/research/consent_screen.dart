@@ -143,7 +143,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
                   border: Border.all(color: AppTheme.border)),
               child: Row(
                 children: [
-                  Icon(Icons.badge_outlined, color: AppTheme.accent, size: 20),
+                  const Icon(Icons.badge_outlined, color: AppTheme.accent, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -269,9 +269,9 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => setState(() => _step = 0),
-              child: Text('← Back to information sheet',
+              child: const Text('← Back to information sheet',
                   style:
-                      const TextStyle(color: AppTheme.textSecondary)),
+                      TextStyle(color: AppTheme.textSecondary)),
             ),
           ],
         ),
@@ -293,7 +293,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
                 color: AppTheme.accent.withOpacity(0.12),
                 shape: BoxShape.circle),
             child:
-                Icon(Icons.check_rounded, color: AppTheme.accent, size: 36),
+                const Icon(Icons.check_rounded, color: AppTheme.accent, size: 36),
           ),
           const SizedBox(height: 24),
           Text('Participant Enrolled',
@@ -320,9 +320,9 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: () => context.go(AppRoutes.home),
-            child: Text('Back to Home',
+            child: const Text('Back to Home',
                 style:
-                    const TextStyle(color: AppTheme.textSecondary)),
+                    TextStyle(color: AppTheme.textSecondary)),
           ),
         ],
       ),

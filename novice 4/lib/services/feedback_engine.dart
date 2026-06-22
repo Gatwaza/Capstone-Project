@@ -15,10 +15,10 @@
 ///   4. The last-key debounce only applies to error cues — good frames never
 ///      update _lastKey or _lastErrorTime, so the next real error after a
 ///      good streak speaks immediately without cooldown interference.
+library;
 
-import '../models/landmark_frame.dart';
+
 import '../models/session_model.dart';
-import 'inference_service.dart';
 
 class FeedbackEngine {
   // Minimum gap between any two error speech cues.

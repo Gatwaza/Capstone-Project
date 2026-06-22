@@ -87,7 +87,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                   color: AppTheme.accent.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.lock_outline_rounded,
+                child: const Icon(Icons.lock_outline_rounded,
                     color: AppTheme.accent, size: 34),
               ),
               const SizedBox(height: 24),
@@ -111,7 +111,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                   maxLength: 8,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontFamily: 'Courier New',
                       fontSize: 22,
@@ -119,22 +119,22 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                   decoration: InputDecoration(
                     counterText: '',
                     hintText: '· · · ·',
-                    hintStyle: TextStyle(color: AppTheme.textSecondary),
+                    hintStyle: const TextStyle(color: AppTheme.textSecondary),
                     filled: true,
                     fillColor: AppTheme.card,
                     errorText: _pinError ? 'Incorrect PIN' : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppTheme.border),
+                      borderSide: const BorderSide(color: AppTheme.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppTheme.border),
+                      borderSide: const BorderSide(color: AppTheme.border),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide:
-                          BorderSide(color: AppTheme.accent, width: 1.5),
+                          const BorderSide(color: AppTheme.accent, width: 1.5),
                     ),
                   ),
                   onSubmitted: (_) => _verifyPin(),
@@ -338,7 +338,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.shield_outlined, color: AppTheme.accent, size: 18),
+          const Icon(Icons.shield_outlined, color: AppTheme.accent, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -387,19 +387,19 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
     );
   }
 
-  Widget _tableHeader() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  Widget _tableHeader() => const Padding(
+    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     child: Row(children: [
-      const Expanded(flex: 4,
+      Expanded(flex: 4,
           child: Text('METRIC', style: TextStyle(fontSize: 9,
               letterSpacing: 1, color: AppTheme.textSecondary))),
-      const Expanded(child: Text('A', textAlign: TextAlign.center,
+      Expanded(child: Text('A', textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, letterSpacing: 1,
               color: AppTheme.accent, fontWeight: FontWeight.w700))),
-      const Expanded(child: Text('B', textAlign: TextAlign.center,
+      Expanded(child: Text('B', textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, letterSpacing: 1,
               color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
-      const SizedBox(width: 48),
+      SizedBox(width: 48),
     ]),
   );
 
@@ -467,7 +467,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
     required String target,
     required bool higherIsBetter,
   }) {
-    bool isGoodA = groupAMean != null &&
+    final bool isGoodA = groupAMean != null &&
         (higherIsBetter ? groupAMean >= 68 : groupAMean <= 40);
 
     return Container(

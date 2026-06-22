@@ -225,7 +225,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () => context.go(AppRoutes.home),
-                  child: Text(
+                  child: const Text(
                     'Back to Home',
                     style: TextStyle(color: AppTheme.textSecondary),
                   ),
@@ -282,8 +282,17 @@ class _ResultsContentState extends State<_ResultsContent> {
 }
 
 // ── CNN-BiLSTM Research Metrics Panel ──────────────────────────────────────────
-// Shows accuracy, precision, recall, F1-score, ROC-AUC per task.
-// These are the metrics recorded for the pilot study.
+// Shows per-task ACCURACY only — the one metric legitimately computable
+// live, since it's just "did the model say Correct" tallied frame-by-frame,
+// no ground truth required.
+//
+// Precision/Recall/F1/AUC are offline test-set evaluation metrics (see
+// ml_pipeline/CPR_Coach_Training.ipynb, Stage 9 — evaluate(), cell 27/35):
+// they require comparing predictions against ground-truth labels across a
+// full class distribution, which only exists in the held-out test split.
+// There is no ground truth during a live session, so these can't be
+// recomputed per-session — the fixed test-set numbers are shown in the
+// baseline box below instead.
 
 class _ResearchMetricsPanel extends StatelessWidget {
   const _ResearchMetricsPanel({required this.session});
@@ -303,10 +312,10 @@ class _ResearchMetricsPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.analytics_outlined, size: 16, color: AppTheme.accent),
+              const Icon(Icons.analytics_outlined, size: 16, color: AppTheme.accent),
               const SizedBox(width: 8),
               Text(
-                'CNN-BiLSTM Evaluation Metrics',
+                'Per-Task Accuracy (Live Session)',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppTheme.accent,
                     ),
@@ -315,7 +324,10 @@ class _ResearchMetricsPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Per-task research metrics for pilot study analysis.',
+            'Accuracy is computed live from this session — the model '
+            'classified each frame and we tally Correct vs not. '
+            'Precision/Recall/F1/AUC require ground-truth labels and are '
+            'only available from the offline test-set evaluation below.',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
@@ -334,18 +346,14 @@ class _ResearchMetricsPanel extends StatelessWidget {
             ),
           ),
 
-          Divider(color: AppTheme.border, height: 1),
+          const Divider(color: AppTheme.border, height: 1),
           const SizedBox(height: 8),
 
           // Rate task row
           _TaskMetricRow(
             taskName: 'Rate',
             icon: Icons.speed_rounded,
-            accuracy:  session.rateAccuracy,
-            precision: session.ratePrecision,
-            recall:    session.rateRecall,
-            f1:        session.rateF1,
-            auc:       session.rateAuc,
+            accuracy: session.rateAccuracy,
           ),
           const SizedBox(height: 8),
 
@@ -353,11 +361,7 @@ class _ResearchMetricsPanel extends StatelessWidget {
           _TaskMetricRow(
             taskName: 'Depth',
             icon: Icons.arrow_downward_rounded,
-            accuracy:  session.depthAccuracy,
-            precision: session.depthPrecision,
-            recall:    session.depthRecall,
-            f1:        session.depthF1,
-            auc:       session.depthAuc,
+            accuracy: session.depthAccuracy,
           ),
           const SizedBox(height: 8),
 
@@ -365,15 +369,11 @@ class _ResearchMetricsPanel extends StatelessWidget {
           _TaskMetricRow(
             taskName: 'Recoil',
             icon: Icons.arrow_upward_rounded,
-            accuracy:  session.recoilAccuracy,
-            precision: session.recoilPrecision,
-            recall:    session.recoilRecall,
-            f1:        session.recoilF1,
-            auc:       session.recoilAuc,
+            accuracy: session.recoilAccuracy,
           ),
 
           const SizedBox(height: 12),
-          Divider(color: AppTheme.border, height: 1),
+          const Divider(color: AppTheme.border, height: 1),
           const SizedBox(height: 10),
 
           // Model test-set baseline reference
@@ -388,7 +388,7 @@ class _ResearchMetricsPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.info_outline_rounded,
+                    const Icon(Icons.info_outline_rounded,
                         size: 13, color: AppTheme.textSecondary),
                     const SizedBox(width: 6),
                     Text(
@@ -422,20 +422,19 @@ class _ResearchMetricsPanel extends StatelessWidget {
   }
 
   List<Widget> _metricHeaders(BuildContext context) {
-    final labels = ['Acc', 'Prec', 'Rec', 'F1', 'AUC'];
-    return labels
-        .map((l) => Expanded(
-              child: Text(
-                l,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
+    return [
+      Expanded(
+        child: Text(
+          'Accuracy',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
               ),
-            ))
-        .toList();
+        ),
+      ),
+    ];
   }
 }
 
@@ -444,19 +443,11 @@ class _TaskMetricRow extends StatelessWidget {
     required this.taskName,
     required this.icon,
     required this.accuracy,
-    required this.precision,
-    required this.recall,
-    required this.f1,
-    required this.auc,
   });
 
   final String taskName;
   final IconData icon;
   final double accuracy;
-  final double precision;
-  final double recall;
-  final double f1;
-  final double auc;
 
   Color _color(double v) {
     if (v >= 0.80) return AppTheme.accent;
@@ -493,17 +484,17 @@ class _TaskMetricRow extends StatelessWidget {
               ],
             ),
           ),
-          ...[accuracy, precision, recall, f1, auc].map((v) => Expanded(
-                child: Text(
-                  _pct(v),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _color(v),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              )),
+          Expanded(
+            child: Text(
+              _pct(accuracy),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _color(accuracy),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -577,7 +568,7 @@ class _ReviewPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.science_outlined, size: 16, color: AppTheme.accentAmber),
+              const Icon(Icons.science_outlined, size: 16, color: AppTheme.accentAmber),
               const SizedBox(width: 8),
               Text(
                 'Researcher Review',
@@ -622,12 +613,12 @@ class _ReviewPanel extends StatelessWidget {
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Reviewer note (optional)',
-              hintStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              hintStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppTheme.border),
+                borderSide: const BorderSide(color: AppTheme.border),
               ),
             ),
           ),

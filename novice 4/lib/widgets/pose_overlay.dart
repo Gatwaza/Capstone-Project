@@ -170,7 +170,7 @@ class PoseOverlayPainter extends CustomPainter {
     final fillHeight = barHeight * fillPct;
 
     canvas.drawLine(
-      Offset(barX, barTop + barHeight),
+      const Offset(barX, barTop + barHeight),
       Offset(barX, barTop + barHeight - fillHeight),
       Paint()
         ..color = color

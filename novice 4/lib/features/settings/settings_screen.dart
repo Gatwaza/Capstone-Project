@@ -37,14 +37,14 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // ── Language ──────────────────────────────────────
-          _SectionHeader('Language'),
+          const _SectionHeader('Language'),
           _SettingTile(
             title: 'Coaching language',
             subtitle: session.language == 'en' ? 'English' : 'Kinyarwanda (Ikinyarwanda)',
             trailing: DropdownButton<String>(
               value: session.language,
               dropdownColor: AppTheme.card,
-              style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
               underline: const SizedBox(),
               items: const [
                 DropdownMenuItem(value: 'en', child: Text('English')),
@@ -61,12 +61,12 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 8),
 
           // ── Research ──────────────────────────────────────────
-          _SectionHeader('Pilot Study'),
+          const _SectionHeader('Pilot Study'),
           _SettingTile(
             title: 'Participant Enrolment',
             subtitle: 'Enrol a new study participant + capture consent',
             trailing: IconButton(
-              icon: Icon(Icons.person_add_rounded, color: AppTheme.accent),
+              icon: const Icon(Icons.person_add_rounded, color: AppTheme.accent),
               onPressed: () => context.push(AppRoutes.consent),
             ),
           ),
@@ -74,7 +74,7 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Researcher Dashboard',
             subtitle: 'View Group A/B metrics and export study data',
             trailing: IconButton(
-              icon: Icon(Icons.analytics_rounded, color: AppTheme.accent),
+              icon: const Icon(Icons.analytics_rounded, color: AppTheme.accent),
               onPressed: () => context.push(AppRoutes.researcher),
             ),
           ),
@@ -82,12 +82,12 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 8),
 
           // ── Research export ───────────────────────────────
-          _SectionHeader('Research & Data'),
+          const _SectionHeader('Research & Data'),
           _SettingTile(
             title: 'Export session data',
             subtitle: 'JSON export for pilot study analysis',
             trailing: IconButton(
-              icon: Icon(Icons.upload_file_rounded,
+              icon: const Icon(Icons.upload_file_rounded,
                   color: AppTheme.accent),
               onPressed: () => _exportData(context),
             ),
@@ -96,20 +96,20 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 8),
 
           // ── About ─────────────────────────────────────────
-          _SectionHeader('About'),
-          _SettingTile(
+          const _SectionHeader('About'),
+          const _SettingTile(
             title: 'App version',
             subtitle: AppConstants.appVersion,
           ),
-          _SettingTile(
+          const _SettingTile(
             title: 'License',
             subtitle: 'GNU General Public License v3.0',
           ),
-          _SettingTile(
+          const _SettingTile(
             title: 'Developer',
             subtitle: 'Jean Robert Gatwaza — African Leadership University',
           ),
-          _SettingTile(
+          const _SettingTile(
             title: 'Clinical reference',
             subtitle: 'ERC Guidelines 2021 (Perkins et al.)',
           ),

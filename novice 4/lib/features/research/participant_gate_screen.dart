@@ -74,7 +74,7 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.person_add_alt_1_rounded,
+                      const Icon(Icons.person_add_alt_1_rounded,
                           color: AppTheme.accent, size: 22),
                       const SizedBox(width: 10),
                       Text('First time here',
@@ -99,13 +99,13 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
             const SizedBox(height: 20),
             Row(
               children: [
-                Expanded(child: Divider(color: AppTheme.border)),
+                const Expanded(child: Divider(color: AppTheme.border)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text('OR',
                       style: Theme.of(context).textTheme.labelSmall),
                 ),
-                Expanded(child: Divider(color: AppTheme.border)),
+                const Expanded(child: Divider(color: AppTheme.border)),
               ],
             ),
             const SizedBox(height: 20),
@@ -123,7 +123,7 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.history_rounded,
+                      const Icon(Icons.history_rounded,
                           color: AppTheme.textSecondary, size: 22),
                       const SizedBox(width: 10),
                       Text('I have already registered',

@@ -206,7 +206,7 @@ class _ActionCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_ios_rounded,
+                  const Icon(Icons.arrow_forward_ios_rounded,
                       color: AppTheme.textSecondary, size: 16),
                 ],
               ),

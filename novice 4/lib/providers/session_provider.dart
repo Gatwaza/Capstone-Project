@@ -1,518 +1,196 @@
 // Novice — CPR-AI Coach
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
+//
+// Riverpod providers for the live training session and saved-session
+// history. This is the single source of truth that training_screen,
+// home_screen, history_screen, and settings_screen all read from.
 
 import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logger/logger.dart';
 
 import '../core/di/injection.dart';
-import '../models/session_model.dart';
 import '../models/landmark_frame.dart';
+import '../models/session_model.dart';
 import '../services/feedback_engine.dart';
 import '../services/inference_service.dart';
 import '../services/platform/inference_service_web.dart';
 import '../services/platform/storage_service.dart';
-import '../services/platform/telemetry_service.dart';
 import '../services/tts_service.dart';
 
+/// Immutable snapshot of an in-progress (or not-yet-started) training
+/// session. Consumed directly by TrainingScreen's HUD and by
+/// settings_screen for the language toggle.
 class LiveSessionState {
   const LiveSessionState({
     this.isActive = false,
-    this.bpm = 0.0,
-    this.depthCm = 0.0,
+    this.participantId,
     this.compressions = 0,
-    this.elapsedSeconds = 0,
+    this.bpm = 0,
+    this.depthCm = 0,
+    this.cprFraction = 0,
+    this.language = 'en',
+    this.modelAvailable = false,
     this.currentPrompt,
     this.lastInference,
     this.lastFrame,
-    this.language = 'en',
-    this.modelAvailable = false,
     this.taskAccuracies = const {},
-    this.taskConfidences = const {},
+    this.elapsed = Duration.zero,
   });
 
   final bool isActive;
+  final String? participantId;
+  final int compressions;
   final double bpm;
   final double depthCm;
-  final int compressions;
-  final int elapsedSeconds;
+  final double cprFraction;
+  final String language;
+  final bool modelAvailable;
   final FeedbackPrompt? currentPrompt;
   final InferenceResult? lastInference;
   final LandmarkFrame? lastFrame;
-  final String language;
-  final bool modelAvailable;
+
+  /// Live per-task accuracy snapshot ('rate'/'depth'/'recoil' → 0.0–1.0),
+  /// updated every assessed frame so _TaskIndicators in training_screen can
+  /// show a running readout during the session.
   final Map<String, double> taskAccuracies;
-  final Map<String, double> taskConfidences;
+
+  final Duration elapsed;
 
   String get elapsedFormatted {
-    final m = elapsedSeconds ~/ 60;
-    final s = elapsedSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
-  double get cprFraction {
-    if (elapsedSeconds == 0) return 0;
-    return ((compressions * 0.52) / elapsedSeconds).clamp(0.0, 1.0);
-  }
-
-  /// Live HUD estimate — derived from model task accuracies when available.
-  int get qualityScore {
-    if (compressions == 0) return 0;
-    final rateAcc = taskAccuracies['rate'] ?? 0.0;
-    final depthAcc = taskAccuracies['depth'] ?? 0.0;
-    final recoilAcc = taskAccuracies['recoil'] ?? 0.0;
-    if (rateAcc == 0.0 && depthAcc == 0.0 && recoilAcc == 0.0) {
-      // No model data yet — show 0 rather than a misleading rule-based score.
-      return 0;
-    }
-    // Simple mean for the live HUD; the persisted score uses AUC weighting.
-    return ((rateAcc + depthAcc + recoilAcc) / 3 * 100).clamp(0, 100).toInt();
+    final m = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   LiveSessionState copyWith({
     bool? isActive,
+    String? participantId,
+    int? compressions,
     double? bpm,
     double? depthCm,
-    int? compressions,
-    int? elapsedSeconds,
+    double? cprFraction,
+    String? language,
+    bool? modelAvailable,
     FeedbackPrompt? currentPrompt,
     InferenceResult? lastInference,
     LandmarkFrame? lastFrame,
-    String? language,
-    bool? modelAvailable,
     Map<String, double>? taskAccuracies,
-    Map<String, double>? taskConfidences,
-  }) =>
-      LiveSessionState(
-        isActive: isActive ?? this.isActive,
-        bpm: bpm ?? this.bpm,
-        depthCm: depthCm ?? this.depthCm,
-        compressions: compressions ?? this.compressions,
-        elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
-        currentPrompt: currentPrompt ?? this.currentPrompt,
-        lastInference: lastInference ?? this.lastInference,
-        lastFrame: lastFrame ?? this.lastFrame,
-        language: language ?? this.language,
-        modelAvailable: modelAvailable ?? this.modelAvailable,
-        taskAccuracies: taskAccuracies ?? this.taskAccuracies,
-        taskConfidences: taskConfidences ?? this.taskConfidences,
-      );
+    Duration? elapsed,
+  }) {
+    return LiveSessionState(
+      isActive: isActive ?? this.isActive,
+      participantId: participantId ?? this.participantId,
+      compressions: compressions ?? this.compressions,
+      bpm: bpm ?? this.bpm,
+      depthCm: depthCm ?? this.depthCm,
+      cprFraction: cprFraction ?? this.cprFraction,
+      language: language ?? this.language,
+      modelAvailable: modelAvailable ?? this.modelAvailable,
+      currentPrompt: currentPrompt ?? this.currentPrompt,
+      lastInference: lastInference ?? this.lastInference,
+      lastFrame: lastFrame ?? this.lastFrame,
+      taskAccuracies: taskAccuracies ?? this.taskAccuracies,
+      elapsed: elapsed ?? this.elapsed,
+    );
+  }
 }
 
 class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   LiveSessionNotifier() : super(const LiveSessionState()) {
-    _feedback = getIt<FeedbackEngine>();
+    _feedback = FeedbackEngine();
     _tts = getIt<TtsService>();
     _storage = getIt<StorageService>();
-    _telemetry = getIt<TelemetryService>();
-    _log = getIt<Logger>();
   }
 
   late final FeedbackEngine _feedback;
   late final TtsService _tts;
   late final StorageService _storage;
-  late final TelemetryService _telemetry;
-  late final Logger _log;
 
+  DateTime? _sessionStart;
   Timer? _ticker;
-  String _participantId = '';
+
   final List<double> _bpmHistory = [];
   final List<double> _depthHistory = [];
+  final List<LandmarkFrame> _frameBuffer = [];
 
-  // ── Per-task tracking (CNN-BiLSTM 3-head evaluation) ───────────────────────
-  // Accuracy: 1.0 when model says "Correct", 0.0 otherwise (per frame)
-  final List<double> _rateAccuracies   = [];
-  final List<double> _depthAccuracies  = [];
+  int _assessedFrameCount = 0;
+  int _activeFrameCount = 0;
+
+  // Per-task accuracy histories, used both for the live taskAccuracies
+  // readout and for the final SessionModel research metrics at stopSession.
+  final List<double> _rateAccuracies = [];
+  final List<double> _depthAccuracies = [];
   final List<double> _recoilAccuracies = [];
-
-  // Confidence scores (used as AUC proxy and quality weighting)
-  Map<String, double> _taskConfidences = {
-    'rate': 0.0, 'depth': 0.0, 'recoil': 0.0,
+  final Map<String, double> _taskConfidences = {
+    'rate': 0.0,
+    'depth': 0.0,
+    'recoil': 0.0,
   };
 
-  // Class-level counters for precision/recall/F1 computation
-  // Rate task: Correct, Too_Fast, Too_Slow
-  final Map<String, int> _rateClassCounts   = {};
-  // Depth task: Correct, Too_Shallow, Too_Deep
-  final Map<String, int> _depthClassCounts  = {};
-  // Recoil task: Correct, Incomplete
-  final Map<String, int> _recoilClassCounts = {};
-
-  // ── Compression state machine ───────────────────────────────────────────────
-  _CompressionPhase _compressionPhase = _CompressionPhase.idle;
-  static const double _downThreshold = 0.006;
-  static const double _upThreshold = -0.004;
-  int _descentFrameCount = 0;
-  static const int _minDescentFrames = 3;
-
-  final List<LandmarkFrame> _descentFrameBuffer = [];
-  static const int _inferenceWindowSize = 60;
-
-  final List<LandmarkFrame> _frameBuffer = [];
-  DateTime? _sessionStart;
-
-  final Map<String, int> _classFrameCounts = {};
-  int _assessedFrameCount = 0;
-  bool _modelUsedThisSession = false;
-
-  // Confidence thresholds — reject results below these to prevent
-  // majority-class collapse from inflating scores.
-  static const double _depthConfidenceThreshold = 0.70;
-  static const double _taskConfidenceThreshold  = 0.55;
-
-  bool get _modelAvailable {
-    try {
-      if (kIsWeb) return getIt<InferenceServiceWeb>().isModelLoaded;
-      return getIt<InferenceService>().isModelLoaded;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  InferenceResult _runInference(LandmarkFrame frame) {
-    try {
-      if (kIsWeb) return getIt<InferenceServiceWeb>().infer(frame);
-      return getIt<InferenceService>().infer(frame);
-    } catch (_) {
-      // Return a null-signal result — isSimulated=true so the provider
-      // will not accumulate it into accuracy/confidence lists, and
-      // model_was_available will remain false for this session.
-      return InferenceResult(
-        timestamp: DateTime.now(),
-        topClassIndex: 0,
-        topClassLabel: 'model_unavailable',
-        topClassConfidence: 0.0,
-        allClassScores: const {},
-        currentBpm: 0,
-        estimatedDepthCm: 0,
-        elbowAngleMean: 0,
-        spineVerticalityDeg: 0,
-        isSimulated: true,
-      );
-    }
-  }
+  // Simple compression counter: a "compression" is counted on each downward
+  // → upward direction change of wristVelocityY (i.e. each completed press
+  // cycle).
+  //
+  // FIX: the original 0.002 threshold was within the noise floor of
+  // MediaPipe landmark jitter — small frame-to-frame tracking wobble was
+  // enough to flip descending/ascending state even with hands completely
+  // still, producing physically impossible counts (200+ bpm, 170+
+  // compressions in 38s). Two changes:
+  //   1. Threshold raised to 0.012 — well above jitter, comfortably below
+  //      real compression velocity (~0.03-0.08 normalized units/frame at
+  //      25fps for a 5-6cm press).
+  //   2. Minimum 300ms between counted compressions (hard caps the counter
+  //      at 200bpm even in pathological noise — real CPR tops out ~120bpm
+  //      per ERC guidelines, so this is a generous physical ceiling, not a
+  //      tight clamp).
+  double? _lastVelocityY;
+  bool _wasDescending = false;
+  DateTime? _lastCompressionAt;
+  static const double _compressionVelocityThreshold = 0.012;
+  static const Duration _minCompressionInterval = Duration(milliseconds: 300);
 
   void startSession(String participantId) {
-    _participantId = participantId;
     _sessionStart = DateTime.now();
+    _frameBuffer.clear();
     _bpmHistory.clear();
     _depthHistory.clear();
-    _frameBuffer.clear();
-    _descentFrameBuffer.clear();
-    _classFrameCounts.clear();
-    _rateClassCounts.clear();
-    _depthClassCounts.clear();
-    _recoilClassCounts.clear();
-    _assessedFrameCount = 0;
-    _modelUsedThisSession = false;
-    _compressionPhase = _CompressionPhase.idle;
-    _descentFrameCount = 0;
     _rateAccuracies.clear();
     _depthAccuracies.clear();
     _recoilAccuracies.clear();
-    _taskConfidences = {'rate': 0.0, 'depth': 0.0, 'recoil': 0.0};
-
+    _taskConfidences['rate'] = 0.0;
+    _taskConfidences['depth'] = 0.0;
+    _taskConfidences['recoil'] = 0.0;
+    _assessedFrameCount = 0;
+    _activeFrameCount = 0;
+    _lastVelocityY = null;
+    _wasDescending = false;
+    _lastCompressionAt = null;
     _feedback.reset();
+
     state = state.copyWith(
       isActive: true,
+      participantId: participantId,
       compressions: 0,
-      elapsedSeconds: 0,
       bpm: 0,
       depthCm: 0,
+      cprFraction: 0,
+      currentPrompt: null,
       taskAccuracies: const {},
-      taskConfidences: const {},
-      modelAvailable: _modelAvailable,
+      elapsed: Duration.zero,
     );
-    _ticker = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => state = state.copyWith(elapsedSeconds: state.elapsedSeconds + 1),
-    );
+
     _tts.speakKey('start');
-    _log.i('Session started for participant: $participantId');
-  }
 
-  Future<String?> stopSession() async {
     _ticker?.cancel();
-    if (!state.isActive || _sessionStart == null) return null;
-    if (_participantId.isEmpty) {
-      _log.w('stopSession called with no participantId — refusing to save.');
-      state = state.copyWith(isActive: false);
-      return null;
-    }
-
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final errorRates = _computeErrorRates();
-
-    final taskAccuracies = {
-      'rate':   _mean(_rateAccuracies),
-      'depth':  _mean(_depthAccuracies),
-      'recoil': _mean(_recoilAccuracies),
-    };
-
-    // ── Compute per-task research metrics ─────────────────────────────────
-    final rateMetrics   = _computeClassificationMetrics(_rateClassCounts);
-    final depthMetrics  = _computeClassificationMetrics(_depthClassCounts);
-    final recoilMetrics = _computeClassificationMetrics(_recoilClassCounts);
-
-    final qualityScore = _computeQualityScore(taskAccuracies);
-
-    final session = SessionModel(
-      id: id,
-      participantId: _participantId,
-      startedAt: _sessionStart!,
-      endedAt: DateTime.now(),
-      totalCompressions: state.compressions,
-      meanBpm: _mean(_bpmHistory),
-      meanDepthCm: _mean(_depthHistory),
-      cprFraction: state.cprFraction,
-      qualityScore: qualityScore,
-      errorRates: errorRates,
-      schemaVersion: 2,
-      // Research metrics
-      rateAccuracy:   taskAccuracies['rate']   ?? 0.0,
-      depthAccuracy:  taskAccuracies['depth']  ?? 0.0,
-      recoilAccuracy: taskAccuracies['recoil'] ?? 0.0,
-      ratePrecision:   rateMetrics['precision']   ?? 0.0,
-      depthPrecision:  depthMetrics['precision']  ?? 0.0,
-      recoilPrecision: recoilMetrics['precision'] ?? 0.0,
-      rateRecall:   rateMetrics['recall']   ?? 0.0,
-      depthRecall:  depthMetrics['recall']  ?? 0.0,
-      recoilRecall: recoilMetrics['recall'] ?? 0.0,
-      rateF1:   rateMetrics['f1']   ?? 0.0,
-      depthF1:  depthMetrics['f1']  ?? 0.0,
-      recoilF1: recoilMetrics['f1'] ?? 0.0,
-      rateAuc:   _taskConfidences['rate']   ?? 0.0,
-      depthAuc:  _taskConfidences['depth']  ?? 0.0,
-      recoilAuc: _taskConfidences['recoil'] ?? 0.0,
-      taskConfidences: Map.of(_taskConfidences),
-      language: state.language,
-      modelWasAvailable: _modelUsedThisSession,
-      rawFrames: List.unmodifiable(_frameBuffer),
-    );
-
-    await _storage.saveSession(session);
-    _telemetry.uploadSession(session);
-
-    _log.i(
-      'Session saved: $id | compressions=${state.compressions} '
-      '| rate_f1=${rateMetrics['f1']?.toStringAsFixed(3)} '
-      '| depth_f1=${depthMetrics['f1']?.toStringAsFixed(3)} '
-      '| recoil_f1=${recoilMetrics['f1']?.toStringAsFixed(3)}',
-    );
-    state = state.copyWith(isActive: false);
-    return id;
-  }
-
-  Map<String, double> _computeErrorRates() {
-    if (_assessedFrameCount == 0) return {};
-    return _classFrameCounts.map(
-      (label, count) => MapEntry(label, count / _assessedFrameCount),
-    );
-  }
-
-  /// Computes precision, recall, F1 from a per-class frame count map.
-  ///
-  /// Treats "Correct" as the positive class and all other classes as negatives
-  /// for binary metrics.  Returns macro-averaged precision/recall/F1 across
-  /// all observed classes for a richer multi-class picture, plus the binary
-  /// correct-vs-errors decomposition used in the notebook.
-  Map<String, double> _computeClassificationMetrics(Map<String, int> classCounts) {
-    if (classCounts.isEmpty) return {'precision': 0, 'recall': 0, 'f1': 0};
-
-    final total = classCounts.values.fold(0, (s, v) => s + v);
-    if (total == 0) return {'precision': 0, 'recall': 0, 'f1': 0};
-
-    // Binary decomposition: Correct = TP, everything else = FP/FN
-    final tp = (classCounts['Correct'] ?? 0).toDouble();
-    final fp = (total - tp);
-    final fn = fp; // symmetric for the binary case
-
-    final precision = (tp + fp) > 0 ? tp / (tp + fp) : 0.0;
-    final recall    = (tp + fn) > 0 ? tp / (tp + fn) : 0.0;
-    final f1        = (precision + recall) > 0
-        ? 2 * precision * recall / (precision + recall)
-        : 0.0;
-
-    return {
-      'precision': precision,
-      'recall':    recall,
-      'f1':        f1,
-    };
-  }
-
-  /// Multi-task quality score.
-  ///
-  /// Tasks weighted by CNN-BiLSTM test-set AUC-ROC (trust weights only).
-  /// Tasks with no assessed frames are excluded rather than scored as zero.
-  int _computeQualityScore(Map<String, double> taskAccuracies) {
-    if (_assessedFrameCount == 0) return 0;
-
-    const int minCompressionsForScore = 5;
-    if (state.compressions < minCompressionsForScore) return 0;
-
-    // AUC-ROC from notebook (trust weights — NOT divisors)
-    const double rateTrust   = 0.8110;
-    const double depthTrust  = 0.9511;
-    const double recoilTrust = 0.8414;
-
-    final entries = <MapEntry<double, double>>[];
-
-    if (_rateAccuracies.isNotEmpty) {
-      entries.add(MapEntry(
-        (taskAccuracies['rate'] ?? 0.0).clamp(0.0, 1.0) * 100, rateTrust));
-    }
-    if (_depthAccuracies.isNotEmpty) {
-      entries.add(MapEntry(
-        (taskAccuracies['depth'] ?? 0.0).clamp(0.0, 1.0) * 100, depthTrust));
-    }
-    if (_recoilAccuracies.isNotEmpty) {
-      entries.add(MapEntry(
-        (taskAccuracies['recoil'] ?? 0.0).clamp(0.0, 1.0) * 100, recoilTrust));
-    }
-
-    if (entries.isEmpty) return 0;
-
-    final double totalTrust = entries.fold(0.0, (s, e) => s + e.value);
-    double weighted = entries.fold(0.0, (s, e) => s + e.key * e.value) / totalTrust;
-
-    if (state.cprFraction < 0.6) weighted -= 10.0;
-
-    return weighted.clamp(0, 100).round();
-  }
-
-  void onFrame(LandmarkFrame frame) {
-    _frameBuffer.add(frame);
-    if (!state.isActive) return;
-
-    _updateCompressionCount(frame);
-    final bool hasStartedCompressing = state.compressions > 0;
-
-    if (_compressionPhase == _CompressionPhase.descending) {
-      _descentFrameBuffer.add(frame);
-      if (_descentFrameBuffer.length > _inferenceWindowSize) {
-        _descentFrameBuffer.removeAt(0);
-      }
-    }
-
-    if (!hasStartedCompressing) return;
-    if (_descentFrameBuffer.length < 10) return;
-
-    final result = _runInference(frame);
-
-    // Only accumulate real model predictions — skip simulated (model unavailable)
-    if (!result.isSimulated) {
-      _assessedFrameCount++;
-      _modelUsedThisSession = true;
-
-      // Track top-level label for error rate breakdown
-      _classFrameCounts.update(
-        result.topClassLabel, (n) => n + 1, ifAbsent: () => 1,
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_sessionStart == null) return;
+      state = state.copyWith(
+        elapsed: DateTime.now().difference(_sessionStart!),
       );
-
-      // Rate task
-      if (result.rateAccuracy != null &&
-          (result.rateConfidence ?? 0.0) >= _taskConfidenceThreshold) {
-        _rateAccuracies.add(result.rateAccuracy!);
-        _taskConfidences['rate'] = result.rateConfidence!;
-        // Prefer the direct per-task label from the 3-head web/API path.
-        // Falls back to the allClassScores rescan only for mobile, whose
-        // rule-based inference_service.dart never sets rateLabel.
-        final rateLabel = result.rateLabel ??
-            result.allClassScores.entries
-                .where((e) => ['Correct','Too_Fast','Too_Slow'].contains(e.key))
-                .fold<String>('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
-        if (rateLabel.isNotEmpty) {
-          _rateClassCounts.update(rateLabel, (n) => n + 1, ifAbsent: () => 1);
-        }
-      }
-
-      // Depth task — stricter threshold guards against majority-class collapse
-      if (result.depthAccuracy != null &&
-          (result.depthConfidence ?? 0.0) >= _depthConfidenceThreshold) {
-        _depthAccuracies.add(result.depthAccuracy!);
-        _taskConfidences['depth'] = result.depthConfidence!;
-        final depthLabel = result.depthLabel ??
-            result.allClassScores.entries
-                .where((e) => ['Correct','Too_Shallow','Too_Deep'].contains(e.key))
-                .fold<String>('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
-        if (depthLabel.isNotEmpty) {
-          _depthClassCounts.update(depthLabel, (n) => n + 1, ifAbsent: () => 1);
-        }
-      }
-
-      // Recoil task
-      if (result.recoilAccuracy != null &&
-          (result.recoilConfidence ?? 0.0) >= _taskConfidenceThreshold) {
-        _recoilAccuracies.add(result.recoilAccuracy!);
-        _taskConfidences['recoil'] = result.recoilConfidence!;
-        final recoilLabel = result.recoilLabel ??
-            result.allClassScores.entries
-                .where((e) => ['Correct','Incomplete'].contains(e.key))
-                .fold<String>('', (best, e) => best.isEmpty || e.value > (result.allClassScores[best] ?? 0) ? e.key : best);
-        if (recoilLabel.isNotEmpty) {
-          _recoilClassCounts.update(recoilLabel, (n) => n + 1, ifAbsent: () => 1);
-        }
-      }
-    }
-
-    if (result.currentBpm > 0) _bpmHistory.add(result.currentBpm);
-    if (result.estimatedDepthCm > 0) _depthHistory.add(result.estimatedDepthCm);
-
-    final prompt = _feedback.process(result, state.language);
-    if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
-
-    final liveTaskAccuracies = {
-      'rate':   _mean(_rateAccuracies),
-      'depth':  _mean(_depthAccuracies),
-      'recoil': _mean(_recoilAccuracies),
-    };
-
-    state = state.copyWith(
-      bpm: result.currentBpm,
-      depthCm: result.estimatedDepthCm,
-      currentPrompt: prompt,
-      lastInference: result,
-      lastFrame: frame,
-      taskAccuracies: liveTaskAccuracies,
-      taskConfidences: Map.of(_taskConfidences),
-    );
-  }
-
-  void _updateCompressionCount(LandmarkFrame frame) {
-    final vel = frame.wristVelocityY;
-
-    switch (_compressionPhase) {
-      case _CompressionPhase.idle:
-        if (vel > _downThreshold) {
-          _compressionPhase = _CompressionPhase.descending;
-          _descentFrameCount = 1;
-        }
-        break;
-
-      case _CompressionPhase.descending:
-        if (vel > _downThreshold) {
-          _descentFrameCount++;
-        } else if (vel < _upThreshold && _descentFrameCount >= _minDescentFrames) {
-          _compressionPhase = _CompressionPhase.ascending;
-          state = state.copyWith(compressions: state.compressions + 1);
-          _descentFrameCount = 0;
-        } else if (vel.abs() < _downThreshold * 0.5) {
-          _compressionPhase = _CompressionPhase.idle;
-          _descentFrameCount = 0;
-        }
-        break;
-
-      case _CompressionPhase.ascending:
-        if (vel > _downThreshold) {
-          _compressionPhase = _CompressionPhase.descending;
-          _descentFrameCount = 1;
-        } else if (vel.abs() < _downThreshold) {
-          _compressionPhase = _CompressionPhase.idle;
-        }
-        break;
-    }
+    });
   }
 
   void setLanguage(String lang) {
@@ -520,8 +198,179 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     state = state.copyWith(language: lang);
   }
 
-  double _mean(List<double> vals) =>
-      vals.isEmpty ? 0 : vals.reduce((a, b) => a + b) / vals.length;
+  /// Called once per assessed pose frame from the camera/web pose loop.
+  void onFrame(LandmarkFrame frame) {
+    if (!state.isActive) return;
+
+    _frameBuffer.add(frame);
+
+    final inference = _runInference(frame);
+    final prompt = _feedback.process(inference, state.language);
+
+    _assessedFrameCount++;
+    if (!inference.isSimulated) _activeFrameCount++;
+
+    if (inference.rateAccuracy != null) {
+      _rateAccuracies.add(inference.rateAccuracy!);
+      _taskConfidences['rate'] = inference.rateConfidence ?? 0.0;
+    }
+    if (inference.depthAccuracy != null) {
+      _depthAccuracies.add(inference.depthAccuracy!);
+      _taskConfidences['depth'] = inference.depthConfidence ?? 0.0;
+    }
+    if (inference.recoilAccuracy != null) {
+      _recoilAccuracies.add(inference.recoilAccuracy!);
+      _taskConfidences['recoil'] = inference.recoilConfidence ?? 0.0;
+    }
+
+    if (inference.currentBpm > 0) _bpmHistory.add(inference.currentBpm);
+    if (inference.estimatedDepthCm > 0) {
+      _depthHistory.add(inference.estimatedDepthCm);
+    }
+
+    _updateCompressionCount(frame);
+
+    final liveTaskAccuracies = {
+      'rate': _mean(_rateAccuracies),
+      'depth': _mean(_depthAccuracies),
+      'recoil': _mean(_recoilAccuracies),
+    };
+
+    state = state.copyWith(
+      bpm: inference.currentBpm,
+      depthCm: inference.estimatedDepthCm,
+      cprFraction:
+          _assessedFrameCount == 0 ? 0 : _activeFrameCount / _assessedFrameCount,
+      currentPrompt: prompt,
+      lastInference: inference,
+      lastFrame: frame,
+      modelAvailable: !inference.isSimulated,
+      taskAccuracies: liveTaskAccuracies,
+    );
+
+    if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
+  }
+
+  /// Routes to the platform-appropriate inference backend. injection.dart
+  /// registers exactly one of these depending on kIsWeb — InferenceService
+  /// (mobile, on-device TFLite) or InferenceServiceWeb (web, hosted
+  /// CNN-BiLSTM API) — never both, so the kIsWeb check here must match.
+  InferenceResult _runInference(LandmarkFrame frame) {
+    if (kIsWeb) {
+      return getIt<InferenceServiceWeb>().infer(frame);
+    }
+    return getIt<InferenceService>().infer(frame);
+  }
+
+  void _updateCompressionCount(LandmarkFrame frame) {
+    final v = frame.wristVelocityY;
+    if (_lastVelocityY == null) {
+      _lastVelocityY = v;
+      return;
+    }
+
+    final descending = v > _compressionVelocityThreshold;
+    final ascending = v < -_compressionVelocityThreshold;
+
+    if (descending) {
+      _wasDescending = true;
+    } else if (ascending && _wasDescending) {
+      final now = DateTime.now();
+      final sinceLast = _lastCompressionAt == null
+          ? _minCompressionInterval
+          : now.difference(_lastCompressionAt!);
+      if (sinceLast >= _minCompressionInterval) {
+        // Completed a down-then-up cycle, not too soon after the last one
+        // — count one compression.
+        state = state.copyWith(compressions: state.compressions + 1);
+        _lastCompressionAt = now;
+      }
+      _wasDescending = false;
+    }
+
+    _lastVelocityY = v;
+  }
+
+  Future<String?> stopSession() async {
+    _ticker?.cancel();
+    if (!state.isActive || _sessionStart == null) return null;
+
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final participantId = state.participantId ?? 'unknown';
+
+    final rateAcc = _mean(_rateAccuracies);
+    final depthAcc = _mean(_depthAccuracies);
+    final recoilAcc = _mean(_recoilAccuracies);
+
+    final session = SessionModel(
+      id: id,
+      participantId: participantId,
+      startedAt: _sessionStart!,
+      endedAt: DateTime.now(),
+      totalCompressions: state.compressions,
+      meanBpm: _mean(_bpmHistory),
+      meanDepthCm: _mean(_depthHistory),
+      cprFraction: state.cprFraction,
+      qualityScore: _computeQualityScore(rateAcc, depthAcc, recoilAcc),
+      errorRates: const {},
+      rateAccuracy: rateAcc,
+      depthAccuracy: depthAcc,
+      recoilAccuracy: recoilAcc,
+      taskConfidences: Map.of(_taskConfidences),
+      language: state.language,
+      modelWasAvailable: state.modelAvailable,
+      rawFrames: List.unmodifiable(_frameBuffer),
+    );
+
+    await _storage.saveSession(session);
+
+    state = state.copyWith(isActive: false);
+    return id;
+  }
+
+  /// Weighted multi-task quality score (0–100).
+  ///
+  /// Evidence sources (see docs/EVALUATION_METRICS_AUDIT.md § "PART 4.1" and
+  /// ml_pipeline/CPR_Coach_Training.ipynb cells 33–35):
+  ///   CNN-BiLSTM test-set F1_w:    rate=75.92%, depth=94.05%, recoil=74.79%
+  ///   CNN-BiLSTM test-set AUC-ROC: rate=81.10%, depth=95.11%, recoil=84.14%
+  /// Depth is weighted highest (AUC=95%) since it's the most reliable task.
+  int _computeQualityScore(double rateAcc, double depthAcc, double recoilAcc) {
+    if (_assessedFrameCount == 0) return 0;
+
+    const rateF1Baseline = 75.92;
+    const depthF1Baseline = 94.05;
+    const recoilF1Baseline = 74.79;
+
+    const rateWeight = 0.8110;
+    const depthWeight = 0.9511;
+    const recoilWeight = 0.8414;
+    const totalWeight = rateWeight + depthWeight + recoilWeight;
+
+    final rateScore = (rateAcc * 100 / rateF1Baseline).clamp(0, 2) * 100;
+    final depthScore = (depthAcc * 100 / depthF1Baseline).clamp(0, 2) * 100;
+    final recoilScore = (recoilAcc * 100 / recoilF1Baseline).clamp(0, 2) * 100;
+
+    double weightedScore = ((rateScore * rateWeight) +
+            (depthScore * depthWeight) +
+            (recoilScore * recoilWeight)) /
+        totalWeight;
+
+    if (state.cprFraction < 0.6) weightedScore -= 10.0;
+
+    final avgConfidence = (_taskConfidences['rate']! +
+            _taskConfidences['depth']! +
+            _taskConfidences['recoil']!) /
+        3.0;
+    if (avgConfidence >= 0.80) weightedScore += 5.0;
+
+    return weightedScore.clamp(0, 100).round();
+  }
+
+  double _mean(List<double> values) {
+    if (values.isEmpty) return 0.0;
+    return values.reduce((a, b) => a + b) / values.length;
+  }
 
   @override
   void dispose() {
@@ -530,13 +379,14 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   }
 }
 
-enum _CompressionPhase { idle, descending, ascending }
-
 final liveSessionProvider =
     StateNotifierProvider<LiveSessionNotifier, LiveSessionState>(
-  (_) => LiveSessionNotifier(),
+  (ref) => LiveSessionNotifier(),
 );
 
-final sessionHistoryProvider = FutureProvider<List<SessionModel>>((ref) async {
+/// Saved-session history, read by home_screen (latest session preview) and
+/// history_screen (full list). Backed by StorageService, which delegates to
+/// SQLite on mobile and SharedPreferences on web.
+final sessionHistoryProvider = FutureProvider<List<SessionModel>>((ref) {
   return getIt<StorageService>().loadAllSessions();
 });

@@ -14,7 +14,6 @@ import 'package:path/path.dart' as p;
 import 'sqflite_compat.dart';
 import 'path_provider_compat.dart';
 import '../models/research_models.dart';
-import '../models/session_model.dart';
 
 class ResearchLogger {
   ResearchLogger();

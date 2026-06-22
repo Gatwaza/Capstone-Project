@@ -21,7 +21,6 @@ import '../../core/di/injection.dart';
 import '../../services/platform/pose_service_interface.dart';
 import '../../widgets/bpm_indicator.dart';
 import '../../widgets/compression_gauge.dart';
-import '../../widgets/feedback_banner.dart';
 import '../../widgets/pose_overlay.dart';
 
 import 'package:permission_handler/permission_handler.dart'
@@ -219,12 +218,12 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
           else
             Container(
               color: AppTheme.surface,
-              child: Center(
+              child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
                     Text(
                       kIsWeb
                           ? 'Initialising camera…\nAllow camera access when prompted.'
@@ -252,7 +251,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                     color: Colors.black.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
+                  child: const Text(
                     'Initialising pose detection…',
                     style:
                         TextStyle(color: AppTheme.textSecondary, fontSize: 12),
@@ -379,7 +378,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.camera_alt_outlined,
+              const Icon(Icons.camera_alt_outlined,
                   color: AppTheme.textSecondary, size: 48),
               const SizedBox(height: 16),
               Text('Camera access required',
@@ -392,9 +391,9 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
+              const ElevatedButton(
                 onPressed: openAppSettings,
-                child: const Text('Open Settings'),
+                child: Text('Open Settings'),
               ),
             ],
           ),
@@ -522,7 +521,7 @@ class _HudChip extends StatelessWidget {
                       fontWeight: FontWeight.w700)),
               if (sublabel != null)
                 Text(sublabel!,
-                    style: TextStyle(
+                    style: const TextStyle(
                         color: AppTheme.textSecondary,
                         fontSize: 9,
                         letterSpacing: 0.5)),

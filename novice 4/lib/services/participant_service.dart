@@ -21,6 +21,8 @@
 /// Setup: run participants_migration.sql in the Supabase SQL editor once
 /// (after the original sessions-table setup). Uses the same SUPABASE_URL /
 /// SUPABASE_ANON_KEY dart-define values as TelemetryService.
+library;
+
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;

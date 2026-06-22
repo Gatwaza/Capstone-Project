@@ -2,12 +2,10 @@
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/constants/app_constants.dart';
 
 /// Animated CPR technique demonstration screen.
 ///
@@ -341,7 +339,7 @@ class _CprAnimationPainter extends CustomPainter {
     final textPainter = TextPainter(
       text: TextSpan(
         text: '${depthCm.toStringAsFixed(1)} cm',
-        style: TextStyle(
+        style: const TextStyle(
           color: AppTheme.accent,
           fontSize: 12,
           fontWeight: FontWeight.w700,

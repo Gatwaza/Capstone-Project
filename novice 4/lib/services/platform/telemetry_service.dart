@@ -12,6 +12,8 @@
 ///   • Silent on error: logs to debug console only.
 ///   • Write-only: RLS policy allows INSERT but not SELECT/UPDATE/DELETE.
 ///   • model_was_available=false sessions should be excluded from metric analysis.
+library;
+
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
