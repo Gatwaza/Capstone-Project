@@ -225,7 +225,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () => context.go(AppRoutes.home),
-                  child: const Text(
+                  child: Text(
                     'Back to Home',
                     style: TextStyle(color: AppTheme.textSecondary),
                   ),
@@ -312,7 +312,7 @@ class _ResearchMetricsPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics_outlined, size: 16, color: AppTheme.accent),
+              Icon(Icons.analytics_outlined, size: 16, color: AppTheme.accent),
               const SizedBox(width: 8),
               Text(
                 'Per-Task Accuracy (Live Session)',
@@ -346,7 +346,7 @@ class _ResearchMetricsPanel extends StatelessWidget {
             ),
           ),
 
-          const Divider(color: AppTheme.border, height: 1),
+          Divider(color: AppTheme.border, height: 1),
           const SizedBox(height: 8),
 
           // Rate task row
@@ -373,7 +373,7 @@ class _ResearchMetricsPanel extends StatelessWidget {
           ),
 
           const SizedBox(height: 12),
-          const Divider(color: AppTheme.border, height: 1),
+          Divider(color: AppTheme.border, height: 1),
           const SizedBox(height: 10),
 
           // Model test-set baseline reference
@@ -388,11 +388,11 @@ class _ResearchMetricsPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded,
+                    Icon(Icons.info_outline_rounded,
                         size: 13, color: AppTheme.textSecondary),
                     const SizedBox(width: 6),
                     Text(
-                      'CNN-BiLSTM test-set baseline (notebook cell 35)',
+                      'CNN-BiLSTM test-set baseline (offline evaluation)',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppTheme.textSecondary,
                             fontSize: 10,
@@ -403,14 +403,15 @@ class _ResearchMetricsPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Rate: F1=75.92% · AUC=81.10%\n'
-                  'Depth: F1=94.05% · AUC=95.11%\n'
-                  'Recoil: F1=74.79% · AUC=84.14%\n'
-                  'Mean F1=81.59%',
+                  'Rate:   F1=81.4%  Prec=82.9%  Rec=80.7%  AUC=79.2%\n'
+                  'Depth:  F1=94.0%  Prec=94.0%  Rec=94.3%  AUC=94.7%\n'
+                  'Recoil: F1=74.4%  Prec=75.5%  Rec=73.9%  AUC=81.7%\n'
+                  'Mean F1=83.3%  ·  Mean Prec=84.1%  ·  Mean Rec=83.0%',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppTheme.textSecondary,
                         fontSize: 10,
                         height: 1.6,
+                        fontFamily: 'Courier New',
                       ),
                 ),
               ],
@@ -568,7 +569,7 @@ class _ReviewPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.science_outlined, size: 16, color: AppTheme.accentAmber),
+              Icon(Icons.science_outlined, size: 16, color: AppTheme.accentAmber),
               const SizedBox(width: 8),
               Text(
                 'Researcher Review',
@@ -613,12 +614,12 @@ class _ReviewPanel extends StatelessWidget {
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Reviewer note (optional)',
-              hintStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              hintStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppTheme.border),
+                borderSide: BorderSide(color: AppTheme.border),
               ),
             ),
           ),

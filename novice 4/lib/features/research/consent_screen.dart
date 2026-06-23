@@ -143,7 +143,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
                   border: Border.all(color: AppTheme.border)),
               child: Row(
                 children: [
-                  const Icon(Icons.badge_outlined, color: AppTheme.accent, size: 20),
+                  Icon(Icons.badge_outlined, color: AppTheme.accent, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -269,9 +269,16 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => setState(() => _step = 0),
-              child: const Text('← Back to information sheet',
-                  style:
-                      TextStyle(color: AppTheme.textSecondary)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.arrow_back_rounded,
+                      size: 16, color: AppTheme.textSecondary),
+                  const SizedBox(width: 6),
+                  Text('Back to information sheet',
+                      style: const TextStyle(color: AppTheme.textSecondary)),
+                ],
+              ),
             ),
           ],
         ),
@@ -293,7 +300,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
                 color: AppTheme.accent.withOpacity(0.12),
                 shape: BoxShape.circle),
             child:
-                const Icon(Icons.check_rounded, color: AppTheme.accent, size: 36),
+                Icon(Icons.check_rounded, color: AppTheme.accent, size: 36),
           ),
           const SizedBox(height: 24),
           Text('Participant Enrolled',
@@ -315,14 +322,21 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: () => context.go('/training/$_participantId'),
-            child: const Text('Start Training →'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Start Training'),
+                SizedBox(width: 6),
+                Icon(Icons.arrow_forward_rounded, size: 18),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: () => context.go(AppRoutes.home),
-            child: const Text('Back to Home',
+            child: Text('Back to Home',
                 style:
-                    TextStyle(color: AppTheme.textSecondary)),
+                    const TextStyle(color: AppTheme.textSecondary)),
           ),
         ],
       ),

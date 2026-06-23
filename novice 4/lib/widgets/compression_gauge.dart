@@ -57,7 +57,7 @@ class CompressionGauge extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'DEPTH',
             style: TextStyle(
               color: AppTheme.textSecondary,
@@ -128,24 +128,30 @@ class FeedbackBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // FIX: was using raw Unicode glyphs ('✓'/'⚠') inside Text widgets.
+    // Flutter's default font (Roboto/Noto) doesn't ship checkmark/warning
+    // glyphs, so every render of this banner — which fires constantly
+    // during a live session — logged "Could not find a set of Noto fonts
+    // to display all missing characters." Material Icons are bundled
+    // vector glyphs with no font-lookup dependency, so this can't recur.
     final (borderColor, iconColor, bgColor, icon) = switch (prompt.severity) {
       FeedbackSeverity.good     => (
           AppTheme.accent.withOpacity(0.4),
           AppTheme.accent,
           Colors.black.withOpacity(0.7),
-          '✓',
+          Icons.check_rounded,
         ),
       FeedbackSeverity.warning  => (
           AppTheme.accentWarn.withOpacity(0.4),
           AppTheme.accentWarn,
           const Color(0xCC140008),
-          '⚠',
+          Icons.warning_amber_rounded,
         ),
       FeedbackSeverity.critical => (
           AppTheme.accentWarn,
           AppTheme.accentWarn,
           const Color(0xDD200008),
-          '!',
+          Icons.priority_high_rounded,
         ),
     };
 
@@ -166,9 +172,10 @@ class FeedbackBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
-              child: Text(
+              child: Icon(
                 icon,
-                style: TextStyle(color: iconColor, fontSize: 16),
+                color: iconColor,
+                size: 18,
               ),
             ),
           ),

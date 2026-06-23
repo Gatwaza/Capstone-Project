@@ -99,7 +99,14 @@ class _SurveyScreenState extends State<SurveyScreen> {
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: _saveEfficacyAndAdvance,
-          child: const Text('Continue →'),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Continue'),
+              SizedBox(width: 6),
+              Icon(Icons.arrow_forward_rounded, size: 18),
+            ],
+          ),
         ),
       ]),
     );
@@ -141,7 +148,14 @@ class _SurveyScreenState extends State<SurveyScreen> {
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: _saveSusAndAdvance,
-          child: const Text('Continue →'),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Continue'),
+              SizedBox(width: 6),
+              Icon(Icons.arrow_forward_rounded, size: 18),
+            ],
+          ),
         ),
       ]),
     );
@@ -201,7 +215,14 @@ class _SurveyScreenState extends State<SurveyScreen> {
               ? const SizedBox(width: 20, height: 20,
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.black))
-              : const Text('Submit Surveys ✓'),
+              : const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Submit Surveys'),
+                    SizedBox(width: 6),
+                    Icon(Icons.check_rounded, size: 18),
+                  ],
+                ),
         ),
       ]),
     );
@@ -219,7 +240,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle_rounded,
+              Icon(Icons.check_circle_rounded,
                   color: AppTheme.accent, size: 64),
               const SizedBox(height: 20),
               Text('Surveys Complete',
@@ -239,9 +260,16 @@ class _SurveyScreenState extends State<SurveyScreen> {
                 onPressed: () => isPost
                     ? context.go(AppRoutes.home)
                     : context.go('/training/${widget.sessionId}'),
-                child: Text(isPost
-                    ? 'Return to Home'
-                    : 'Start Training Session →'),
+                child: isPost
+                    ? const Text('Return to Home')
+                    : const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Start Training Session'),
+                          SizedBox(width: 6),
+                          Icon(Icons.arrow_forward_rounded, size: 18),
+                        ],
+                      ),
               ),
             ],
           ),

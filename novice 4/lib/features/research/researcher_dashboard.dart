@@ -87,7 +87,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                   color: AppTheme.accent.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.lock_outline_rounded,
+                child: Icon(Icons.lock_outline_rounded,
                     color: AppTheme.accent, size: 34),
               ),
               const SizedBox(height: 24),
@@ -111,7 +111,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                   maxLength: 8,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontFamily: 'Courier New',
                       fontSize: 22,
@@ -119,22 +119,22 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                   decoration: InputDecoration(
                     counterText: '',
                     hintText: '· · · ·',
-                    hintStyle: const TextStyle(color: AppTheme.textSecondary),
+                    hintStyle: TextStyle(color: AppTheme.textSecondary),
                     filled: true,
                     fillColor: AppTheme.card,
                     errorText: _pinError ? 'Incorrect PIN' : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.border),
+                      borderSide: BorderSide(color: AppTheme.border),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.border),
+                      borderSide: BorderSide(color: AppTheme.border),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide:
-                          const BorderSide(color: AppTheme.accent, width: 1.5),
+                          BorderSide(color: AppTheme.accent, width: 1.5),
                     ),
                   ),
                   onSubmitted: (_) => _verifyPin(),
@@ -278,7 +278,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                     const SizedBox(height: 24),
 
                     // ── Self-efficacy delta ───────────────────────────
-                    _sectionLabel('SELF-EFFICACY (PRE → POST)'),
+                    _sectionLabel('SELF-EFFICACY (PRE vs POST)'),
                     const SizedBox(height: 12),
                     _efficacyRow(),
 
@@ -338,7 +338,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.shield_outlined, color: AppTheme.accent, size: 18),
+          Icon(Icons.shield_outlined, color: AppTheme.accent, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -370,7 +370,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
       ('CPR Fraction (≥ 60%)',         _mean(_groupA, (s) => s.cprFraction * 100),
                                         _mean(_groupB, (s) => s.cprFraction * 100),       '≥ 60%'),
       ('Self-Efficacy Post (1–7)',      _mean(_groupA, (s) => s.selfEfficacyPost),
-                                        _mean(_groupB, (s) => s.selfEfficacyPost),        '↑'),
+                                        _mean(_groupB, (s) => s.selfEfficacyPost),        'Higher'),
     ];
 
     return Container(
@@ -387,19 +387,19 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
     );
   }
 
-  Widget _tableHeader() => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  Widget _tableHeader() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     child: Row(children: [
-      Expanded(flex: 4,
+      const Expanded(flex: 4,
           child: Text('METRIC', style: TextStyle(fontSize: 9,
               letterSpacing: 1, color: AppTheme.textSecondary))),
-      Expanded(child: Text('A', textAlign: TextAlign.center,
+      const Expanded(child: Text('A', textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, letterSpacing: 1,
               color: AppTheme.accent, fontWeight: FontWeight.w700))),
-      Expanded(child: Text('B', textAlign: TextAlign.center,
+      const Expanded(child: Text('B', textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, letterSpacing: 1,
               color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
-      SizedBox(width: 48),
+      const SizedBox(width: 48),
     ]),
   );
 
@@ -467,7 +467,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
     required String target,
     required bool higherIsBetter,
   }) {
-    final bool isGoodA = groupAMean != null &&
+    bool isGoodA = groupAMean != null &&
         (higherIsBetter ? groupAMean >= 68 : groupAMean <= 40);
 
     return Container(

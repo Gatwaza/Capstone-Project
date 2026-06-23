@@ -330,21 +330,24 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
   /// Weighted multi-task quality score (0–100).
   ///
-  /// Evidence sources (see docs/EVALUATION_METRICS_AUDIT.md § "PART 4.1" and
-  /// ml_pipeline/CPR_Coach_Training.ipynb cells 33–35):
-  ///   CNN-BiLSTM test-set F1_w:    rate=75.92%, depth=94.05%, recoil=74.79%
-  ///   CNN-BiLSTM test-set AUC-ROC: rate=81.10%, depth=95.11%, recoil=84.14%
-  /// Depth is weighted highest (AUC=95%) since it's the most reliable task.
+  /// Evidence sources: ml_pipeline/CPR_Coach_Training.ipynb, Stage 9
+  /// evaluate() + Stage 9.5 precision/recall cell (confirmed rerun):
+  ///   CNN-BiLSTM test-set F1_w:    rate=81.4%, depth=94.0%, recoil=74.4%
+  ///   CNN-BiLSTM test-set AUC-ROC: rate=79.2%, depth=94.7%, recoil=81.7%
+  /// Depth is weighted highest (AUC≈95%) since it's the most reliable task.
   int _computeQualityScore(double rateAcc, double depthAcc, double recoilAcc) {
     if (_assessedFrameCount == 0) return 0;
 
-    const rateF1Baseline = 75.92;
-    const depthF1Baseline = 94.05;
-    const recoilF1Baseline = 74.79;
+    // Confirmed from actual notebook rerun (ml_pipeline/CPR_Coach_Training.ipynb,
+    // Stage 9 evaluate() + Stage 9.5 precision/recall cell) — was 75.92/94.05/
+    // 74.79 F1 and 0.8110/0.9511/0.8414 AUC from an earlier/different run.
+    const rateF1Baseline = 81.4;
+    const depthF1Baseline = 94.0;
+    const recoilF1Baseline = 74.4;
 
-    const rateWeight = 0.8110;
-    const depthWeight = 0.9511;
-    const recoilWeight = 0.8414;
+    const rateWeight = 0.7923;
+    const depthWeight = 0.9466;
+    const recoilWeight = 0.8172;
     const totalWeight = rateWeight + depthWeight + recoilWeight;
 
     final rateScore = (rateAcc * 100 / rateF1Baseline).clamp(0, 2) * 100;
