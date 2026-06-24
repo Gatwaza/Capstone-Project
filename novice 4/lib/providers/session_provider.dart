@@ -254,7 +254,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   /// Routes to the platform-appropriate inference backend. injection.dart
   /// registers exactly one of these depending on kIsWeb — InferenceService
   /// (mobile, on-device TFLite) or InferenceServiceWeb (web, hosted
-  /// CNN-BiLSTM API) — never both, so the kIsWeb check here must match.
+  /// TCN API) — never both, so the kIsWeb check here must match.
   InferenceResult _runInference(LandmarkFrame frame) {
     if (kIsWeb) {
       return getIt<InferenceServiceWeb>().infer(frame);
@@ -330,24 +330,27 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
   /// Weighted multi-task quality score (0–100).
   ///
-  /// Evidence sources: ml_pipeline/CPR_Coach_Training.ipynb, Stage 9
-  /// evaluate() + Stage 9.5 precision/recall cell (confirmed rerun):
-  ///   CNN-BiLSTM test-set F1_w:    rate=81.4%, depth=94.0%, recoil=74.4%
-  ///   CNN-BiLSTM test-set AUC-ROC: rate=79.2%, depth=94.7%, recoil=81.7%
-  /// Depth is weighted highest (AUC≈95%) since it's the most reliable task.
+  /// Evidence sources: ml_pipeline/CPR_Coach_Training.ipynb, sliding-window
+  /// retrain (Stage 9 evaluate(), TCN selected as deploy model — outperformed
+  /// CNN_BiLSTM on every task/metric this run):
+  ///   TCN test-set F1_w:    rate=91.7%, depth=98.3%, recoil=88.5%
+  ///   TCN test-set AUC-ROC: rate=98.3%, depth=99.3%, recoil=95.9%
+  /// Depth is weighted highest (AUC≈99%) since it's the most reliable task.
   int _computeQualityScore(double rateAcc, double depthAcc, double recoilAcc) {
     if (_assessedFrameCount == 0) return 0;
 
-    // Confirmed from actual notebook rerun (ml_pipeline/CPR_Coach_Training.ipynb,
-    // Stage 9 evaluate() + Stage 9.5 precision/recall cell) — was 75.92/94.05/
-    // 74.79 F1 and 0.8110/0.9511/0.8414 AUC from an earlier/different run.
-    const rateF1Baseline = 81.4;
-    const depthF1Baseline = 94.0;
-    const recoilF1Baseline = 74.4;
+    // Confirmed from sliding-window retrain (ml_pipeline/CPR_Coach_Training.ipynb,
+    // Stage 9 evaluate()) — TCN selected as deploy model in place of
+    // CNN_BiLSTM (won on every task/metric: rate/depth/recoil F1_w and AUC).
+    // Was rate=81.4/depth=94.0/recoil=74.4 F1 and 0.7923/0.9466/0.8172 AUC
+    // weights from the pre-sliding-window CNN_BiLSTM run.
+    const rateF1Baseline = 91.7;
+    const depthF1Baseline = 98.3;
+    const recoilF1Baseline = 88.5;
 
-    const rateWeight = 0.7923;
-    const depthWeight = 0.9466;
-    const recoilWeight = 0.8172;
+    const rateWeight = 0.983;
+    const depthWeight = 0.993;
+    const recoilWeight = 0.959;
     const totalWeight = rateWeight + depthWeight + recoilWeight;
 
     final rateScore = (rateAcc * 100 / rateF1Baseline).clamp(0, 2) * 100;

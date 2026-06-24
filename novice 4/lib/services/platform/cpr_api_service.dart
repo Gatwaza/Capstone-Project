@@ -2,7 +2,7 @@
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 //
-// HTTP client to the hosted CNN_BiLSTM inference API.
+// HTTP client to the hosted TCN inference API.
 // Replaces rule-based fallback on web when API is reachable.
 import 'dart:convert';
 import 'package:http/http.dart' as http;

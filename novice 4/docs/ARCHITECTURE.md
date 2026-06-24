@@ -6,7 +6,7 @@
 
 ## Overview
 
-Novice is a Flutter Web application. All ML inference runs via a hosted REST API backed by the CNN-BiLSTM model. There is no native mobile build in the current deployment; the Flutter mobile code (`pose_service_mobile.dart`, `inference_service.dart`) is preserved for future native builds.
+Novice is a Flutter Web application. All ML inference runs via a hosted REST API backed by the TCN model. There is no native mobile build in the current deployment; the Flutter mobile code (`pose_service_mobile.dart`, `inference_service.dart`) is preserved for future native builds.
 
 ---
 
@@ -25,7 +25,7 @@ Novice is a Flutter Web application. All ML inference runs via a hosted REST API
 │         ▼                                                            │
 │  ┌──────────────────┐   HTTP POST    ┌───────────────────────────┐  │
 │  │ InferenceService │───────────────►│ jeanrobert-novice.hf.space│  │
-│  │ Web              │   /predict     │ CNN-BiLSTM (Python/FastAPI)│  │
+│  │ Web              │   /predict     │ TCN (Python/FastAPI)      │  │
 │  │ (60×12 buffer)   │◄───────────────│ rate · depth · recoil     │  │
 │  └──────┬───────────┘                └───────────────────────────┘  │
 │         │  InferenceResult                                           │

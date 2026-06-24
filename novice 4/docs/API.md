@@ -1,4 +1,4 @@
-# Novice — CNN-BiLSTM Inference API Reference
+# Novice — TCN Inference API Reference
 
 **GNU GPL v3 · Jean Robert Gatwaza / African Leadership University**
 
@@ -35,7 +35,7 @@ If this fails, `InferenceServiceWeb.isModelLoaded` returns `false` and the app f
 
 ### `POST /predict`
 
-Submit a 60-frame landmark sequence for CNN-BiLSTM classification.
+Submit a 60-frame landmark sequence for TCN classification.
 
 **Request body:**
 ```json

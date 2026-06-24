@@ -3,7 +3,7 @@
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 //
 // Mobile session persistence via SQLite (sqflite).
-// Schema v3: adds CNN-BiLSTM research metrics columns
+// Schema v3: adds TCN research metrics columns
 // (accuracy, precision, recall, f1, auc per task).
 
 import 'dart:convert';
@@ -76,7 +76,7 @@ class SessionLogger {
       );
     }
     if (oldVersion < 3) {
-      // Add CNN-BiLSTM research metric columns
+      // Add TCN research metric columns
       for (final col in [
         'rate_accuracy', 'depth_accuracy', 'recoil_accuracy',
         'rate_precision', 'depth_precision', 'recoil_precision',

@@ -29,7 +29,7 @@ mixin _$SessionModel {
   double get meanDepthCm => throw _privateConstructorUsedError;
   double get cprFraction => throw _privateConstructorUsedError;
 
-  /// 0–100 weighted multi-task quality score (CNN-BiLSTM AUC-weighted).
+  /// 0–100 weighted multi-task quality score (TCN AUC-weighted).
   int get qualityScore => throw _privateConstructorUsedError;
 
   /// Per-frame class distribution: label → fraction of session frames.
@@ -611,7 +611,7 @@ class _$SessionModelImpl implements _SessionModel {
   @override
   final double cprFraction;
 
-  /// 0–100 weighted multi-task quality score (CNN-BiLSTM AUC-weighted).
+  /// 0–100 weighted multi-task quality score (TCN AUC-weighted).
   @override
   final int qualityScore;
 
@@ -913,7 +913,7 @@ abstract class _SessionModel implements SessionModel {
   @override
   double get cprFraction;
 
-  /// 0–100 weighted multi-task quality score (CNN-BiLSTM AUC-weighted).
+  /// 0–100 weighted multi-task quality score (TCN AUC-weighted).
   @override
   int get qualityScore;
 
@@ -1008,7 +1008,7 @@ mixin _$InferenceResult {
   double get estimatedDepthCm => throw _privateConstructorUsedError;
   double get elbowAngleMean => throw _privateConstructorUsedError;
   double get spineVerticalityDeg =>
-      throw _privateConstructorUsedError; // Per-task accuracy and confidence from CNN-BiLSTM three-head model
+      throw _privateConstructorUsedError; // Per-task accuracy and confidence from TCN three-head model
   double? get rateAccuracy => throw _privateConstructorUsedError;
   double? get rateConfidence => throw _privateConstructorUsedError;
   double? get depthAccuracy => throw _privateConstructorUsedError;
@@ -1368,7 +1368,7 @@ class _$InferenceResultImpl implements _InferenceResult {
   final double elbowAngleMean;
   @override
   final double spineVerticalityDeg;
-// Per-task accuracy and confidence from CNN-BiLSTM three-head model
+// Per-task accuracy and confidence from TCN three-head model
   @override
   final double? rateAccuracy;
   @override
@@ -1519,7 +1519,7 @@ abstract class _InferenceResult implements InferenceResult {
   double get elbowAngleMean;
   @override
   double
-      get spineVerticalityDeg; // Per-task accuracy and confidence from CNN-BiLSTM three-head model
+      get spineVerticalityDeg; // Per-task accuracy and confidence from TCN three-head model
   @override
   double? get rateAccuracy;
   @override

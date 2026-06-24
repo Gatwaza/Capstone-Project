@@ -71,7 +71,7 @@ These are required for `@mediapipe/pose` WASM to run in-browser. Without them th
 
 ## Hugging Face Spaces API
 
-The CNN-BiLSTM inference API is hosted on Hugging Face Spaces:
+The TCN inference API is hosted on Hugging Face Spaces:
 
 - **Base URL:** `https://jeanrobert-novice.hf.space`
 - **Health check:** `GET /health` → `200 OK`

@@ -10,7 +10,7 @@ part 'session_model.freezed.dart';
 part 'session_model.g.dart';
 
 /// Represents a completed CPR training session.
-/// Schema version 3 — research metrics aligned with CNN-BiLSTM evaluation
+/// Schema version 3 — research metrics aligned with TCN evaluation
 /// framework (ml_pipeline/CPR_Coach_Training.ipynb cells 33-35):
 /// accuracy, precision, recall, F1-score, ROC-AUC per task.
 @freezed
@@ -25,7 +25,7 @@ class SessionModel with _$SessionModel {
     required double meanDepthCm,
     required double cprFraction,
 
-    /// 0–100 weighted multi-task quality score (CNN-BiLSTM AUC-weighted).
+    /// 0–100 weighted multi-task quality score (TCN AUC-weighted).
     required int qualityScore,
 
     /// Per-frame class distribution: label → fraction of session frames.
@@ -104,7 +104,7 @@ class InferenceResult with _$InferenceResult {
     required double estimatedDepthCm,
     required double elbowAngleMean,
     required double spineVerticalityDeg,
-    // Per-task accuracy and confidence from CNN-BiLSTM three-head model
+    // Per-task accuracy and confidence from TCN three-head model
     double? rateAccuracy,
     double? rateConfidence,
     double? depthAccuracy,

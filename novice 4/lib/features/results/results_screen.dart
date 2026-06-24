@@ -169,7 +169,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                   _MetricTile(
                     label: 'MODEL',
                     value: widget.session.modelWasAvailable
-                        ? 'CNN-BiLSTM'
+                        ? 'TCN'
                         : 'Unavailable',
                     valueColor: widget.session.modelWasAvailable
                         ? AppTheme.accent
@@ -180,7 +180,7 @@ class _ResultsContentState extends State<_ResultsContent> {
 
               const SizedBox(height: 32),
 
-              // ── CNN-BiLSTM Research Metrics ──────────────────
+              // ── TCN Research Metrics ──────────────────
               if (widget.session.modelWasAvailable) ...[
                 _ResearchMetricsPanel(session: widget.session),
                 const SizedBox(height: 32),
@@ -281,7 +281,7 @@ class _ResultsContentState extends State<_ResultsContent> {
   }
 }
 
-// ── CNN-BiLSTM Research Metrics Panel ──────────────────────────────────────────
+// ── TCN Research Metrics Panel ──────────────────────────────────────────
 // Shows per-task ACCURACY only — the one metric legitimately computable
 // live, since it's just "did the model say Correct" tallied frame-by-frame,
 // no ground truth required.
@@ -392,7 +392,7 @@ class _ResearchMetricsPanel extends StatelessWidget {
                         size: 13, color: AppTheme.textSecondary),
                     const SizedBox(width: 6),
                     Text(
-                      'CNN-BiLSTM test-set baseline (offline evaluation)',
+                      'TCN test-set baseline (offline evaluation)',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppTheme.textSecondary,
                             fontSize: 10,
@@ -403,10 +403,10 @@ class _ResearchMetricsPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Rate:   F1=81.4%  Prec=82.9%  Rec=80.7%  AUC=79.2%\n'
-                  'Depth:  F1=94.0%  Prec=94.0%  Rec=94.3%  AUC=94.7%\n'
-                  'Recoil: F1=74.4%  Prec=75.5%  Rec=73.9%  AUC=81.7%\n'
-                  'Mean F1=83.3%  ·  Mean Prec=84.1%  ·  Mean Rec=83.0%',
+                  'Rate:   F1=91.7%  Prec=93.8%  Rec=90.9%  AUC=98.3%\n'
+                  'Depth:  F1=98.3%  Prec=98.3%  Rec=98.3%  AUC=99.3%\n'
+                  'Recoil: F1=88.5%  Prec=89.2%  Rec=88.4%  AUC=95.9%\n'
+                  'Mean F1=92.8%  ·  Mean Prec=93.8%  ·  Mean Rec=92.5%',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppTheme.textSecondary,
                         fontSize: 10,
@@ -704,7 +704,7 @@ class _ErrorBreakdown extends StatelessWidget {
               style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: 4),
           Text(
-            'Distribution of CNN-BiLSTM classifications across session frames.',
+            'Distribution of TCN classifications across session frames.',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall

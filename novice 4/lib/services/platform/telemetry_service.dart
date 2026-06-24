@@ -4,7 +4,7 @@
 
 /// TelemetryService — uploads completed sessions to Supabase for research analysis.
 ///
-/// Research metrics recorded (CNN-BiLSTM evaluation framework):
+/// Research metrics recorded (TCN evaluation framework):
 ///   accuracy, precision, recall, F1-score, ROC-AUC — per task (rate/depth/recoil)
 ///
 /// Design principles:
@@ -12,8 +12,6 @@
 ///   • Silent on error: logs to debug console only.
 ///   • Write-only: RLS policy allows INSERT but not SELECT/UPDATE/DELETE.
 ///   • model_was_available=false sessions should be excluded from metric analysis.
-library;
-
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;

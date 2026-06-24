@@ -2,8 +2,8 @@
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 //
-// Web ML inference — calls hosted CNN_BiLSTM API.
-// Returns isSimulated=true (no accumulation) when the CNN-BiLSTM API is unreachable.
+// Web ML inference — calls hosted TCN API.
+// Returns isSimulated=true (no accumulation) when the TCN API is unreachable.
 
 import 'dart:async';
 import 'dart:collection';
@@ -122,7 +122,19 @@ class InferenceServiceWeb {
           rateConfidence:      prediction.rateConfidence,
           depthAccuracy:       prediction.depthLabel  == 'Correct' ? 1.0 : 0.0,
           depthConfidence:     prediction.depthConfidence,
-          recoilAccuracy:      prediction.recoilLabel == 'Correct' ? 1.0 : 0.0,
+          // FIX: recoil's good-state label from the API is 'Complete', not
+          // 'Correct' -- rate and depth use 'Correct' for their good state
+          // (matches the notebook's LabelEncoder classes for those two
+          // tasks), but recoil's LabelEncoder was only ever fit on
+          // 'Complete'/'Incomplete' (see CPR_Coach_Training.ipynb Stage 2,
+          // single_error_to_labels). This was previously checking
+          // 'Correct', which the recoil API response would never actually
+          // send -- it accidentally read as correct-ish before app.py's
+          // RECOIL_CLASSES bug was fixed (that bug coincidentally mapped
+          // model index 0 to the string "Correct" instead of "Complete").
+          // Both sides were fixed together; do not change one without the
+          // other.
+          recoilAccuracy:      prediction.recoilLabel == 'Complete' ? 1.0 : 0.0,
           recoilConfidence:    prediction.recoilConfidence,
           // Plain labels — used for accuracy comparison and class-count
           // tallying in session_provider; they do NOT go into allClassScores.
