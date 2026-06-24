@@ -1022,7 +1022,25 @@ mixin _$InferenceResult {
   String? get rateLabel => throw _privateConstructorUsedError;
   String? get depthLabel => throw _privateConstructorUsedError;
   String? get recoilLabel => throw _privateConstructorUsedError;
-  bool get isSimulated => throw _privateConstructorUsedError;
+  bool get isSimulated =>
+      throw _privateConstructorUsedError; // FIX: distinguishes a frame carrying a genuinely-fresh API
+// classification from one merely reusing the last cached result
+// (inference_service_web.dart throttles real API calls to every
+// ~600ms / 15 frames at 25fps, then serves the cached label+accuracy
+// for up to 1.5s / ~37 frames afterward, restamped with that frame's
+// own freshly-computed currentBpm/estimatedDepthCm). Without this
+// flag, session_provider.dart's onFrame() accumulated rate/depth/
+// recoil accuracy on EVERY frame, including ~14-36 frames per API
+// call that carried a stale label paired with live bpm/depth that
+// may have drifted far from what the API actually evaluated --
+// confirmed live: a session with only 5 real compression cycles
+// counted (the honest, per-frame velocity-based counter) displayed
+// 194bpm and 100% rate/depth/recoil accuracy, because most frames
+// were silently re-scoring a stale "Correct" label against a bpm
+// estimate that had since drifted. Only frames where
+// isFreshPrediction=true should be accumulated into the live
+// accuracy histories.
+  bool get isFreshPrediction => throw _privateConstructorUsedError;
 
   /// Create a copy of InferenceResult
   /// with the given fields replaced by the non-null parameter values.
@@ -1056,7 +1074,8 @@ abstract class $InferenceResultCopyWith<$Res> {
       String? rateLabel,
       String? depthLabel,
       String? recoilLabel,
-      bool isSimulated});
+      bool isSimulated,
+      bool isFreshPrediction});
 }
 
 /// @nodoc
@@ -1093,6 +1112,7 @@ class _$InferenceResultCopyWithImpl<$Res, $Val extends InferenceResult>
     Object? depthLabel = freezed,
     Object? recoilLabel = freezed,
     Object? isSimulated = null,
+    Object? isFreshPrediction = null,
   }) {
     return _then(_value.copyWith(
       timestamp: null == timestamp
@@ -1171,6 +1191,10 @@ class _$InferenceResultCopyWithImpl<$Res, $Val extends InferenceResult>
           ? _value.isSimulated
           : isSimulated // ignore: cast_nullable_to_non_nullable
               as bool,
+      isFreshPrediction: null == isFreshPrediction
+          ? _value.isFreshPrediction
+          : isFreshPrediction // ignore: cast_nullable_to_non_nullable
+              as bool,
     ) as $Val);
   }
 }
@@ -1202,7 +1226,8 @@ abstract class _$$InferenceResultImplCopyWith<$Res>
       String? rateLabel,
       String? depthLabel,
       String? recoilLabel,
-      bool isSimulated});
+      bool isSimulated,
+      bool isFreshPrediction});
 }
 
 /// @nodoc
@@ -1237,6 +1262,7 @@ class __$$InferenceResultImplCopyWithImpl<$Res>
     Object? depthLabel = freezed,
     Object? recoilLabel = freezed,
     Object? isSimulated = null,
+    Object? isFreshPrediction = null,
   }) {
     return _then(_$InferenceResultImpl(
       timestamp: null == timestamp
@@ -1315,6 +1341,10 @@ class __$$InferenceResultImplCopyWithImpl<$Res>
           ? _value.isSimulated
           : isSimulated // ignore: cast_nullable_to_non_nullable
               as bool,
+      isFreshPrediction: null == isFreshPrediction
+          ? _value.isFreshPrediction
+          : isFreshPrediction // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -1341,7 +1371,8 @@ class _$InferenceResultImpl implements _InferenceResult {
       this.rateLabel,
       this.depthLabel,
       this.recoilLabel,
-      this.isSimulated = false})
+      this.isSimulated = false,
+      this.isFreshPrediction = false})
       : _allClassScores = allClassScores;
 
   @override
@@ -1394,10 +1425,30 @@ class _$InferenceResultImpl implements _InferenceResult {
   @override
   @JsonKey()
   final bool isSimulated;
+// FIX: distinguishes a frame carrying a genuinely-fresh API
+// classification from one merely reusing the last cached result
+// (inference_service_web.dart throttles real API calls to every
+// ~600ms / 15 frames at 25fps, then serves the cached label+accuracy
+// for up to 1.5s / ~37 frames afterward, restamped with that frame's
+// own freshly-computed currentBpm/estimatedDepthCm). Without this
+// flag, session_provider.dart's onFrame() accumulated rate/depth/
+// recoil accuracy on EVERY frame, including ~14-36 frames per API
+// call that carried a stale label paired with live bpm/depth that
+// may have drifted far from what the API actually evaluated --
+// confirmed live: a session with only 5 real compression cycles
+// counted (the honest, per-frame velocity-based counter) displayed
+// 194bpm and 100% rate/depth/recoil accuracy, because most frames
+// were silently re-scoring a stale "Correct" label against a bpm
+// estimate that had since drifted. Only frames where
+// isFreshPrediction=true should be accumulated into the live
+// accuracy histories.
+  @override
+  @JsonKey()
+  final bool isFreshPrediction;
 
   @override
   String toString() {
-    return 'InferenceResult(timestamp: $timestamp, topClassIndex: $topClassIndex, topClassLabel: $topClassLabel, topClassConfidence: $topClassConfidence, allClassScores: $allClassScores, currentBpm: $currentBpm, estimatedDepthCm: $estimatedDepthCm, elbowAngleMean: $elbowAngleMean, spineVerticalityDeg: $spineVerticalityDeg, rateAccuracy: $rateAccuracy, rateConfidence: $rateConfidence, depthAccuracy: $depthAccuracy, depthConfidence: $depthConfidence, recoilAccuracy: $recoilAccuracy, recoilConfidence: $recoilConfidence, rateLabel: $rateLabel, depthLabel: $depthLabel, recoilLabel: $recoilLabel, isSimulated: $isSimulated)';
+    return 'InferenceResult(timestamp: $timestamp, topClassIndex: $topClassIndex, topClassLabel: $topClassLabel, topClassConfidence: $topClassConfidence, allClassScores: $allClassScores, currentBpm: $currentBpm, estimatedDepthCm: $estimatedDepthCm, elbowAngleMean: $elbowAngleMean, spineVerticalityDeg: $spineVerticalityDeg, rateAccuracy: $rateAccuracy, rateConfidence: $rateConfidence, depthAccuracy: $depthAccuracy, depthConfidence: $depthConfidence, recoilAccuracy: $recoilAccuracy, recoilConfidence: $recoilConfidence, rateLabel: $rateLabel, depthLabel: $depthLabel, recoilLabel: $recoilLabel, isSimulated: $isSimulated, isFreshPrediction: $isFreshPrediction)';
   }
 
   @override
@@ -1442,7 +1493,9 @@ class _$InferenceResultImpl implements _InferenceResult {
             (identical(other.recoilLabel, recoilLabel) ||
                 other.recoilLabel == recoilLabel) &&
             (identical(other.isSimulated, isSimulated) ||
-                other.isSimulated == isSimulated));
+                other.isSimulated == isSimulated) &&
+            (identical(other.isFreshPrediction, isFreshPrediction) ||
+                other.isFreshPrediction == isFreshPrediction));
   }
 
   @override
@@ -1466,7 +1519,8 @@ class _$InferenceResultImpl implements _InferenceResult {
         rateLabel,
         depthLabel,
         recoilLabel,
-        isSimulated
+        isSimulated,
+        isFreshPrediction
       ]);
 
   /// Create a copy of InferenceResult
@@ -1499,7 +1553,8 @@ abstract class _InferenceResult implements InferenceResult {
       final String? rateLabel,
       final String? depthLabel,
       final String? recoilLabel,
-      final bool isSimulated}) = _$InferenceResultImpl;
+      final bool isSimulated,
+      final bool isFreshPrediction}) = _$InferenceResultImpl;
 
   @override
   DateTime get timestamp;
@@ -1543,7 +1598,26 @@ abstract class _InferenceResult implements InferenceResult {
   @override
   String? get recoilLabel;
   @override
-  bool get isSimulated;
+  bool
+      get isSimulated; // FIX: distinguishes a frame carrying a genuinely-fresh API
+// classification from one merely reusing the last cached result
+// (inference_service_web.dart throttles real API calls to every
+// ~600ms / 15 frames at 25fps, then serves the cached label+accuracy
+// for up to 1.5s / ~37 frames afterward, restamped with that frame's
+// own freshly-computed currentBpm/estimatedDepthCm). Without this
+// flag, session_provider.dart's onFrame() accumulated rate/depth/
+// recoil accuracy on EVERY frame, including ~14-36 frames per API
+// call that carried a stale label paired with live bpm/depth that
+// may have drifted far from what the API actually evaluated --
+// confirmed live: a session with only 5 real compression cycles
+// counted (the honest, per-frame velocity-based counter) displayed
+// 194bpm and 100% rate/depth/recoil accuracy, because most frames
+// were silently re-scoring a stale "Correct" label against a bpm
+// estimate that had since drifted. Only frames where
+// isFreshPrediction=true should be accumulated into the live
+// accuracy histories.
+  @override
+  bool get isFreshPrediction;
 
   /// Create a copy of InferenceResult
   /// with the given fields replaced by the non-null parameter values.

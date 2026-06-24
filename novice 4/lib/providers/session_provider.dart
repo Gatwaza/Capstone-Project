@@ -18,6 +18,7 @@ import '../services/feedback_engine.dart';
 import '../services/inference_service.dart';
 import '../services/platform/inference_service_web.dart';
 import '../services/platform/storage_service.dart';
+import '../services/platform/telemetry_service.dart'; // FIX: import added
 import '../services/tts_service.dart';
 
 /// Immutable snapshot of an in-progress (or not-yet-started) training
@@ -103,11 +104,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _feedback = FeedbackEngine();
     _tts = getIt<TtsService>();
     _storage = getIt<StorageService>();
+    _telemetry = getIt<TelemetryService>(); // FIX: wire in TelemetryService
   }
 
   late final FeedbackEngine _feedback;
   late final TtsService _tts;
   late final StorageService _storage;
+  late final TelemetryService _telemetry; // FIX: field added
 
   DateTime? _sessionStart;
   Timer? _ticker;
@@ -322,7 +325,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       rawFrames: List.unmodifiable(_frameBuffer),
     );
 
+    // Save locally (SharedPreferences on web, SQLite on mobile)
     await _storage.saveSession(session);
+
+    // FIX: Upload to Supabase. Fire-and-forget — TelemetryService has its
+    // own 10s timeout and silent error handling, so we never await this.
+    // A network failure here must not block navigation to the results screen.
+    unawaited(_telemetry.uploadSession(session));
 
     state = state.copyWith(isActive: false);
     return id;

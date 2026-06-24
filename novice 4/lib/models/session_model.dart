@@ -119,6 +119,24 @@ class InferenceResult with _$InferenceResult {
     String? depthLabel,
     String? recoilLabel,
     @Default(false) bool isSimulated,
+    // FIX: distinguishes a frame carrying a genuinely-fresh API
+    // classification from one merely reusing the last cached result
+    // (inference_service_web.dart throttles real API calls to every
+    // ~600ms / 15 frames at 25fps, then serves the cached label+accuracy
+    // for up to 1.5s / ~37 frames afterward, restamped with that frame's
+    // own freshly-computed currentBpm/estimatedDepthCm). Without this
+    // flag, session_provider.dart's onFrame() accumulated rate/depth/
+    // recoil accuracy on EVERY frame, including ~14-36 frames per API
+    // call that carried a stale label paired with live bpm/depth that
+    // may have drifted far from what the API actually evaluated --
+    // confirmed live: a session with only 5 real compression cycles
+    // counted (the honest, per-frame velocity-based counter) displayed
+    // 194bpm and 100% rate/depth/recoil accuracy, because most frames
+    // were silently re-scoring a stale "Correct" label against a bpm
+    // estimate that had since drifted. Only frames where
+    // isFreshPrediction=true should be accumulated into the live
+    // accuracy histories.
+    @Default(false) bool isFreshPrediction,
   }) = _InferenceResult;
 }
 

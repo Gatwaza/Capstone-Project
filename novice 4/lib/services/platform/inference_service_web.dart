@@ -142,6 +142,7 @@ class InferenceServiceWeb {
           depthLabel:  prediction.depthLabel,
           recoilLabel: prediction.recoilLabel,
           isSimulated:         false,
+          isFreshPrediction:   true,
         );
       }
     } finally {
@@ -178,7 +179,20 @@ class InferenceServiceWeb {
     final cached = _lastApiResult;
     if (cached != null &&
         DateTime.now().difference(cached.timestamp) < _apiResultMaxAge) {
-      return cached.copyWith(currentBpm: bpm, estimatedDepthCm: depth);
+      // isFreshPrediction explicitly forced false -- this frame is reusing
+      // a label/accuracy from a previous API call, not a new one. Without
+      // this, copyWith() would carry forward the `true` set when
+      // _lastApiResult was first constructed, and every one of the ~14-36
+      // frames served from cache between real API calls would incorrectly
+      // count toward the live rate/depth/recoil accuracy histories in
+      // session_provider.dart, even though currentBpm/estimatedDepthCm
+      // below are freshly computed for THIS frame and may have drifted
+      // well away from what that stale label actually evaluated.
+      return cached.copyWith(
+        currentBpm: bpm,
+        estimatedDepthCm: depth,
+        isFreshPrediction: false,
+      );
     }
 
     // Model not yet loaded or API call in flight — return a non-accumulating result.
