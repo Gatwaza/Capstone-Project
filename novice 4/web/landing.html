@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Novice — First Aid Training</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
+<style>
+/* ── Flutter × Novice Design System ──────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  /* Flutter-sourced dark palette */
+  --bg:       #0A0D0F;
+  --surface:  #111518;
+  --card:     #161C20;
+  --border:   rgba(255,255,255,0.08);
+  --border-m: rgba(255,255,255,0.14);
+  --text-primary: #E8EAEC;
+  --text-secondary: #5A6470;
+  --text-muted: #2E3540;
+
+  /* Flutter accents */
+  --mint:    #00E5A0;  /* primary CTA — "go/good" */
+  --coral:   #FF4D6D;  /* warn/error */
+  --amber:   #FFC947;  /* caution/rate */
+
+  /* HTML landing colour accents (kept for module identity) */
+  --red:    #C84B25; --red-l:  #2A1108;
+  --teal:   #0F9070; --teal-l: #0A2520;
+  --amberM: #A8660E; --amberM-l:#231808;
+  --purple: #4840A8; --purple-l:#0F0E20;
+  --blue:   #2B7FD4; --blue-l: #0A1A2A;
+  --rose:   #C0395E; --rose-l: #220A10;
+  --pine:   #2D6A4F; --pine-l: #091810;
+  --navy:   #1B3A6B; --navy-l: #060C18;
+
+  --r:16px; --rm:10px; --rs:6px;
+  --shadow-sm:0 1px 4px rgba(0,0,0,.3);
+  --shadow-md:0 4px 18px rgba(0,0,0,.5);
+  --shadow-lg:0 16px 48px rgba(0,0,0,.6);
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text-primary);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;outline:none}
+button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+
+/* ── Nav ─────────────────────────────────────────────── */
+.nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1rem 2rem;
+  background:rgba(17,21,24,0.88);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+}
+.nav-brand{
+  display:flex;align-items:center;gap:.625rem;
+  font-family:'DM Serif Display',serif;
+  font-size:20px;color:var(--text-primary);
+}
+.nav-brand-icon{
+  width:32px;height:32px;border-radius:8px;
+  background:var(--mint);
+  display:flex;align-items:center;justify-content:center;
+}
+.nav-brand-icon svg{width:18px;height:18px;stroke:#000;fill:none;stroke-width:2;stroke-linecap:round}
+.nav-links{display:flex;align-items:center;gap:1.5rem}
+.nav-link{font-size:14px;color:var(--text-secondary);transition:color .15s}
+.nav-link:hover{color:var(--text-primary)}
+.nav-cta{
+  background:var(--mint);color:#000;
+  font-size:13px;font-weight:600;
+  padding:.5rem 1.125rem;border-radius:var(--rm);
+  transition:opacity .15s,transform .15s;
+}
+.nav-cta:hover{opacity:.85;transform:translateY(-1px)}
+
+/* ── Hero ─────────────────────────────────────────────── */
+.hero{
+  min-height:92vh;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0;
+  align-items:stretch;
+  overflow:hidden;
+  position:relative;
+}
+.hero-left{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:5rem 4rem 5rem 5rem;
+  position:relative;z-index:2;
+}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--mint);font-weight:500;
+  margin-bottom:1.75rem;
+}
+.eyebrow-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--mint);
+  animation:blink 2s ease-in-out infinite;
+}
+.hero-h1{
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(40px,5vw,68px);
+  line-height:1.06;
+  letter-spacing:-.5px;
+  margin-bottom:1.5rem;
+  color:var(--text-primary);
+}
+.hero-h1 em{
+  font-style:italic;color:var(--mint);
+}
+.hero-sub{
+  font-size:16px;line-height:1.7;
+  color:var(--text-secondary);max-width:420px;
+  margin-bottom:2.5rem;
+}
+.hero-actions{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.btn-primary{
+  background:var(--mint);color:#000;
+  font-size:14px;font-weight:600;
+  padding:.75rem 1.5rem;border-radius:var(--rm);
+  display:inline-flex;align-items:center;gap:.5rem;
+  transition:opacity .15s,transform .15s;
+  box-shadow:0 4px 20px rgba(0,229,160,.25);
+}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-ghost{
+  background:transparent;color:var(--text-primary);
+  font-size:14px;font-weight:500;
+  padding:.75rem 1.5rem;border-radius:var(--rm);
+  border:1px solid var(--border-m);
+  display:inline-flex;align-items:center;gap:.5rem;
+  transition:border-color .15s,background .15s;
+}
+.btn-ghost:hover{background:var(--card);border-color:var(--border-m)}
+.hero-stats{
+  display:flex;gap:2rem;margin-top:3rem;
+  padding-top:2rem;
+  border-top:1px solid var(--border);
+}
+.stat-item{display:flex;flex-direction:column;gap:.2rem}
+.stat-num{font-size:26px;font-weight:700;color:var(--text-primary)}
+.stat-label{font-size:12px;color:var(--text-secondary)}
+
+/* Hero right — dark stage */
+.hero-right{
+  position:relative;
+  background:linear-gradient(135deg,var(--surface) 0%,var(--bg) 100%);
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+.hero-right::before{
+  content:'';position:absolute;
+  width:360px;height:360px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,229,160,.12) 0%,transparent 70%);
+  top:-80px;right:-80px;pointer-events:none;
+}
+.hero-right::after{
+  content:'';position:absolute;
+  width:260px;height:260px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,77,109,.08) 0%,transparent 70%);
+  bottom:-40px;left:20px;pointer-events:none;
+}
+.hero-right-inner{
+  width:100%;height:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:3rem 2.5rem;
+  perspective:1000px;
+  position:relative;z-index:1;
+}
+.scene-label{
+  font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,.3);margin-bottom:1.5rem;
+}
+.hero-step-ticker{
+  margin-top:1.75rem;
+  display:flex;flex-direction:column;align-items:center;gap:.5rem;
+}
+.hero-step-dots{display:flex;gap:6px}
+.hero-sdot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,.15);
+  transition:background .3s,transform .3s;
+}
+.hero-sdot.active{background:var(--mint);transform:scale(1.4)}
+.hero-step-label{
+  font-size:12px;color:rgba(255,255,255,.4);
+  letter-spacing:.5px;min-height:18px;
+}
+/* Hero SVG backdrop card */
+.hero-svg-card{
+  width:100%;max-width:300px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(0,229,160,.05);
+  position:relative;
+}
+.hero-svg-card::before{
+  content:'';position:absolute;inset:0;border-radius:16px;
+  background:linear-gradient(135deg,rgba(0,229,160,.04) 0%,transparent 60%);
+  pointer-events:none;
+}
+
+/* ── Section shared ──────────────────────────────────── */
+.section{padding:5rem 5rem}
+.section-eyebrow{
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--mint);font-weight:500;margin-bottom:.875rem;
+}
+.section-title{
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(28px,3.5vw,40px);
+  line-height:1.15;margin-bottom:1rem;
+  color:var(--text-primary);
+}
+.section-sub{
+  font-size:15px;color:var(--text-secondary);line-height:1.7;
+  max-width:500px;margin-bottom:3rem;
+}
+
+/* ── Module grid ─────────────────────────────────────── */
+.modules-section{background:var(--surface);border-top:1px solid var(--border)}
+.mod-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:12px;
+}
+.mod-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:1.5rem;
+  cursor:pointer;
+  transition:transform .2s,box-shadow .2s,border-color .2s;
+  position:relative;overflow:hidden;
+}
+.mod-card::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--card-accent);
+  border-radius:var(--r) var(--r) 0 0;
+  opacity:0;transition:opacity .2s;
+}
+.mod-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--border-m)}
+.mod-card:hover::before,.mod-card.active::before{opacity:1}
+.mod-card.active{
+  background:var(--card-bg-dark,rgba(0,229,160,.04));
+  border-color:var(--card-accent,var(--mint));
+  box-shadow:0 0 0 1px var(--card-accent,var(--mint)),var(--shadow-md);
+}
+.mod-icon-wrap{
+  width:48px;height:48px;border-radius:12px;
+  background:var(--card-accent);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:1rem;
+}
+.mod-icon-wrap svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.mod-title{font-size:15px;font-weight:600;margin-bottom:.3rem;color:var(--text-primary)}
+.mod-desc{font-size:12px;color:var(--text-secondary);line-height:1.55;margin-bottom:.875rem}
+.mod-tag{
+  display:inline-block;font-size:10px;letter-spacing:.8px;
+  text-transform:uppercase;
+  padding:2px 10px;border-radius:20px;
+  background:var(--border);color:var(--text-secondary);
+  font-weight:500;
+}
+.mod-card.active .mod-tag{background:var(--card-accent);color:#fff}
+.mod-arrow{
+  position:absolute;top:1.25rem;right:1.25rem;
+  width:22px;height:22px;border-radius:50%;
+  background:var(--border);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,transform .15s;
+}
+.mod-card:hover .mod-arrow,.mod-card.active .mod-arrow{
+  background:var(--card-accent);transform:translate(1px,-1px);
+}
+.mod-card:hover .mod-arrow svg,.mod-card.active .mod-arrow svg{stroke:#fff}
+.mod-arrow svg{width:12px;height:12px;stroke:var(--text-secondary);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+
+/* ── Demo stage ────────────────────────────────────────── */
+.demo-section{background:var(--bg);border-top:1px solid var(--border)}
+.demo-header{
+  display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
+  margin-bottom:1.75rem;
+}
+.demo-title{
+  font-family:'DM Serif Display',serif;
+  font-size:24px;flex:1;color:var(--text-primary);
+}
+.demo-badge{
+  font-size:11px;letter-spacing:.8px;text-transform:uppercase;
+  padding:3px 12px;border-radius:20px;
+  background:var(--diff-bg,rgba(0,229,160,.1));
+  color:var(--diff-color,var(--mint));
+  border:1px solid var(--diff-color,var(--mint));
+  font-weight:500;
+}
+.demo-layout{
+  display:grid;
+  grid-template-columns:1fr 300px;
+  gap:1.5rem;
+  align-items:start;
+}
+.anim-stage{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  overflow:hidden;
+  box-shadow:var(--shadow-md);
+}
+.anim-viewport{
+  width:100%;
+  aspect-ratio:4/3;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%,var(--anim-glow,rgba(0,229,160,.06)) 0%,var(--card) 70%);
+}
+.anim-viewport svg{width:100%;height:100%;display:block}
+.svg-3d-wrap{
+  width:100%;height:100%;
+  perspective:600px;
+  display:flex;align-items:center;justify-content:center;
+  padding:1rem;
+}
+.svg-3d-inner{
+  width:100%;height:100%;
+  transform-style:preserve-3d;
+  animation:gentle-rock 6s ease-in-out infinite;
+}
+.svg-3d-inner svg{width:100%;height:100%;display:block}
+@keyframes gentle-rock{
+  0%,100%{transform:rotateX(3deg) rotateY(-4deg)}
+  50%{transform:rotateX(-2deg) rotateY(4deg)}
+}
+.anim-footer{
+  border-top:1px solid var(--border);
+  padding:.875rem 1.25rem;
+  display:flex;align-items:center;gap:.625rem;
+  background:var(--surface);
+}
+.live-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--mint);
+  animation:blink 1.4s ease-in-out infinite;
+}
+.anim-caption{font-size:12px;color:var(--text-secondary);letter-spacing:.3px}
+.nav-controls{
+  display:flex;align-items:center;gap:.625rem;margin-top:1rem;
+}
+.nc-btn{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--rm);
+  padding:.5rem 1rem;
+  font-size:13px;font-weight:500;
+  color:var(--text-primary);
+  display:flex;align-items:center;gap:.375rem;
+  transition:background .15s,border-color .15s;
+}
+.nc-btn:hover{background:var(--surface);border-color:var(--border-m)}
+.nc-btn:disabled{opacity:.25;cursor:default;pointer-events:none}
+.nc-btn.next{
+  background:var(--btn-acc,var(--mint));
+  color:#000;border-color:transparent;
+  font-weight:600;
+  box-shadow:0 2px 12px rgba(0,229,160,.2);
+}
+.nc-btn.next:hover{opacity:.85}
+.nc-progress{
+  flex:1;text-align:center;
+  font-size:12px;color:var(--text-secondary);
+}
+.progress-track{
+  height:2px;background:var(--border);
+  border-radius:2px;margin-top:.75rem;overflow:hidden;
+}
+.progress-fill{
+  height:100%;border-radius:2px;
+  background:var(--btn-acc,var(--mint));
+  transition:width .3s ease;
+  box-shadow:0 0 8px var(--btn-acc,var(--mint));
+}
+.key-box{
+  margin-top:1.25rem;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-left:2px solid var(--acc,var(--mint));
+  border-radius:var(--rm);
+  padding:1rem 1.125rem;
+}
+.key-box h4{
+  font-size:11px;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--acc,var(--mint));margin-bottom:.625rem;font-weight:600;
+}
+.key-box ul{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.key-box ul li{
+  font-size:12px;color:var(--text-secondary);line-height:1.55;
+  padding-left:1.125rem;position:relative;
+}
+.key-box ul li::before{
+  content:'→';position:absolute;left:0;
+  color:var(--acc,var(--mint));font-size:11px;
+}
+.steps-panel{display:flex;flex-direction:column;gap:.625rem}
+.step-item{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--rm);
+  padding:.875rem 1rem;
+  cursor:pointer;
+  transition:border-color .15s,background .15s,box-shadow .15s;
+}
+.step-item:hover{border-color:var(--border-m)}
+.step-item.cur{
+  border-color:var(--sacc,var(--mint));
+  background:rgba(0,229,160,.04);
+}
+.step-n{
+  font-size:10px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--text-secondary);margin-bottom:.2rem;
+}
+.step-item.cur .step-n{color:var(--sacc,var(--mint))}
+.step-t{font-size:13px;font-weight:600;line-height:1.4;color:var(--text-primary)}
+.step-d{
+  font-size:12px;color:var(--text-secondary);
+  margin-top:.35rem;line-height:1.55;
+  display:none;
+}
+.step-item.cur .step-d{display:block}
+
+/* ── Explore section ─────────────────────────────────── */
+.explore-section{
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  padding:5rem 5rem;
+}
+.explore-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:1.25rem;
+}
+.exp-card{
+  border-radius:var(--r);
+  overflow:hidden;
+  border:1px solid var(--border);
+  transition:transform .2s,box-shadow .2s,border-color .2s;
+  cursor:pointer;
+  background:var(--card);
+}
+.exp-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);border-color:var(--border-m)}
+.exp-card-top{
+  padding:1.75rem 1.75rem 1.5rem;
+  position:relative;
+  background:var(--exp-bg-dark,var(--card));
+}
+.exp-category{
+  font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--exp-acc);font-weight:600;margin-bottom:.5rem;
+}
+.exp-title{font-size:17px;font-weight:600;margin-bottom:.4rem;line-height:1.3;color:var(--text-primary)}
+.exp-sub{font-size:13px;color:var(--text-secondary);line-height:1.5}
+.exp-card-bottom{
+  padding:.875rem 1.75rem;
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.exp-meta{font-size:12px;color:var(--text-secondary)}
+.exp-btn{
+  font-size:12px;font-weight:500;
+  color:var(--exp-acc);
+  display:flex;align-items:center;gap:.3rem;
+}
+.exp-icon{
+  width:44px;height:44px;border-radius:10px;
+  background:var(--exp-acc);
+  display:flex;align-items:center;justify-content:center;
+  position:absolute;top:1.5rem;right:1.5rem;
+}
+.exp-icon svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── CTA bar ─────────────────────────────────────────── */
+.cta-bar{
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  padding:2.5rem 5rem;
+  display:flex;align-items:center;gap:2rem;flex-wrap:wrap;
+  position:relative;
+  overflow:hidden;
+}
+.cta-bar::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 20% 50%,rgba(0,229,160,.05) 0%,transparent 60%);
+  pointer-events:none;
+}
+.cta-bar-text{flex:1;position:relative}
+.cta-bar-text p{font-size:13px;color:var(--text-secondary);margin-top:.25rem}
+.cta-bar-text h3{font-size:20px;font-weight:600;color:var(--text-primary)}
+.cta-bar-actions{display:flex;gap:.75rem;position:relative}
+.cta-bar-btn{
+  font-size:13px;font-weight:600;
+  padding:.625rem 1.25rem;border-radius:var(--rm);
+  display:inline-flex;align-items:center;gap:.375rem;
+  transition:opacity .15s,transform .15s;
+}
+.cta-bar-btn.prim{
+  background:var(--mint);color:#000;
+  box-shadow:0 4px 20px rgba(0,229,160,.25);
+}
+.cta-bar-btn.prim:hover{opacity:.88;transform:translateY(-1px)}
+.cta-bar-btn.sec{
+  background:var(--card);color:var(--text-primary);
+  border:1px solid var(--border-m);
+}
+.cta-bar-btn.sec:hover{background:var(--surface);border-color:var(--mint);color:var(--mint)}
+
+/* ── Animations ──────────────────────────────────────── */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.18)}24%{transform:scale(1)}36%{transform:scale(1.1)}48%{transform:scale(1)}}
+@keyframes compress{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes thrust{0%,100%{transform:translateY(0) scaleX(1)}45%{transform:translateY(-9px) scaleX(.97)}}
+@keyframes arm-raise{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-38deg)}}
+@keyframes recovery-roll{0%{transform:rotate(0deg) translateX(0)}100%{transform:rotate(-85deg) translateX(6px)}}
+@keyframes shock-flash{0%,100%{opacity:0}15%{opacity:1}30%{opacity:0}}
+@keyframes float-up{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes scan-line{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+@keyframes breath-expand{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes scene-rotate{0%{transform:rotateY(-12deg) rotateX(4deg)}100%{transform:rotateY(12deg) rotateX(-4deg)}}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr;min-height:auto}
+  .hero-left{padding:3rem 2rem}
+  .hero-right{min-height:340px}
+  .section{padding:3rem 2rem}
+  .explore-section{padding:3rem 2rem}
+  .cta-bar{padding:2rem}
+  .demo-layout{grid-template-columns:1fr}
+  .steps-panel{flex-direction:row;flex-wrap:wrap}
+  .step-item{flex:1;min-width:140px}
+}
+@media(max-width:540px){
+  .nav-links{display:none}
+  .hero-stats{gap:1.25rem}
+  .mod-grid{grid-template-columns:1fr 1fr}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ Nav ══════════════════════════════════════════════ -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    </div>
+    Novice
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="#modules">Procedures</a>
+    <a class="nav-link" href="#explore">Learn More</a>
+    <a class="nav-link" href="#">About</a>
+  </div>
+  <button class="nav-cta" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">Start learning</button>
+</nav>
+
+<!-- ══ Hero ═════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow">
+      <span class="eyebrow-dot"></span>
+      AI-powered first aid training
+    </p>
+    <h1 class="hero-h1">Skills that<br><em>save lives</em><br>start here.</h1>
+    <p class="hero-sub">Five essential procedures. Animated step-by-step coaching with real-time AI feedback. No experience needed — just the readiness to act.</p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Explore procedures
+      </button>
+      <button class="btn-ghost" onclick="window.sendPrompt&&sendPrompt('Open CPR training mode')">
+        Try CPR training
+      </button>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-num">5</span>
+        <span class="stat-label">Core procedures</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">25+</span>
+        <span class="stat-label">Guided steps</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">AI</span>
+        <span class="stat-label">Live feedback</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="hero-right-inner">
+      <p class="scene-label" id="heroSceneLabel">CPR · Chest compressions</p>
+      <div class="hero-svg-card" id="heroSvgHost" style="padding:.5rem"></div>
+      <div class="hero-step-ticker">
+        <div class="hero-step-dots" id="heroDotsHost"></div>
+        <div class="hero-step-label" id="heroStepLabel">Push down 5 cm — 100–120/min</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ Module grid ══════════════════════════════════════ -->
+<section class="modules-section" id="modules">
+  <div class="section" style="padding-bottom:2rem">
+    <p class="section-eyebrow">Five procedures</p>
+    <h2 class="section-title">Choose what you want to learn</h2>
+    <p class="section-sub">Each module walks you through the procedure with animated demonstrations and clinical key points.</p>
+    <div class="mod-grid" id="modGrid"></div>
+  </div>
+</section>
+
+<!-- ══ Demo stage ════════════════════════════════════════ -->
+<section class="demo-section" id="demoSection">
+  <div class="section">
+    <div class="demo-header">
+      <h2 class="demo-title" id="demoTitle">CPR — Cardiopulmonary Resuscitation</h2>
+      <span class="demo-badge" id="demoBadge">Foundational</span>
+    </div>
+    <div class="demo-layout">
+      <div>
+        <div class="anim-stage" id="animStage">
+          <div class="anim-viewport" id="animViewport">
+            <div class="svg-3d-wrap">
+              <div class="svg-3d-inner" id="svgInner"></div>
+            </div>
+          </div>
+          <div class="anim-footer">
+            <span class="live-dot" id="liveDot"></span>
+            <span class="anim-caption" id="animCaption">Performing chest compressions</span>
+          </div>
+        </div>
+        <div class="nav-controls">
+          <button class="nc-btn" id="btnPrev" onclick="changeStep(-1)">← Prev</button>
+          <span class="nc-progress" id="stepProg">Step 1 of 5</span>
+          <button class="nc-btn next" id="btnNext" onclick="changeStep(1)">Next →</button>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progFill" style="width:20%"></div></div>
+        <div class="key-box" id="keyBox"></div>
+      </div>
+      <div class="steps-panel" id="stepsPanel"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ More to explore ══════════════════════════════════ -->
+<section class="explore-section" id="explore">
+  <p class="section-eyebrow">There's more</p>
+  <h2 class="section-title" style="margin-bottom:.5rem">Beyond the basics</h2>
+  <p class="section-sub">First aid is a wide field. Here's what else you can learn in Novice.</p>
+  <div class="explore-grid" id="exploreGrid"></div>
+</section>
+
+<!-- ══ CTA bar ══════════════════════════════════════════ -->
+<div class="cta-bar">
+  <div class="cta-bar-text">
+    <h3>Ready to practise with live AI feedback?</h3>
+    <p>Our CNN-BiLSTM model watches your compression rate, depth, and recoil in real time.</p>
+  </div>
+  <div class="cta-bar-actions">
+    <button class="cta-bar-btn prim" onclick="window.sendPrompt&&sendPrompt('Open CPR training mode')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Start CPR training
+    </button>
+    <button class="cta-bar-btn sec" onclick="window.sendPrompt&&sendPrompt('View my results')">View results</button>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   DATA
+════════════════════════════════════════════════════════ */
+const MODULES = [
+  {
+    id:'cpr', title:'CPR', desc:'Cardiopulmonary resuscitation',
+    accent:'#C84B25', bg:'rgba(200,75,37,0.08)',
+    tag:'Foundational', diff:'Critical',
+    keyPoints:[
+      'Call emergency services (112 / 911) before starting',
+      'Push hard and fast — at least 5 cm, 100–120 per minute',
+      'Allow full chest recoil between compressions',
+      'Ratio: 30 compressions to 2 rescue breaths',
+    ],
+    steps:[
+      {title:'Check for response',detail:'Tap shoulders firmly, shout "Are you OK?". If unresponsive, shout for help and call emergency services immediately.',caption:'Checking responsiveness'},
+      {title:'Open the airway',detail:'Place one hand on forehead, two fingers under chin. Tilt head back and lift chin to open airway.',caption:'Head-tilt chin-lift'},
+      {title:'30 chest compressions',detail:'Heel of hand on centre of chest. Compress 5–6 cm at 100–120/min. Allow full recoil.',caption:'Performing chest compressions'},
+      {title:'2 rescue breaths',detail:'Pinch nose, seal mouth, breathe steadily for 1 second. Watch chest rise. Give 2 breaths.',caption:'Delivering rescue breaths'},
+      {title:'Continue 30:2 cycle',detail:'Repeat 30 compressions and 2 rescue breaths. Switch rescuers every 2 minutes to maintain quality.',caption:'Continuing CPR cycle'},
+    ],
+  },
+  {
+    id:'choking', title:'Choking', desc:'Heimlich manoeuvre & back blows',
+    accent:'#A8660E', bg:'rgba(168,102,14,0.08)',
+    tag:'Adults & children', diff:'Urgent',
+    keyPoints:[
+      'Always ask "Are you choking?" first',
+      '5 back blows between shoulder blades — firm heel of hand',
+      '5 abdominal thrusts — fist above navel, inward and upward',
+      'If victim loses consciousness — begin CPR immediately',
+    ],
+    steps:[
+      {title:'Assess the obstruction',detail:'Ask "Are you choking?" A person with partial obstruction can cough — encourage this. Only act if they cannot speak, cough, or breathe.',caption:'Assessing obstruction severity'},
+      {title:'Lean them forward',detail:'Support their chest with one hand and tilt them forward so expelled object won\'t travel deeper.',caption:'Correct first-aider positioning'},
+      {title:'5 firm back blows',detail:'Strike firmly between shoulder blades with the heel of your free hand. Each blow is a separate attempt. Check mouth after each.',caption:'Delivering back blows'},
+      {title:'5 abdominal thrusts',detail:'Make a fist, thumb-side above navel below sternum. Grasp fist. Pull sharply inward and upward.',caption:'Heimlich abdominal thrusts'},
+      {title:'Alternate until clear',detail:'Repeat 5 back blows then 5 abdominal thrusts. If victim collapses, call 112 and begin CPR — compressions may dislodge the object.',caption:'Alternating technique cycle'},
+    ],
+  },
+  {
+    id:'stroke', title:'Stroke — FAST', desc:'Recognise & respond to stroke',
+    accent:'#4840A8', bg:'rgba(72,64,168,0.08)',
+    tag:'Recognition first', diff:'Critical',
+    keyPoints:[
+      'Time is brain — every minute matters',
+      'FAST: Face, Arms, Speech, Time',
+      'Do NOT give aspirin — it can worsen a haemorrhagic stroke',
+      'Keep victim calm and in semi-sitting position',
+    ],
+    steps:[
+      {title:'F — Face drooping',detail:'Ask the person to smile. Does one side droop? Asymmetry is a key warning sign.',caption:'Checking facial symmetry — FAST: Face'},
+      {title:'A — Arm weakness',detail:'Ask them to close their eyes and raise both arms. Does one drift downward?',caption:'Arm drift test — FAST: Arms'},
+      {title:'S — Speech difficulty',detail:'Ask them to repeat a simple phrase. Is speech slurred or impossible?',caption:'Speech assessment — FAST: Speech'},
+      {title:'T — Time to call 112',detail:'Note the exact time symptoms started. Call emergency services immediately.',caption:'Calling emergency services — FAST: Time'},
+      {title:'Position & reassure',detail:'Sit the victim semi-upright — never lay flat. Do not give food, drink, or aspirin.',caption:'Safe semi-sitting position'},
+    ],
+  },
+  {
+    id:'recovery', title:'Recovery Position', desc:'Safe airway for unconscious breathing victims',
+    accent:'#0F9070', bg:'rgba(15,144,112,0.08)',
+    tag:'Unconscious & breathing', diff:'Essential',
+    keyPoints:[
+      'Only use if victim is unconscious but breathing normally',
+      'Keeps airway open — prevents choking on vomit',
+      'Check breathing every minute',
+      'Prepare to start CPR if breathing stops',
+    ],
+    steps:[
+      {title:'Confirm breathing',detail:'Check for normal breathing for up to 10 seconds — look for chest rise, listen, feel airflow on your cheek.',caption:'Verifying normal breathing'},
+      {title:'Position the near arm',detail:'Kneel beside victim. Take the arm nearest to you and place at a right angle, elbow bent, palm facing up.',caption:'Positioning the near arm at 90°'},
+      {title:'Bring far hand to cheek',detail:'Take the far hand and place the back of it against the victim\'s near cheek.',caption:'Bringing far hand to cheek'},
+      {title:'Bend the far knee',detail:'With your free hand, pull up the far knee keeping the foot flat on the ground.',caption:'Bending the far knee as lever'},
+      {title:'Roll and open mouth',detail:'Roll the victim toward you using the knee as a lever. Tilt the head back slightly. Ensure mouth faces slightly downward.',caption:'Rolling to final recovery position'},
+    ],
+  },
+  {
+    id:'aed', title:'AED', desc:'Automated defibrillator step by step',
+    accent:'#2B7FD4', bg:'rgba(43,127,212,0.08)',
+    tag:'Device-assisted', diff:'Critical',
+    keyPoints:[
+      'Turn on the AED first — it will talk you through everything',
+      'Continue CPR until AED pads are attached and ready',
+      'Stand clear during shock delivery — shout "Clear!" loudly',
+      'Resume CPR immediately after shock — do not wait for pulse check',
+    ],
+    steps:[
+      {title:'Power on the AED',detail:'Open the case and press the power button. The device will give spoken instructions.',caption:'Powering on the AED device'},
+      {title:'Attach the pads',detail:'Remove clothing from chest. Place pads as shown: one below right collarbone, one on left side below armpit.',caption:'Attaching AED electrode pads'},
+      {title:'Let AED analyse',detail:'Ensure nobody touches the victim. The AED analyses the heart rhythm automatically.',caption:'AED analysing heart rhythm'},
+      {title:'Deliver shock if advised',detail:'If shock is advised, shout "Stand clear!" — visually check nobody is touching. Press the shock button.',caption:'Delivering the defibrillation shock'},
+      {title:'Resume CPR immediately',detail:'Begin 30 compressions immediately after shock. Do not pause for a pulse check.',caption:'Resuming CPR post-shock'},
+    ],
+  },
+];
+
+const EXPLORE_CARDS = [
+  {cat:'Bleeding control',title:'Severe bleeding & wound care',sub:'Applying direct pressure, tourniquets, and wound packing for major haemorrhage.',meta:'6 steps · Intermediate',acc:'#C0395E',bg:'rgba(192,57,94,0.08)',iconSvg:'<path d="M12 2v20M2 12h20"/>',prompt:'Open bleeding control module'},
+  {cat:'Burns & scalds',title:'Thermal & chemical burns',sub:'Cool-running-water protocol, burn classification, and when to escalate to emergency services.',meta:'5 steps · Essential',acc:'#A8660E',bg:'rgba(168,102,14,0.08)',iconSvg:'<path d="M12 2c0 0-5 5-5 11a5 5 0 0 0 10 0c0-6-5-11-5-11z"/>',prompt:'Open burns module'},
+  {cat:'Fractures & sprains',title:'Immobilisation & splinting',sub:'RICE protocol for soft tissue injuries and improvised splinting for suspected fractures.',meta:'5 steps · Essential',acc:'#2D6A4F',bg:'rgba(45,106,79,0.08)',iconSvg:'<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',prompt:'Open fractures module'},
+  {cat:'Diabetic emergency',title:'Hypoglycaemia & hyperglycaemia',sub:'Recognising and responding to a diabetic emergency before paramedics arrive.',meta:'4 steps · Advanced',acc:'#1B3A6B',bg:'rgba(27,58,107,0.08)',iconSvg:'<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>',prompt:'Open diabetic emergency module'},
+  {cat:'Anaphylaxis',title:'Allergic reaction & EpiPen use',sub:'Identifying anaphylaxis and administering auto-injector epinephrine correctly.',meta:'5 steps · Critical',acc:'#4840A8',bg:'rgba(72,64,168,0.08)',iconSvg:'<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>',prompt:'Open anaphylaxis module'},
+  {cat:'Mental health first aid',title:'Panic attacks & crisis support',sub:'Grounding techniques, de-escalation, and connecting someone in crisis to support.',meta:'4 steps · Awareness',acc:'#0F9070',bg:'rgba(15,144,112,0.08)',iconSvg:'<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>',prompt:'Open mental health first aid module'},
+];
+
+/* ════════════════════════════════════════════════════════
+   SVG ANIMATIONS
+════════════════════════════════════════════════════════ */
+function svgCPR_check(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <rect x="60" y="130" width="200" height="60" rx="10" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="160" cy="112" rx="28" ry="28" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <line x1="132" y1="140" x2="188" y2="140" stroke="#2A3040" stroke-width="1" stroke-dasharray="3,2"/>
+  <rect x="80" y="178" width="76" height="20" rx="6" fill="#222A35"/>
+  <rect x="165" y="178" width="76" height="20" rx="6" fill="#222A35"/>
+  <g style="animation:arm-raise 1.8s ease-in-out infinite;transform-origin:210px 120px">
+    <line x1="210" y1="120" x2="248" y2="94" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="256" cy="90" r="11" fill="#5A3D28" stroke="#7A5038" stroke-width="1"/>
+  </g>
+  <rect x="192" y="54" width="104" height="28" rx="8" fill="${ac}" opacity=".9"/>
+  <polygon points="208,82 200,96 220,82" fill="${ac}" opacity=".9"/>
+  <text x="244" y="73" text-anchor="middle" font-size="11" fill="#fff" font-family="system-ui" font-weight="500">"Are you OK?"</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Tap shoulders firmly — shout loudly</text>
+</svg>`;}
+
+function svgCPR_compress(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="chestGlow" cx="50%" cy="50%"><stop offset="0%" stop-color="${ac}" stop-opacity=".25"/><stop offset="100%" stop-color="${ac}" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <rect x="40" y="128" width="240" height="64" rx="10" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="100" cy="110" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <ellipse cx="160" cy="148" rx="34" ry="20" fill="url(#chestGlow)"/>
+  <g style="animation:beat 1.55s ease-in-out infinite;transform-origin:160px 148px">
+    <path d="M148 141 a8 8 0 0 1 12 0 a8 8 0 0 1 12 0 q2 8-12 18 q-14-10-12-18z" fill="${ac}" opacity=".8"/>
+  </g>
+  <g style="animation:compress 1.55s ease-in-out infinite">
+    <rect x="140" y="90" width="40" height="14" rx="4" fill="#5A3D28" stroke="#7A5038" stroke-width="1"/>
+    <rect x="144" y="114" width="6" height="14" rx="3" fill="#5A3D28"/>
+    <rect x="153" y="114" width="6" height="14" rx="3" fill="#5A3D28"/>
+    <rect x="162" y="114" width="6" height="14" rx="3" fill="#5A3D28"/>
+    <rect x="171" y="114" width="6" height="14" rx="3" fill="#5A3D28"/>
+    <line x1="160" y1="90" x2="160" y2="66" stroke="#5A3D28" stroke-width="10" stroke-linecap="round"/>
+  </g>
+  <rect x="228" y="120" width="60" height="38" rx="6" fill="${ac}20" stroke="${ac}" stroke-width="1"/>
+  <text x="258" y="135" text-anchor="middle" font-size="10" font-weight="600" fill="${ac}" font-family="system-ui">≥5 cm</text>
+  <text x="258" y="148" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">100–120/min</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">30 compressions — hard, fast, centre of chest</text>
+</svg>`;}
+
+function svgCPR_airway(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <rect x="50" y="128" width="220" height="64" rx="10" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="160" cy="108" rx="28" ry="28" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <path d="M148 118 Q160 126 172 118" fill="#7A3D28" opacity=".5" stroke="none"/>
+  <g>
+    <line x1="160" y1="136" x2="145" y2="158" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+    <line x1="160" y1="136" x2="175" y2="158" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <path d="M80 108 Q95 80 118 88" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arH2)"/>
+  <defs><marker id="arH2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 2L8 5L2 8" fill="none" stroke="${ac}" stroke-width="2" stroke-linecap="round"/></marker></defs>
+  <text x="64" y="104" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">Tilt</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Head-tilt chin-lift — open the airway</text>
+</svg>`;}
+
+function svgCPR_breath(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <rect x="50" y="128" width="220" height="64" rx="10" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="160" cy="108" rx="28" ry="28" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <ellipse cx="158" cy="100" rx="8" ry="5" fill="#7A3D28" opacity=".6"/>
+  <g style="animation:float-up 3s ease-in-out infinite">
+    <ellipse cx="118" cy="90" rx="22" ry="22" fill="#2A1F18" stroke="#5A3D28" stroke-width="1"/>
+    <path d="M132 100 Q145 104 160 108" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="4,2"/>
+  </g>
+  <g style="animation:breath-expand 3s ease-in-out infinite;transform-origin:160px 152px">
+    <rect x="126" y="136" width="68" height="32" rx="8" fill="${ac}22" stroke="${ac}" stroke-width="1.5"/>
+    <line x1="144" y1="148" x2="176" y2="148" stroke="${ac}" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <text x="258" y="138" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui" font-weight="500">1 sec</text>
+  <text x="258" y="152" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Watch chest</text>
+  <text x="258" y="165" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">rise</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">2 rescue breaths — 1 second each, watch chest rise</text>
+</svg>`;}
+
+function svgCPR_cycle(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="28" y="76" width="104" height="50" rx="10" fill="${ac}18" stroke="${ac}" stroke-width="1.5"/>
+  <text x="80" y="96" text-anchor="middle" font-size="18" font-weight="700" fill="${ac}" font-family="system-ui">30</text>
+  <text x="80" y="115" text-anchor="middle" font-size="11" fill="${ac}" font-family="system-ui">compressions</text>
+  <path d="M132 101 Q160 78 188 101" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arR3)"/>
+  <defs><marker id="arR3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 2L8 5L2 8" fill="none" stroke="${ac}" stroke-width="2" stroke-linecap="round"/></marker></defs>
+  <rect x="188" y="76" width="104" height="50" rx="10" fill="${ac}18" stroke="${ac}" stroke-width="1.5"/>
+  <text x="240" y="96" text-anchor="middle" font-size="18" font-weight="700" fill="${ac}" font-family="system-ui">2</text>
+  <text x="240" y="115" text-anchor="middle" font-size="11" fill="${ac}" font-family="system-ui">rescue breaths</text>
+  <path d="M192 126 Q160 148 128 126" fill="none" stroke="#5A6470" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arL3)"/>
+  <defs><marker id="arL3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 2L8 5L2 8" fill="none" stroke="#5A6470" stroke-width="2" stroke-linecap="round"/></marker></defs>
+  <text x="160" y="144" text-anchor="middle" font-size="10" fill="#5A6470" font-family="system-ui">REPEAT</text>
+  <rect x="94" y="162" width="132" height="38" rx="8" fill="${ac}10" stroke="${ac}" stroke-width="1"/>
+  <text x="160" y="178" text-anchor="middle" font-size="11" fill="${ac}" font-family="system-ui" font-weight="500">Switch rescuers</text>
+  <text x="160" y="192" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">every 2 minutes</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Continue 30:2 cycle until EMS arrives</text>
+</svg>`;}
+
+function svgChoke_assess(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <ellipse cx="160" cy="68" rx="26" ry="26" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <rect x="136" y="94" width="48" height="72" rx="10" fill="#222A35" stroke="#2A3040" stroke-width="1"/>
+  <line x1="136" y1="100" x2="108" y2="148" stroke="#5A3D28" stroke-width="10" stroke-linecap="round"/>
+  <line x1="184" y1="100" x2="212" y2="148" stroke="#5A3D28" stroke-width="10" stroke-linecap="round"/>
+  <line x1="148" y1="166" x2="144" y2="210" stroke="#222A35" stroke-width="10" stroke-linecap="round"/>
+  <line x1="172" y1="166" x2="176" y2="210" stroke="#222A35" stroke-width="10" stroke-linecap="round"/>
+  <line x1="152" y1="72" x2="168" y2="80" stroke="${ac}" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="168" y1="72" x2="152" y2="80" stroke="${ac}" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="184" y="40" width="112" height="32" rx="8" fill="${ac}" opacity=".9"/>
+  <polygon points="186,56 175,72 200,56" fill="${ac}" opacity=".9"/>
+  <text x="240" y="61" text-anchor="middle" font-size="11" fill="#fff" font-family="system-ui">"Are you choking?"</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Partial obstruction — encourage coughing</text>
+</svg>`;}
+
+function svgChoke_position(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <ellipse cx="128" cy="68" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <g style="transform:rotate(18deg);transform-origin:128px 92px">
+    <rect x="108" y="92" width="40" height="64" rx="8" fill="#222A35"/>
+    <line x1="108" y1="100" x2="82" y2="144" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+    <line x1="148" y1="100" x2="172" y2="144" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <ellipse cx="218" cy="100" rx="22" ry="22" fill="#2A1F18" stroke="#5A3D28" stroke-width="1" opacity=".7"/>
+  <line x1="202" y1="116" x2="175" y2="128" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  <path d="M128 92 Q128 120 140 140" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arF2)"/>
+  <defs><marker id="arF2" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 2L5 8L8 2" fill="none" stroke="${ac}" stroke-width="2" stroke-linecap="round"/></marker></defs>
+  <text x="100" y="158" font-size="10" fill="${ac}" font-family="system-ui">Lean forward</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Tilt forward — expelled object falls out, not deeper</text>
+</svg>`;}
+
+function svgChoke_backblow(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <ellipse cx="112" cy="72" rx="22" ry="22" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <g style="transform:rotate(22deg);transform-origin:112px 94px">
+    <rect x="94" y="94" width="36" height="58" rx="8" fill="#222A35"/>
+    <line x1="94" y1="102" x2="70" y2="140" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+    <line x1="130" y1="102" x2="152" y2="140" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <g style="animation:arm-raise 1.4s ease-in-out infinite;transform-origin:220px 100px">
+    <ellipse cx="220" cy="80" rx="22" ry="22" fill="#2A1F18" stroke="#5A3D28" stroke-width="1"/>
+    <line x1="204" y1="96" x2="178" y2="108" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+    <rect x="162" y="103" width="22" height="14" rx="5" fill="#5A3D28" stroke="#7A5038" stroke-width="1"/>
+  </g>
+  <g style="animation:beat 1.4s ease-in-out infinite;transform-origin:162px 112px">
+    <ellipse cx="162" cy="112" rx="14" ry="9" fill="${ac}25" stroke="${ac}" stroke-width="1.5"/>
+  </g>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">5 firm heel-of-hand strikes between shoulder blades</text>
+</svg>`;}
+
+function svgChoke_thrust(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <ellipse cx="148" cy="64" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <rect x="128" y="88" width="40" height="70" rx="8" fill="#222A35"/>
+  <line x1="128" y1="96" x2="104" y2="138" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  <line x1="168" y1="96" x2="192" y2="138" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  <line x1="140" y1="158" x2="138" y2="200" stroke="#222A35" stroke-width="9" stroke-linecap="round"/>
+  <line x1="160" y1="158" x2="162" y2="200" stroke="#222A35" stroke-width="9" stroke-linecap="round"/>
+  <g style="animation:thrust 1.6s ease-in-out infinite">
+    <rect x="150" y="130" width="28" height="18" rx="5" fill="${ac}" opacity=".85"/>
+    <line x1="178" y1="138" x2="198" y2="130" stroke="${ac}" stroke-width="2" stroke-dasharray="3,2"/>
+    <text x="214" y="128" font-size="9" fill="${ac}" font-family="system-ui">Above navel</text>
+    <text x="214" y="140" font-size="9" fill="${ac}" font-family="system-ui">below sternum</text>
+  </g>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Sharp inward-and-upward thrust — compress diaphragm</text>
+</svg>`;}
+
+function svgChoke_alt(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="22" y="74" width="110" height="46" rx="10" fill="${ac}18" stroke="${ac}" stroke-width="1.5"/>
+  <text x="77" y="95" text-anchor="middle" font-size="12" font-weight="600" fill="${ac}" font-family="system-ui">5 Back blows</text>
+  <text x="77" y="113" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">heel of hand</text>
+  <path d="M132 97 Q160 72 188 97" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arA5)"/>
+  <defs><marker id="arA5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 2L8 5L2 8" fill="none" stroke="${ac}" stroke-width="2" stroke-linecap="round"/></marker></defs>
+  <rect x="188" y="74" width="110" height="46" rx="10" fill="${ac}18" stroke="${ac}" stroke-width="1.5"/>
+  <text x="243" y="92" text-anchor="middle" font-size="12" font-weight="600" fill="${ac}" font-family="system-ui">5 Thrusts</text>
+  <text x="243" y="108" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">Heimlich</text>
+  <path d="M192 120 Q160 145 128 120" fill="none" stroke="#5A6470" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arA6)"/>
+  <defs><marker id="arA6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 2L8 5L2 8" fill="none" stroke="#5A6470" stroke-width="2" stroke-linecap="round"/></marker></defs>
+  <text x="160" y="142" text-anchor="middle" font-size="10" fill="#5A6470" font-family="system-ui">ALTERNATE</text>
+  <rect x="88" y="162" width="144" height="38" rx="8" fill="${ac}12" stroke="${ac}" stroke-width="1"/>
+  <text x="160" y="178" text-anchor="middle" font-size="11" font-weight="600" fill="${ac}" font-family="system-ui">If victim collapses</text>
+  <text x="160" y="193" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">Begin CPR — compressions may dislodge</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Keep alternating until object is cleared</text>
+</svg>`;}
+
+function svgStroke_face(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="110" rx="72" ry="80" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <ellipse cx="136" cy="92" rx="9" ry="11" fill="#E8EAEC" opacity=".8"/>
+  <circle cx="138" cy="89" r="3" fill="#fff" opacity=".6"/>
+  <path d="M130 126 Q148 132 158 128" fill="none" stroke="#E8EAEC" stroke-width="2.5" stroke-linecap="round"/>
+  <ellipse cx="184" cy="94" rx="9" ry="11" fill="#E8EAEC" opacity=".4"/>
+  <path d="M162 128 Q176 126 190 136" fill="none" stroke="#E8EAEC" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3,2"/>
+  <line x1="160" y1="40" x2="160" y2="185" stroke="${ac}" stroke-width="1.5" stroke-dasharray="5,3" opacity=".7"/>
+  <text x="110" y="175" text-anchor="middle" font-size="10" fill="#5A6470" font-family="system-ui">Normal</text>
+  <text x="210" y="175" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui" font-weight="600">Drooping</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">FAST: Face — ask them to smile. Is one side drooping?</text>
+</svg>`;}
+
+function svgStroke_arms(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <ellipse cx="160" cy="68" rx="26" ry="26" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <rect x="136" y="94" width="48" height="60" rx="8" fill="#222A35"/>
+  <line x1="136" y1="100" x2="96" y2="120" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  <line x1="184" y1="100" x2="224" y2="100" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  <text x="86" y="115" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Drifting</text>
+  <text x="86" y="127" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">down!</text>
+  <text x="236" y="97" text-anchor="start" font-size="9" fill="#5A6470" font-family="system-ui">Normal</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">FAST: Arms — one arm drifts down when raised?</text>
+</svg>`;}
+
+function svgStroke_speech(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="68" rx="26" ry="26" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <rect x="64" y="108" width="192" height="60" rx="12" fill="${ac}18" stroke="${ac}" stroke-width="1.5"/>
+  <polygon points="130,108 120,88 150,108" fill="${ac}18" stroke="${ac}" stroke-width="1"/>
+  <text x="160" y="133" text-anchor="middle" font-size="13" font-weight="600" fill="${ac}" font-family="system-ui">"The cat sat on…"</text>
+  <text x="160" y="153" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">Slurred? Strange? Impossible?</text>
+  <rect x="88" y="182" width="144" height="28" rx="6" fill="${ac}12" stroke="${ac}" stroke-width="1"/>
+  <text x="160" y="200" text-anchor="middle" font-size="10" font-weight="600" fill="${ac}" font-family="system-ui">Any abnormality = call 112 now</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">FAST: Speech — ask them to repeat a simple phrase</text>
+</svg>`;}
+
+function svgStroke_time(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="160" cy="110" r="68" fill="${ac}10" stroke="${ac}" stroke-width="2"/>
+  <circle cx="160" cy="110" r="4" fill="${ac}"/>
+  <line x1="160" y1="110" x2="160" y2="56" stroke="${ac}" stroke-width="3" stroke-linecap="round"/>
+  <line x1="160" y1="110" x2="196" y2="128" stroke="${ac}" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="160" y="55" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">12</text>
+  <text x="160" y="172" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">Note the time!</text>
+  <rect x="56" y="192" width="208" height="28" rx="6" fill="${ac}18" stroke="${ac}" stroke-width="1"/>
+  <text x="160" y="210" text-anchor="middle" font-size="11" font-weight="600" fill="${ac}" font-family="system-ui">Call 112 immediately</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">FAST: Time — note onset, call emergency services now</text>
+</svg>`;}
+
+function svgStroke_pos(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="245" rx="80" ry="10" fill="#00000040"/>
+  <rect x="40" y="120" width="240" height="60" rx="12" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="80" cy="106" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <line x1="104" y1="120" x2="280" y2="120" stroke="#2A3040" stroke-width="1"/>
+  <path d="M80 120 L80 90" stroke="#5A3D28" stroke-width="10" stroke-linecap="round"/>
+  <text x="186" y="108" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">30–45° semi-upright</text>
+  <rect x="218" y="98" width="82" height="50" rx="8" fill="#FF4D6D18" stroke="#FF4D6D" stroke-width="1"/>
+  <text x="259" y="114" text-anchor="middle" font-size="9" fill="#FF4D6D" font-family="system-ui" font-weight="600">Do NOT:</text>
+  <text x="259" y="128" text-anchor="middle" font-size="8.5" fill="#FF4D6D" font-family="system-ui">Lay flat</text>
+  <text x="259" y="140" text-anchor="middle" font-size="8.5" fill="#FF4D6D" font-family="system-ui">Give aspirin</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Semi-upright, calm, warm — await emergency services</text>
+</svg>`;}
+
+function svgRec_confirm(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="40" y="148" width="240" height="50" rx="8" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="78" cy="134" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <g style="animation:breath-expand 2.5s ease-in-out infinite;transform-origin:180px 168px">
+    <ellipse cx="180" cy="168" rx="36" ry="14" fill="${ac}20" stroke="${ac}" stroke-width="1.5"/>
+    <text x="180" y="172" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Chest rising</text>
+  </g>
+  <path d="M78 110 Q55 90 48 78" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="3,2"/>
+  <text x="36" y="73" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Feel</text>
+  <path d="M90 118 Q76 96 72 84" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="3,2"/>
+  <text x="66" y="79" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Listen</text>
+  <path d="M100 118 Q108 96 118 84" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="3,2"/>
+  <text x="126" y="79" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Look</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Unconscious but breathing? → Recovery position</text>
+</svg>`;}
+
+function svgRec_arm(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="40" y="148" width="240" height="50" rx="8" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="78" cy="134" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <line x1="100" y1="158" x2="100" y2="108" stroke="#5A3D28" stroke-width="10" stroke-linecap="round"/>
+  <rect x="88" y="96" width="24" height="14" rx="5" fill="#5A3D28"/>
+  <path d="M100 148 L84 148 L84 132" fill="none" stroke="${ac}" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <text x="68" y="140" font-size="9" fill="${ac}" font-family="system-ui">90°</text>
+  <text x="84" y="93" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Palm up</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Near arm at right angle — elbow bent, palm up</text>
+</svg>`;}
+
+function svgRec_hand(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="40" y="148" width="240" height="50" rx="8" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="78" cy="134" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <line x1="240" y1="158" x2="92" y2="126" stroke="#5A3D28" stroke-width="10" stroke-linecap="round"/>
+  <rect x="80" y="120" width="22" height="14" rx="5" fill="#5A3D28" stroke="#7A5038" stroke-width="1"/>
+  <path d="M230 162 Q160 145 102 128" fill="none" stroke="${ac}" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arR4)"/>
+  <defs><marker id="arR4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 2L8 5L2 8" fill="none" stroke="${ac}" stroke-width="2" stroke-linecap="round"/></marker></defs>
+  <text x="170" y="142" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui">Far hand → cheek</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Place back of far hand against victim's near cheek</text>
+</svg>`;}
+
+function svgRec_knee(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="40" y="148" width="240" height="50" rx="8" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="78" cy="134" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <line x1="180" y1="148" x2="280" y2="148" stroke="#222A35" stroke-width="14" stroke-linecap="round"/>
+  <line x1="102" y1="148" x2="180" y2="148" stroke="#222A35" stroke-width="14" stroke-linecap="round"/>
+  <line x1="180" y1="148" x2="192" y2="112" stroke="#222A35" stroke-width="12" stroke-linecap="round"/>
+  <line x1="192" y1="112" x2="222" y2="128" stroke="#222A35" stroke-width="10" stroke-linecap="round"/>
+  <ellipse cx="228" cy="132" rx="14" ry="8" fill="#222A35" opacity=".6"/>
+  <text x="248" y="116" font-size="9" fill="${ac}" font-family="system-ui">Foot flat</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Bend far knee — foot flat — creates rolling lever</text>
+</svg>`;}
+
+function svgRec_roll(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="30" y="172" width="260" height="40" rx="4" fill="#111518" stroke="#2A3040" stroke-width="1"/>
+  <g style="animation:recovery-roll 4s ease-in-out infinite alternate;transform-origin:116px 158px">
+    <ellipse cx="106" cy="108" rx="24" ry="24" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+    <line x1="84" y1="130" x2="72" y2="166" stroke="#222A35" stroke-width="13" stroke-linecap="round"/>
+    <line x1="128" y1="130" x2="126" y2="168" stroke="#222A35" stroke-width="13" stroke-linecap="round"/>
+    <line x1="84" y1="130" x2="128" y2="130" stroke="#222A35" stroke-width="12"/>
+    <line x1="72" y1="166" x2="188" y2="168" stroke="#222A35" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <ellipse cx="226" cy="104" rx="22" ry="22" fill="#2A1F18" stroke="#5A3D28" stroke-width="1" opacity=".5"/>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Roll toward you — mouth facing down for drainage</text>
+</svg>`;}
+
+function svgAED_power(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="105" y="58" width="110" height="140" rx="14" fill="#111A24" stroke="${ac}" stroke-width="2"/>
+  <path d="M215 62 L232 74 L232 208 L215 198z" fill="${ac}25" stroke="${ac}" stroke-width="1"/>
+  <path d="M105 198 L215 198 L232 208 L122 208z" fill="${ac}18" stroke="${ac}" stroke-width="1"/>
+  <rect x="118" y="72" width="84" height="52" rx="6" fill="#0A0D0F" stroke="${ac}50" stroke-width="1"/>
+  <circle cx="160" cy="156" r="22" fill="${ac}25" stroke="${ac}" stroke-width="2"/>
+  <circle cx="160" cy="156" r="14" fill="${ac}"/>
+  <path d="M160 148 L160 156" stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M153 150 Q148 156 153 162 Q160 168 167 162 Q172 156 167 150" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+  <g style="animation:shock-flash 2.2s ease-in-out 0.4s infinite">
+    <path d="M124 96 L160 56 L196 96" fill="none" stroke="${ac}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="160" y="88" text-anchor="middle" font-size="9" fill="${ac}" font-family="system-ui" font-weight="500">PRESS TO ANALYSE</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Open case, press power — follow voice instructions</text>
+</svg>`;}
+
+function svgAED_pads(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="120" rx="62" ry="82" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <rect x="118" y="64" width="42" height="32" rx="6" fill="${ac}30" stroke="${ac}" stroke-width="2"/>
+  <text x="139" y="78" text-anchor="middle" font-size="8" fill="${ac}" font-family="system-ui">1</text>
+  <text x="139" y="89" text-anchor="middle" font-size="7" fill="${ac}" font-family="system-ui">R collarbone</text>
+  <line x1="118" y1="80" x2="76" y2="70" stroke="${ac}" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <rect x="162" y="128" width="42" height="32" rx="6" fill="${ac}30" stroke="${ac}" stroke-width="2"/>
+  <text x="183" y="142" text-anchor="middle" font-size="8" fill="${ac}" font-family="system-ui">2</text>
+  <text x="183" y="153" text-anchor="middle" font-size="7" fill="${ac}" font-family="system-ui">L armpit below</text>
+  <line x1="204" y1="144" x2="240" y2="144" stroke="${ac}" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Peel, place pads exactly as diagram shows</text>
+</svg>`;}
+
+function svgAED_analyse(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="58" y="72" width="204" height="100" rx="12" fill="#111A24" stroke="${ac}" stroke-width="2"/>
+  <g style="animation:shock-flash 1.8s ease-in-out infinite;transform-origin:160px 118px">
+    <polyline points="68,122 100,122 110,90 126,154 140,80 155,166 164,106 172,122 177,112 198,122 252,122"
+      fill="none" stroke="${ac}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <rect x="82" y="152" width="156" height="24" rx="6" fill="${ac}20" stroke="${ac}" stroke-width="1"/>
+  <text x="160" y="168" text-anchor="middle" font-size="11" font-weight="500" fill="${ac}" font-family="system-ui">Analysing rhythm…</text>
+  <rect x="68" y="186" width="184" height="24" rx="6" fill="#FF4D6D18" stroke="#FF4D6D" stroke-width="1.5"/>
+  <text x="160" y="202" text-anchor="middle" font-size="10" font-weight="600" fill="#FF4D6D" font-family="system-ui">⚠ Do not touch — stand clear</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Keep everyone away — AED is working</text>
+</svg>`;}
+
+function svgAED_shock(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="30" y="140" width="220" height="50" rx="8" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="68" cy="126" rx="22" ry="22" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <line x1="46" y1="148" x2="46" y2="190" stroke="#222A35" stroke-width="13" stroke-linecap="round"/>
+  <line x1="90" y1="148" x2="90" y2="190" stroke="#222A35" stroke-width="13" stroke-linecap="round"/>
+  <rect x="54" y="154" width="30" height="18" rx="4" fill="${ac}35" stroke="${ac}" stroke-width="1.5"/>
+  <rect x="96" y="154" width="30" height="18" rx="4" fill="${ac}35" stroke="${ac}" stroke-width="1.5"/>
+  <circle cx="266" cy="162" r="32" fill="${ac}" opacity=".92"/>
+  <path d="M253 158 L266 146 L279 158 L270 168 L272 180 L262 168z" fill="#000"/>
+  <rect x="166" y="108" width="114" height="28" rx="8" fill="#FF4D6D18" stroke="${ac}" stroke-width="1"/>
+  <text x="223" y="126" text-anchor="middle" font-size="11" font-weight="600" fill="${ac}" font-family="system-ui">Shout "Stand clear!"</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">Visual check — nobody touching — press shock button</text>
+</svg>`;}
+
+function svgAED_resume(ac){return `<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="30" y="140" width="220" height="50" rx="8" fill="#1A2028" stroke="#2A3040" stroke-width="1"/>
+  <ellipse cx="68" cy="126" rx="22" ry="22" fill="#3D2B1F" stroke="#5A3D28" stroke-width="1"/>
+  <line x1="46" y1="148" x2="46" y2="190" stroke="#222A35" stroke-width="13" stroke-linecap="round"/>
+  <line x1="90" y1="148" x2="90" y2="190" stroke="#222A35" stroke-width="13" stroke-linecap="round"/>
+  <g style="animation:beat 1.6s ease-in-out infinite;transform-origin:68px 170px">
+    <ellipse cx="68" cy="168" rx="22" ry="14" fill="${ac}22" stroke="${ac}" stroke-width="2"/>
+    <path d="M60 163 a5 5 0 0 1 8 0 a5 5 0 0 1 8 0 q1 6-8 12 q-9-6-8-12z" fill="${ac}" opacity=".7"/>
+  </g>
+  <g style="animation:compress 1.6s ease-in-out infinite">
+    <rect x="104" y="140" width="80" height="12" rx="4" fill="#5A3D28"/>
+    <line x1="144" y1="140" x2="144" y2="120" stroke="#5A3D28" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <rect x="178" y="108" width="114" height="38" rx="8" fill="${ac}18" stroke="${ac}" stroke-width="1"/>
+  <text x="235" y="122" text-anchor="middle" font-size="10" font-weight="500" fill="${ac}" font-family="system-ui">Resume CPR now</text>
+  <text x="235" y="136" text-anchor="middle" font-size="10" fill="${ac}" font-family="system-ui">AED re-analyses in 2 min</text>
+  <text x="160" y="238" text-anchor="middle" font-size="11" fill="#5A6470" font-family="system-ui">30:2 compressions immediately — do not wait for pulse</text>
+</svg>`;}
+
+/* ════════════════════════════════════════════════════════
+   ANIMATION MAP
+════════════════════════════════════════════════════════ */
+const ANIMS = {
+  cpr:[svgCPR_check,svgCPR_airway,svgCPR_compress,svgCPR_breath,svgCPR_cycle],
+  choking:[svgChoke_assess,svgChoke_position,svgChoke_backblow,svgChoke_thrust,svgChoke_alt],
+  stroke:[svgStroke_face,svgStroke_arms,svgStroke_speech,svgStroke_time,svgStroke_pos],
+  recovery:[svgRec_confirm,svgRec_arm,svgRec_hand,svgRec_knee,svgRec_roll],
+  aed:[svgAED_power,svgAED_pads,svgAED_analyse,svgAED_shock,svgAED_resume],
+};
+
+let curMod=0, curStep=0;
+
+/* ════════════════════════════════════════════════════════
+   MODULE GRID
+════════════════════════════════════════════════════════ */
+function buildModGrid(){
+  const ICONS={
+    cpr:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    choking:'<circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/>',
+    stroke:'<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>',
+    recovery:'<path d="M5 12h14M12 5l7 7-7 7"/>',
+    aed:'<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+  };
+  const g=document.getElementById('modGrid');
+  g.innerHTML=MODULES.map((m,i)=>`
+    <div class="mod-card${i===0?' active':''}"
+         style="--card-accent:${m.accent}"
+         onclick="selectMod(${i})">
+      <div class="mod-icon-wrap" style="background:${m.accent}">
+        <svg viewBox="0 0 24 24">${ICONS[m.id]||ICONS.cpr}</svg>
+      </div>
+      <div class="mod-arrow">
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="mod-title">${m.title}</div>
+      <div class="mod-desc">${m.desc}</div>
+      <div class="mod-tag">${m.tag}</div>
+    </div>`).join('');
+}
+
+function selectMod(idx){
+  curMod=idx; curStep=0;
+  document.querySelectorAll('.mod-card').forEach((c,i)=>c.classList.toggle('active',i===idx));
+  renderDemo();
+  document.getElementById('demoSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ════════════════════════════════════════════════════════
+   RENDER DEMO
+════════════════════════════════════════════════════════ */
+function renderDemo(){
+  const m=MODULES[curMod];
+  document.getElementById('demoTitle').textContent=m.title+' — '+m.desc;
+  document.getElementById('demoBadge').textContent=m.diff;
+  document.getElementById('demoBadge').style.cssText=`--diff-bg:${m.bg};--diff-color:${m.accent}`;
+  document.getElementById('animViewport').style.setProperty('--anim-glow',m.bg);
+  document.getElementById('liveDot').style.background=m.accent;
+  document.getElementById('keyBox').style.setProperty('--acc',m.accent);
+  document.getElementById('keyBox').innerHTML=`<h4>Key points</h4><ul>${m.keyPoints.map(p=>`<li>${p}</li>`).join('')}</ul>`;
+  document.getElementById('btnNext').style.background=m.accent;
+  document.getElementById('btnNext').style.setProperty('--btn-acc',m.accent);
+  document.getElementById('progFill').style.background=m.accent;
+  document.getElementById('progFill').style.boxShadow=`0 0 8px ${m.accent}`;
+  renderStep();
+}
+
+function renderStep(){
+  const m=MODULES[curMod];
+  const s=m.steps[curStep];
+  const anims=ANIMS[m.id];
+  document.getElementById('svgInner').innerHTML=(anims[curStep]||anims[0])(m.accent);
+  document.getElementById('animCaption').textContent=s.caption;
+  const pct=((curStep+1)/m.steps.length*100).toFixed(0);
+  document.getElementById('stepProg').textContent=`Step ${curStep+1} of ${m.steps.length}`;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('btnPrev').disabled=curStep===0;
+  document.getElementById('btnNext').textContent=curStep===m.steps.length-1?'Finish ✓':'Next →';
+  document.getElementById('stepsPanel').innerHTML=m.steps.map((st,i)=>`
+    <div class="step-item${i===curStep?' cur':''}"
+         style="--sacc:${m.accent}"
+         onclick="goStep(${i})">
+      <div class="step-n">Step ${i+1}</div>
+      <div class="step-t">${st.title}</div>
+      <div class="step-d">${st.detail}</div>
+    </div>`).join('');
+}
+
+function changeStep(d){
+  const m=MODULES[curMod];
+  curStep=Math.max(0,Math.min(m.steps.length-1,curStep+d));
+  renderStep();
+}
+function goStep(i){curStep=i;renderStep();}
+
+/* ════════════════════════════════════════════════════════
+   EXPLORE CARDS
+════════════════════════════════════════════════════════ */
+function buildExplore(){
+  const g=document.getElementById('exploreGrid');
+  g.innerHTML=EXPLORE_CARDS.map(c=>`
+    <div class="exp-card" style="--exp-acc:${c.acc};--exp-bg-dark:${c.bg}"
+         onclick="window.sendPrompt&&sendPrompt('${c.prompt}')">
+      <div class="exp-card-top" style="background:${c.bg}">
+        <div class="exp-icon" style="background:${c.acc}">
+          <svg viewBox="0 0 24 24">${c.iconSvg}</svg>
+        </div>
+        <div class="exp-category">${c.cat}</div>
+        <div class="exp-title">${c.title}</div>
+        <div class="exp-sub">${c.sub}</div>
+      </div>
+      <div class="exp-card-bottom">
+        <span class="exp-meta">${c.meta}</span>
+        <span class="exp-btn">Explore →</span>
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════════════════
+   HERO TICKER
+════════════════════════════════════════════════════════ */
+const HERO_SCENES=[
+  {svg:ac=>svgCPR_compress(ac), label:'CPR · Chest compressions', step:'Push down 5 cm — 100–120/min', acc:'#C84B25'},
+  {svg:ac=>svgChoke_backblow(ac), label:'Choking · Back blows', step:'5 firm strikes between shoulder blades', acc:'#A8660E'},
+  {svg:ac=>svgStroke_face(ac), label:'Stroke FAST · Face check', step:'Is one side of the face drooping?', acc:'#4840A8'},
+  {svg:ac=>svgRec_roll(ac), label:'Recovery Position · Roll', step:'Roll toward you — mouth facing down', acc:'#0F9070'},
+  {svg:ac=>svgAED_analyse(ac), label:'AED · Analysing rhythm', step:'Stand clear — do not touch the victim', acc:'#2B7FD4'},
+];
+
+let heroIdx=0;
+function renderHero(){
+  const sc=HERO_SCENES[heroIdx];
+  const host=document.getElementById('heroSvgHost');
+  host.innerHTML=`<svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${sc.svg(sc.acc).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'')}</svg>`;
+  document.getElementById('heroSceneLabel').textContent=sc.label;
+  document.getElementById('heroStepLabel').textContent=sc.step;
+  const dots=document.getElementById('heroDotsHost');
+  dots.innerHTML=HERO_SCENES.map((_,i)=>`<span class="hero-sdot${i===heroIdx?' active':''}"></span>`).join('');
+}
+function advanceHero(){
+  heroIdx=(heroIdx+1)%HERO_SCENES.length;
+  renderHero();
+}
+
+/* init */
+buildModGrid();
+buildExplore();
+renderDemo();
+renderHero();
+setInterval(advanceHero,3400);
+
+// ── sendPrompt bridge ──────────────────────────────────────────────────────
+// When running inside index.html as an iframe, delegate to the parent's
+// sendPrompt which handles the Flutter overlay. When loaded standalone
+// (dev / share links), open the app in the same tab.
+if(typeof window.sendPrompt==='undefined'){
+  const ROUTE_MAP={
+    'Open CPR training mode':'/participant',
+    'View my results':'/history',
+    'Open bleeding control module':'/demo',
+    'Open burns module':'/demo',
+    'Open fractures module':'/demo',
+    'Open diabetic emergency module':'/demo',
+    'Open anaphylaxis module':'/demo',
+    'Open mental health first aid module':'/demo',
+  };
+  window.sendPrompt=function(msg){
+    if(window.parent && window.parent !== window && window.parent.sendPrompt){
+      // We are in the index.html iframe — delegate up
+      window.parent.sendPrompt(msg);
+    } else {
+      // Standalone: navigate to the Flutter app shell
+      const route=ROUTE_MAP[msg]||'/home';
+      window.location.href='app.html#'+route;
+    }
+  };
+}
+</script>
+</body>
+</html>

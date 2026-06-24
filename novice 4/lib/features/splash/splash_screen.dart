@@ -1,16 +1,13 @@
-// Novice — CPR-AI Coach
+// Novice — CPR-AI Coach · Integrated Design
 // GNU General Public License v3.0
-// Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -24,28 +21,18 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
     _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<double>(begin: 24, end: 0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
-    );
-
+    _slide = Tween<double>(begin: 28, end: 0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
-
-    // Navigate to home after brief splash
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    Future.delayed(const Duration(milliseconds: 2400), () {
       if (mounted) context.go(AppRoutes.home);
     });
   }
 
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -56,56 +43,60 @@ class _SplashScreenState extends State<SplashScreen>
           opacity: _fade,
           child: AnimatedBuilder(
             animation: _slide,
-            builder: (_, child) => Transform.translate(
-              offset: Offset(0, _slide.value),
-              child: child,
-            ),
+            builder: (_, child) =>
+                Transform.translate(offset: Offset(0, _slide.value), child: child),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Logo mark
+                // ── Logo mark ──────────────────────────────
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
                     color: AppTheme.card,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: AppTheme.border),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'N',
-                      style: TextStyle(
-                        color: AppTheme.accent,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -2,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accent.withOpacity(.2),
+                        blurRadius: 32,
+                        spreadRadius: 0,
                       ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.monitor_heart_rounded,
+                      color: AppTheme.accent,
+                      size: 36,
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'Novice',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
+                const SizedBox(height: 28),
+                Text('Novice',
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          letterSpacing: -1.5,
+                        )),
                 const SizedBox(height: 8),
                 Text(
-                  'CPR Coach',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    letterSpacing: 3,
-                    fontSize: 11,
+                  'FIRST AID · CPR COACH',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: AppTheme.accent,
+                    letterSpacing: 4,
+                    fontSize: 10,
                   ),
                 ),
-                const SizedBox(height: 48),
-                // Loading indicator
-                const SizedBox(
-                  width: 120,
-                  child: LinearProgressIndicator(
-                    backgroundColor: AppTheme.border,
-                    color: AppTheme.accent,
-                    minHeight: 2,
+                const SizedBox(height: 56),
+                // ── Progress bar ──────────────────────────
+                SizedBox(
+                  width: 140,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: const LinearProgressIndicator(
+                      backgroundColor: AppTheme.border,
+                      color: AppTheme.accent,
+                      minHeight: 2,
+                    ),
                   ),
                 ),
               ],

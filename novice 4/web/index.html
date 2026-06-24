@@ -1,76 +1,140 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <base href="$FLUTTER_BASE_HREF">
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Novice — CPR-AI Coach for Sub-Saharan Africa">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Novice">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="icon" type="image/png" href="favicon.png"/>
-  <title>Novice — CPR Coach</title>
-  <link rel="manifest" href="manifest.json">
-  <!-- TensorFlow.js for web inference -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-  <!-- MediaPipe is loaded by flutter_pose_bridge.js — do NOT load it here -->
-  <style>
-    body { background-color: #0a0d0f; margin: 0; padding: 0; overflow: hidden; }
-    .loading-indicator { display: none; }
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Novice — AI-guided first aid and CPR training for Sub-Saharan Africa."/>
+  <meta name="theme-color" content="#0A0D0F"/>
+  <title>Novice — First Aid · CPR Coach</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
 
-    #loading {
-      position: fixed; inset: 0;
+  <!-- Flutter Web bootstrap -->
+  <script>
+    // ── Routing bridge: landing page → Flutter app ──────────────────────────
+    // The landing page (landing.html) calls sendPrompt() for CTAs like
+    // "Open CPR training mode". This bridge maps those strings to Flutter
+    // deep-link routes so the in-page JavaScript and the Flutter app share
+    // one action vocabulary.
+    const ROUTE_MAP = {
+      'Open CPR training mode':         '/participant',
+      'View my results':                '/history',
+      'Open bleeding control module':   '/demo',
+      'Open burns module':              '/demo',
+      'Open fractures module':          '/demo',
+      'Open diabetic emergency module': '/demo',
+      'Open anaphylaxis module':        '/demo',
+      'Open mental health first aid module': '/demo',
+    };
+
+    window.sendPrompt = function(action) {
+      const route = ROUTE_MAP[action] || '/home';
+      // If Flutter is mounted in the iframe, post a message to it.
+      const frame = document.getElementById('flutterFrame');
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'novice_navigate', route }, '*');
+      }
+      // Open the Flutter shell in the overlay
+      openApp(route);
+    };
+
+    function openApp(route) {
+      const overlay = document.getElementById('appOverlay');
+      const frame   = document.getElementById('flutterFrame');
+      if (!overlay || !frame) return;
+      // Set route as hash so Flutter's GoRouter can pick it up on load
+      frame.src = 'app.html#' + route;
+      overlay.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeApp() {
+      const overlay = document.getElementById('appOverlay');
+      if (overlay) overlay.classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+
+    // Listen for messages from the Flutter iframe
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'novice_close') closeApp();
+    });
+  </script>
+
+  <style>
+    /* ── App overlay: slides Flutter shell in over the landing page ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0A0D0F; }
+
+    #appOverlay {
+      position: fixed; inset: 0; z-index: 9000;
       background: #0A0D0F;
+      transform: translateY(100%);
+      transition: transform .4s cubic-bezier(.16,1,.3,1);
       display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 20px;
-      z-index: 9999;
     }
-    #loading-title {
-      font-family: sans-serif;
-      font-size: 28px;
-      font-weight: 800;
-      color: #E8EAEC;
-      letter-spacing: -0.5px;
+    #appOverlay.visible { transform: translateY(0); }
+
+    .overlay-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .75rem 1.5rem;
+      background: #111518;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      flex-shrink: 0;
     }
-    #loading-subtitle {
-      font-family: sans-serif;
-      font-size: 13px;
-      color: #5A6470;
-      letter-spacing: 0.5px;
+    .overlay-brand {
+      display: flex; align-items: center; gap: .5rem;
+      font-family: 'DM Serif Display', serif;
+      font-size: 17px; color: #E8EAEC;
     }
-    .spinner {
-      width: 36px; height: 36px;
-      border: 3px solid #161C20;
-      border-top-color: #00E5A0;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+    .overlay-brand-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: #00E5A0;
+      display: flex; align-items: center; justify-content: center;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay-brand-icon svg { width: 15px; height: 15px; stroke: #000; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+    .overlay-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.1);
+      color: #E8EAEC; font-size: 16px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .overlay-close:hover { background: rgba(255,255,255,.14); }
+
+    #flutterFrame {
+      flex: 1; border: none; width: 100%; display: block;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Loading screen — removed on first Flutter frame -->
-  <div id="loading">
-    <div id="loading-title">Novice</div>
-    <div class="spinner"></div>
-    <div id="loading-subtitle">CPR Coach · Sub-Saharan Africa</div>
+  <!-- ══ Landing page content (inlined for performance) ══════════════ -->
+  <!-- The full landing.html is loaded via iframe for isolation, or you
+       can inline it here for single-page delivery.
+       For development, use the iframe approach: -->
+  <iframe
+    src="landing.html"
+    style="width:100%;height:100vh;border:none;display:block;"
+    title="Novice — First Aid Training Landing"
+    id="landingFrame"
+  ></iframe>
+
+  <!-- ══ Flutter app overlay ═══════════════════════════════════════════ -->
+  <div id="appOverlay">
+    <div class="overlay-topbar">
+      <div class="overlay-brand">
+        <div class="overlay-brand-icon">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        Novice
+      </div>
+      <button class="overlay-close" onclick="closeApp()" aria-label="Close app">✕</button>
+    </div>
+    <iframe id="flutterFrame" src="" title="Novice App" allow="camera; microphone"></iframe>
   </div>
 
-  <script>
-    window.addEventListener('flutter-first-frame', function () {
-      const el = document.getElementById('loading');
-      if (el) {
-        el.style.transition = 'opacity 0.3s ease';
-        el.style.opacity = '0';
-        setTimeout(() => el.remove(), 300);
-      }
-    });
-  </script>
-
-  <script src="flutter_bootstrap.js" async></script>
-  <script src="flutter_pose_bridge.js"></script>
 </body>
 </html>
