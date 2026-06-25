@@ -1,6 +1,6 @@
 {
-  "buildCommand": "git clone https://github.com/flutter/flutter.git --depth 1 -b 3.29.3 /tmp/flutter && /tmp/flutter/bin/flutter pub get && /tmp/flutter/bin/flutter build web --release --dart-define=RESEARCHER_PIN=2026 && sed -i \"s|</head>|<script>window.__NOVICE_CONFIG__={supabaseUrl:\\\"$SUPABASE_URL\\\",supabaseAnonKey:\\\"$SUPABASE_ANON_KEY\\\",researcherPin:\\\"2026\\\"};</script></head>|\" build/web/index.html",
-  "installCommand": "echo 'deps handled in buildCommand'",
+  "installCommand": "git clone https://github.com/flutter/flutter.git --depth 1 -b 3.29.3 /tmp/flutter && /tmp/flutter/bin/flutter pub get",
+  "buildCommand": "/tmp/flutter/bin/flutter build web --release --dart-define=RESEARCHER_PIN=2026 && sed -i \"s|</head>|<script>window.__NOVICE_CONFIG__={supabaseUrl:\\\"$SUPABASE_URL\\\",supabaseAnonKey:\\\"$SUPABASE_ANON_KEY\\\",researcherPin:\\\"2026\\\"};</script></head>|\" build/web/index.html",
   "outputDirectory": "build/web",
   "framework": null,
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
