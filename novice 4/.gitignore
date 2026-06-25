@@ -83,3 +83,22 @@ flutter run -d chrome \
   --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
   --dart-define=RESEARCHER_PIN=2026
 .env*
+
+# Flutter compiled web output — rebuilt locally via run_local.sh
+web/main.dart.js
+web/flutter.js
+web/flutter_bootstrap.js
+web/flutter_service_worker.js
+web/flutter.js.symbols
+web/version.json
+web/assets/
+web/canvaskit/
+
+# Orphaned/reference-only HTML files
+web/app.html
+web/landing.html
+web/demo_standalone_reference.html
+web/package-lock.json
+
+# Build artifacts
+build/
