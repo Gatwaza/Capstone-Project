@@ -1,22 +1,15 @@
 // Novice — CPR-AI Coach
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// GNU General Public License v3.0
 
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
@@ -25,36 +18,75 @@ import 'core/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait — CPR coaching requires vertical phone orientation
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
 
-  // Immersive mode for unobstructed camera view during training
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
-
-  // Bootstrap dependency injection
   await configureDependencies();
 
-  runApp(
-    const ProviderScope(
-      child: NoviceApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: NoviceApp()));
 }
 
-class NoviceApp extends ConsumerWidget {
+class NoviceApp extends ConsumerStatefulWidget {
   const NoviceApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NoviceApp> createState() => _NoviceAppState();
+}
+
+class _NoviceAppState extends ConsumerState<NoviceApp> {
+  final _routerWrapper = _GoRouterWrapper();
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) _registerJsBridge();
+  }
+
+  // ── JS ↔ Flutter bridge ──────────────────────────────────────────────────
+  // Registers window._noviceFlutterNavigate so the landing page can call
+  // router.go(route) once Flutter has mounted.
+  void _registerJsBridge() {
+    js.context['_noviceFlutterNavigate'] = js.allowInterop((String route) {
+      _routerWrapper.navigateTo(route);
+      _showBackButton();
+    });
+
+    js.context['_noviceShowBackButton'] =
+        js.allowInterop(() => _showBackButton());
+  }
+
+  void _showBackButton() {
+    try {
+      // ignore: undefined_prefixed_name
+      final btn = js.context['document']
+          .callMethod('getElementById', ['back-to-landing']);
+      if (btn != null) btn['style']['display'] = 'block';
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
+    _routerWrapper.setRouter(router);
 
     return MaterialApp.router(
       title: 'Novice — CPR Coach',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(), // Dark theme: better camera contrast, battery on OLED
+      theme: AppTheme.dark(),
       routerConfig: router,
     );
   }
+}
+
+// ── GoRouter wrapper ─────────────────────────────────────────────────────────
+// Accepts the router lazily so the JS bridge can call go() after Flutter
+// mounts without needing it at construction time.
+class _GoRouterWrapper {
+  GoRouter? _router;
+
+  void setRouter(GoRouter r) => _router = r;
+
+  void navigateTo(String route) => _router?.go(route);
 }
