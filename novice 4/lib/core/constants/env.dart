@@ -4,16 +4,38 @@
 //
 // Env — runtime credential access for Flutter Web.
 //
-// WHY RUNTIME INSTEAD OF COMPILE-TIME:
-//   String.fromEnvironment / --dart-define is silently broken in Flutter
-//   3.29.3's web build pipeline. Instead, run_local.sh injects credentials
-//   as window.__NOVICE_CONFIG__ into index.html at serve time, and we read
-//   them here via dart:js interop at app startup.
+// WHY dart:js_interop INSTEAD OF dart:js:
+//   The legacy dart:js library (js.context['key'] / JsObject cast) silently
+//   returns null or throws in release builds produced by `flutter build web`
+//   because dart2js tree-shaking + minification breaks the runtime cast of
+//   the raw JS value to JsObject. In debug / `flutter run` it works, which
+//   is why the app behaved correctly locally but failed in production.
+//
+//   dart:js_interop (stable since Flutter 3.19 / Dart 3.3) uses @JS()
+//   external declarations that are resolved at compile time — they survive
+//   tree-shaking and minification correctly in both debug and release modes.
 library;
 
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js;
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+// dart:js_interop is the modern, release-safe interop layer.
+// It is bundled with the Dart SDK — no pubspec entry needed.
+import 'dart:js_interop';
+
+// ── External JS declarations ─────────────────────────────────────────────────
+// These map directly to window.__NOVICE_CONFIG__.supabaseUrl etc.
+// @JS() with no argument means "look on the global JS scope (window)".
+
+@JS('__NOVICE_CONFIG__')
+external _NoviceConfig? get _noviceConfig;
+
+extension type _NoviceConfig._(JSObject _) implements JSObject {
+  external String? get supabaseUrl;
+  external String? get supabaseAnonKey;
+  external String? get researcherPin;
+}
+
+// ── Env ──────────────────────────────────────────────────────────────────────
 
 class Env {
   Env._();
@@ -28,21 +50,21 @@ class Env {
   static String _get(String key, {String fallback = ''}) {
     if (!kIsWeb) return fallback;
     try {
-      final config = js.context['__NOVICE_CONFIG__'];
+      final config = _noviceConfig;
       if (config == null) {
         _log('__NOVICE_CONFIG__ is null — injection may have failed');
         return fallback;
       }
-      final jsObj = config as js.JsObject;
-      if (!jsObj.hasProperty(key)) {
-        _log('__NOVICE_CONFIG__ missing property "$key"');
+      final String? value = switch (key) {
+        'supabaseUrl'     => config.supabaseUrl,
+        'supabaseAnonKey' => config.supabaseAnonKey,
+        'researcherPin'   => config.researcherPin,
+        _                 => null,
+      };
+      if (value == null || value.isEmpty || value == 'null' || value == 'undefined') {
         return fallback;
       }
-      final value = jsObj[key];
-      if (value == null) return fallback;
-      final str = value.toString();
-      if (str == 'null' || str == 'undefined') return fallback;
-      return str;
+      return value;
     } catch (e) {
       _log('Error reading "$key": $e');
       return fallback;
@@ -59,18 +81,11 @@ class Env {
     if (isConfigured) {
       _log('Config loaded ✓  URL=${supabaseUrl.substring(0, 30)}...');
     } else {
-      _log('✗ Not configured. Dumping raw window.__NOVICE_CONFIG__:');
-      try {
-        final raw = js.context['__NOVICE_CONFIG__'];
-        _log('  raw type = ${raw.runtimeType}  value = $raw');
-        if (raw != null) {
-          final jsObj = raw as js.JsObject;
-          _log('  supabaseUrl     = ${jsObj['supabaseUrl']}');
-          _log('  supabaseAnonKey = ${jsObj['supabaseAnonKey']}');
-        }
-      } catch (e) {
-        _log('  dump failed: $e');
-      }
+      _log('✗ Not configured. Check that web/index.html contains:');
+      _log('  <script>window.__NOVICE_CONFIG__={supabaseUrl:"...",supabaseAnonKey:"...",...};</script>');
+      _log('  Attempted reads:');
+      _log('    supabaseUrl     = "${_get('supabaseUrl')}"');
+      _log('    supabaseAnonKey = "${_get('supabaseAnonKey')}"');
     }
   }
 }
