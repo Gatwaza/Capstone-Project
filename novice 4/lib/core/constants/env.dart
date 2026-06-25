@@ -1,3 +1,4 @@
+// @dart=3.3
 // Novice — CPR-AI Coach
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
@@ -13,6 +14,16 @@
 //   dart:js_interop uses @JS() external declarations resolved at compile time.
 //   They survive dart2js tree-shaking and minification correctly in both
 //   debug and release modes.
+//
+// WHY // @dart=3.3:
+//   Even though pubspec.yaml declares sdk: ">=3.3.0 <4.0.0", dart2js on
+//   Vercel resolves the effective language version from package_config.json
+//   which gets written by `flutter pub get` using the RESOLVED sdk constraint
+//   — and a transitive dependency (js: 0.7.2) pins its own language version
+//   below 3.3, which can bleed into package_config resolution order.
+//   The file-level // @dart=3.3 comment is an explicit override that
+//   guarantees dart2js enables extension types for THIS file regardless
+//   of what package_config says, with zero risk (Flutter 3.29.3 = Dart 3.7.2).
 library;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
