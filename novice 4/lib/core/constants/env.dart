@@ -6,25 +6,22 @@
 //
 // WHY dart:js_interop INSTEAD OF dart:js:
 //   The legacy dart:js library (js.context['key'] / JsObject cast) silently
-//   returns null or throws in release builds produced by `flutter build web`
-//   because dart2js tree-shaking + minification breaks the runtime cast of
-//   the raw JS value to JsObject. In debug / `flutter run` it works, which
-//   is why the app behaved correctly locally but failed in production.
+//   returns null or throws in release/minified builds produced by
+//   `flutter build web`. In debug / `flutter run` it works — which is why
+//   the app worked locally but failed in production.
 //
-//   dart:js_interop (stable since Flutter 3.19 / Dart 3.3) uses @JS()
-//   external declarations that are resolved at compile time — they survive
-//   tree-shaking and minification correctly in both debug and release modes.
+//   dart:js_interop uses @JS() external declarations resolved at compile time.
+//   They survive dart2js tree-shaking and minification correctly in both
+//   debug and release modes.
 library;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-
-// dart:js_interop is the modern, release-safe interop layer.
-// It is bundled with the Dart SDK — no pubspec entry needed.
 import 'dart:js_interop';
 
 // ── External JS declarations ─────────────────────────────────────────────────
-// These map directly to window.__NOVICE_CONFIG__.supabaseUrl etc.
-// @JS() with no argument means "look on the global JS scope (window)".
+// Maps directly to window.__NOVICE_CONFIG__ which is injected by:
+//   • web/index.html (source, for local dev)
+//   • scripts/vercel_build.sh (production, overwrites with real env vars)
 
 @JS('__NOVICE_CONFIG__')
 external _NoviceConfig? get _noviceConfig;
@@ -61,7 +58,10 @@ class Env {
         'researcherPin'   => config.researcherPin,
         _                 => null,
       };
-      if (value == null || value.isEmpty || value == 'null' || value == 'undefined') {
+      if (value == null ||
+          value.isEmpty ||
+          value == 'null' ||
+          value == 'undefined') {
         return fallback;
       }
       return value;
