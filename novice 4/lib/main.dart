@@ -9,8 +9,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/constants/env.dart';
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -18,11 +20,29 @@ import 'core/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Flutter web defaults to HASH url strategy (e.g. /#/participant).
+  // index.html's JS bridge (launchFlutter / history.pushState) writes
+  // plain paths like "/participant" with NO hash, assuming PATH strategy.
+  // Without this call, GoRouter listens to window.onhashchange while the
+  // JS bridge writes via pushState — two systems disagreeing about where
+  // the route lives, which is what produced "Page not found: modules"
+  // (a stray #modules scroll-anchor hash from the landing page being
+  // misread by GoRouter as a route). This must be called before runApp
+  // and matches the assumption already baked into web/index.html and
+  // vercel.json's SPA rewrite rule.
+  if (kIsWeb) usePathUrlStrategy();
+
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+
+  // Surface config problems in the console at startup, rather than only
+  // discovering "[ParticipantService] Not configured" when a participant
+  // hits "Confirm & Enrol" deep into the consent flow.
+  Env.warmup();
+
   await configureDependencies();
 
   runApp(const ProviderScope(child: NoviceApp()));

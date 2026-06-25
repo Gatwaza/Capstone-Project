@@ -19,24 +19,23 @@
 ///     looks like, but isn't, their real one).
 ///
 /// Setup: run participants_migration.sql in the Supabase SQL editor once
-/// (after the original sessions-table setup). Uses the same SUPABASE_URL /
-/// SUPABASE_ANON_KEY dart-define values as TelemetryService.
+/// (after the original sessions-table setup). Uses SUPABASE_URL /
+/// SUPABASE_ANON_KEY via Env (see lib/core/constants/env.dart).
 library;
-
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 
+import '../core/constants/env.dart';
 import '../core/di/injection.dart';
+import '../core/constants/env.dart';
 import '../models/research_models.dart';
 
 class ParticipantService {
   ParticipantService({String? supabaseUrl, String? anonKey})
-      : _supabaseUrl = supabaseUrl ??
-            const String.fromEnvironment('SUPABASE_URL', defaultValue: ''),
-        _anonKey = anonKey ??
-            const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+      : _supabaseUrl = supabaseUrl ?? Env.supabaseUrl,
+        _anonKey     = anonKey     ?? Env.supabaseAnonKey;
 
   final String _supabaseUrl;
   final String _anonKey;

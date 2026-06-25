@@ -17,6 +17,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 
+import '../../core/constants/env.dart';
+import '../../core/constants/env.dart';
 import '../../core/di/injection.dart';
 import '../../models/session_model.dart';
 
@@ -24,10 +26,8 @@ class TelemetryService {
   TelemetryService({
     String? supabaseUrl,
     String? anonKey,
-  })  : _supabaseUrl = supabaseUrl ??
-            const String.fromEnvironment('SUPABASE_URL', defaultValue: ''),
-        _anonKey = anonKey ??
-            const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+  })  : _supabaseUrl = supabaseUrl ?? Env.supabaseUrl,
+        _anonKey     = anonKey     ?? Env.supabaseAnonKey;
 
   final String _supabaseUrl;
   final String _anonKey;

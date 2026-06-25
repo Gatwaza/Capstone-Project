@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
 <meta name="apple-mobile-web-app-title" content="Novice"/>
 <link rel="apple-touch-icon" href="icons/Icon-192.png"/>
-<link rel="icon" type="image/png" href="favicon.png"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 <link rel="manifest" href="manifest.json"/>
 <title>Novice — First Aid · CPR Coach</title>
 <!-- TensorFlow.js for web inference -->
@@ -573,7 +573,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
   *{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
 </style>
-</head>
+<script>window.__NOVICE_CONFIG__={supabaseUrl:"https://gerdmqulomndzsdnksnd.supabase.co",supabaseAnonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlcmRtcXVsb21uZHpzZG5rc25kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjIxNTcsImV4cCI6MjA5NzQzODE1N30.8toJtZWcV-eA_wgxBOOCcu2-qviNpb4YyhkFDMY4WUs",researcherPin:"2026"};</script></head>
 <body>
 <div id="landing-page" style="position:fixed;inset:0;z-index:999;overflow-y:auto;background:#0A0D0F;">
 
@@ -586,9 +586,9 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
     Novice
   </div>
   <div class="nav-links">
-    <a class="nav-link" href="#modules">Procedures</a>
-    <a class="nav-link" href="#explore">Learn More</a>
-    <a class="nav-link" href="#">About</a>
+    <a class="nav-link" href="javascript:void(0)" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">Procedures</a>
+    <a class="nav-link" href="javascript:void(0)" onclick="document.getElementById('explore').scrollIntoView({behavior:'smooth'})">Learn More</a>
+    <a class="nav-link" href="javascript:void(0)">About</a>
   </div>
   <button class="nav-cta" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">Start learning</button>
 </nav>

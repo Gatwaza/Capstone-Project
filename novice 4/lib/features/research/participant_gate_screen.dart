@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/constants/env.dart';
 import '../../core/di/injection.dart';
 import '../../core/router/app_router.dart';
 import '../../services/participant_service.dart';
@@ -61,6 +62,39 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── Config warning (fail fast, before consent flow) ───
+            if (!Env.isConfigured) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentWarn.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.accentWarn),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        color: AppTheme.accentWarn, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Backend not configured — enrolment and the '
+                        'returning-participant list will not work until '
+                        'SUPABASE_URL and SUPABASE_ANON_KEY are set. '
+                        'If you just deployed, check that window.__NOVICE_CONFIG__ '
+                        'is present in index.html and that you reloaded past any '
+                        'cached service worker.',
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: AppTheme.accentWarn, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
             // ── New participant ─────────────────────────────────
             Container(
               padding: const EdgeInsets.all(20),
@@ -89,7 +123,9 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => context.push(AppRoutes.consent),
+                    onPressed: Env.isConfigured
+                        ? () => context.push(AppRoutes.consent)
+                        : null,
                     child: const Text('Register as a new participant'),
                   ),
                 ],
