@@ -93,11 +93,11 @@ class HomeScreen extends ConsumerWidget {
               // ── Stat chips ────────────────────────────────
               Row(
                 children: [
-                  _StatChip(label: '5', sub: 'Procedures'),
+                  _StatChip(label: '6', sub: 'Procedures'),
                   const SizedBox(width: 10),
-                  _StatChip(label: '25+', sub: 'Guided steps'),
+                  _StatChip(label: 'TCN', sub: 'AI model', accent: true),
                   const SizedBox(width: 10),
-                  _StatChip(label: 'AI', sub: 'Live feedback', accent: true),
+                  _StatChip(label: 'Live', sub: 'CPR feedback', accent: true),
                 ],
               ),
 
@@ -105,19 +105,31 @@ class HomeScreen extends ConsumerWidget {
 
               // ── Primary action — Start Training ──────────
               _PrimaryActionCard(
-                icon: Icons.monitor_heart_rounded,
+                icon: Icons.smart_toy_rounded,
                 iconColor: AppTheme.accent,
-                title: 'Start Training',
-                subtitle: 'AI-guided CPR coaching with real-time pose feedback',
+                title: 'Start CPR Training',
+                subtitle: 'Live AI feedback on rate, depth & recoil — camera required',
                 accentColor: AppTheme.accent,
                 onTap: () => context.push(AppRoutes.participantGate),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+
+              // ── Secondary action — Browse Procedures ──────
+              _PrimaryActionCard(
+                icon: Icons.play_lesson_rounded,
+                iconColor: AppTheme.chokingAmber,
+                title: 'Browse Procedures',
+                subtitle: 'Animated step-by-step guides: choking, stroke, recovery & more',
+                accentColor: AppTheme.chokingAmber,
+                onTap: () => context.push(AppRoutes.demo),
+              ),
+
+              const SizedBox(height: 20),
 
               // ── Module quick-access row ───────────────────
               Text(
-                'PROCEDURES',
+                'ALL PROCEDURES',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   letterSpacing: 2, color: AppTheme.textSecondary,
                 ),
@@ -129,9 +141,9 @@ class HomeScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     _ModuleChip(
-                      label: 'CPR',
+                      label: 'CPR 🤖',
                       color: AppTheme.cprRed,
-                      icon: Icons.favorite_rounded,
+                      icon: Icons.monitor_heart_rounded,
                       onTap: () => context.push(AppRoutes.participantGate),
                     ),
                     const SizedBox(width: 8),
@@ -157,9 +169,16 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     _ModuleChip(
-                      label: 'AED',
-                      color: AppTheme.aedBlue,
-                      icon: Icons.bolt_rounded,
+                      label: 'Bleeding',
+                      color: const Color(0xFFC0395E),
+                      icon: Icons.water_drop_rounded,
+                      onTap: () => context.push(AppRoutes.demo),
+                    ),
+                    const SizedBox(width: 8),
+                    _ModuleChip(
+                      label: 'Burns',
+                      color: const Color(0xFFD4781A),
+                      icon: Icons.local_fire_department_rounded,
                       onTap: () => context.push(AppRoutes.demo),
                     ),
                   ],
@@ -173,17 +192,6 @@ class HomeScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _ActionCard(
-                      icon: Icons.play_circle_outline_rounded,
-                      iconColor: AppTheme.chokingAmber,
-                      title: 'Demo',
-                      subtitle: 'Watch correct technique',
-                      onTap: () => context.push(AppRoutes.demo),
-                      compact: true,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionCard(
                       icon: Icons.history_rounded,
                       iconColor: AppTheme.textSecondary,
                       title: 'History',
@@ -193,6 +201,17 @@ class HomeScreen extends ConsumerWidget {
                         error: (_, __) => 'unavailable',
                       ),
                       onTap: () => context.push(AppRoutes.history),
+                      compact: true,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ActionCard(
+                      icon: Icons.science_rounded,
+                      iconColor: AppTheme.strokePurple,
+                      title: 'Research',
+                      subtitle: 'Researcher dashboard & data export',
+                      onTap: () => context.push(AppRoutes.researcher),
                       compact: true,
                     ),
                   ),
@@ -223,7 +242,7 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Practice correct compression rate, depth, and chest recoil with instant AI feedback.',
+                        'CPR training uses live AI (TCN model) to grade your compressions in real time. All other procedures are interactive animated guides — no camera needed.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
                       ),
                     ),

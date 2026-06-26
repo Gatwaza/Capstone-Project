@@ -90,5 +90,8 @@ flutter run -d chrome --web-port 5000
 | `Open anaphylaxis module`              | `/demo`         |
 | `Open mental health first aid module`  | `/demo`         |
 
+## Model note
+Production model is **TCN** (Temporal Convolutional Network). The AI tile in results and CTA bar both reference TCN, not CNN-BiLSTM.
+
 ## License
-GNU General Public License v3.0 — Jean Robert Gatwaza, African Leadership University 2024
+GNU General Public License v3.0 — Jean Robert Gatwaza, African Leadership University 2024–2025

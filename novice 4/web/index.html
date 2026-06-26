@@ -290,6 +290,14 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
   font-weight:500;
 }
 .mod-card.active .mod-tag{background:var(--card-accent);color:#fff}
+.mod-live-badge{
+  display:inline-block;margin-top:8px;font-size:10px;font-weight:700;
+  letter-spacing:.5px;padding:4px 10px;border-radius:6px;
+  background:var(--mint);color:#000;cursor:pointer;
+  transition:opacity .15s;
+}
+.mod-live-badge:hover{opacity:.85}
+
 .mod-arrow{
   position:absolute;top:1.25rem;right:1.25rem;
   width:22px;height:22px;border-radius:50%;
@@ -601,7 +609,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
       AI-powered first aid training
     </p>
     <h1 class="hero-h1">Skills that<br><em>save lives</em><br>start here.</h1>
-    <p class="hero-sub">Five essential procedures. Animated step-by-step coaching with real-time AI feedback. No experience needed — just the readiness to act.</p>
+    <p class="hero-sub">Essential first aid procedures. <strong>CPR training with live AI feedback</strong> — your camera grades every compression. All other procedures feature animated 3D step-by-step coaching. No experience needed.</p>
     <div class="hero-actions">
       <button class="btn-primary" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -642,9 +650,9 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 <!-- ══ Module grid ══════════════════════════════════════ -->
 <section class="modules-section" id="modules">
   <div class="section" style="padding-bottom:2rem">
-    <p class="section-eyebrow">Five procedures</p>
-    <h2 class="section-title">Choose what you want to learn</h2>
-    <p class="section-sub">Each module walks you through the procedure with animated demonstrations and clinical key points.</p>
+    <p class="section-eyebrow">Training &amp; procedures</p>
+    <h2 class="section-title">What do you want to practise?</h2>
+    <p class="section-sub"><strong style="color:var(--mint)">CPR</strong> is the only procedure with <strong style="color:var(--mint)">live AI coaching</strong> — your camera watches your compressions in real time. All other procedures are interactive animated step-by-step guides you can study at your own pace.</p>
     <div class="mod-grid" id="modGrid"></div>
   </div>
 </section>
@@ -654,7 +662,10 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
   <div class="section">
     <div class="demo-header">
       <h2 class="demo-title" id="demoTitle">CPR — Cardiopulmonary Resuscitation</h2>
-      <span class="demo-badge" id="demoBadge">Foundational</span>
+      <span class="demo-badge" id="demoBadge">Critical</span>
+    </div>
+    <div id="demoModeNote" style="margin-bottom:1rem;padding:.6rem 1rem;border-radius:8px;font-size:12px;font-weight:600;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);color:var(--mint);display:flex;align-items:center;gap:.5rem;">
+      <span id="demoModeText">This is the <strong>live AI training</strong> module — open the app to practise with real-time feedback on your compressions.</span>
     </div>
     <div class="demo-layout">
       <div>
@@ -684,9 +695,9 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 
 <!-- ══ More to explore ══════════════════════════════════ -->
 <section class="explore-section" id="explore">
-  <p class="section-eyebrow">There's more</p>
-  <h2 class="section-title" style="margin-bottom:.5rem">Beyond the basics</h2>
-  <p class="section-sub">First aid is a wide field. Here's what else you can learn in Novice.</p>
+  <p class="section-eyebrow">Coming to the app</p>
+  <h2 class="section-title" style="margin-bottom:.5rem">More animated procedure guides</h2>
+  <p class="section-sub">These modules from the First Aid Training are available as interactive animated guides in the app — study at your own pace, no camera required.</p>
   <div class="explore-grid" id="exploreGrid"></div>
 </section>
 
@@ -694,7 +705,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 <div class="cta-bar">
   <div class="cta-bar-text">
     <h3>Ready to practise with live AI feedback?</h3>
-    <p>Our CNN-BiLSTM model watches your compression rate, depth, and recoil in real time.</p>
+    <p>Our TCN (Temporal Convolutional Network) model watches your compression rate, depth, and recoil in real time.</p>
   </div>
   <div class="cta-bar-actions">
     <button class="cta-bar-btn prim" onclick="window.sendPrompt&&sendPrompt('Open CPR training mode')">
@@ -713,9 +724,9 @@ const MODULES = [
   {
     id:'cpr', title:'CPR', desc:'Cardiopulmonary resuscitation',
     accent:'#C84B25', bg:'rgba(200,75,37,0.08)',
-    tag:'Foundational', diff:'Critical',
+    tag:'Live AI Training', diff:'Critical', liveAI:true,
     keyPoints:[
-      'Call emergency services (112 / 911) before starting',
+      'Call emergency services (112 in Rwanda) before starting',
       'Push hard and fast — at least 5 cm, 100–120 per minute',
       'Allow full chest recoil between compressions',
       'Ratio: 30 compressions to 2 rescue breaths',
@@ -731,7 +742,7 @@ const MODULES = [
   {
     id:'choking', title:'Choking', desc:'Heimlich manoeuvre & back blows',
     accent:'#A8660E', bg:'rgba(168,102,14,0.08)',
-    tag:'Adults & children', diff:'Urgent',
+    tag:'Animated demo', diff:'Urgent', liveAI:false,
     keyPoints:[
       'Always ask "Are you choking?" first',
       '5 back blows between shoulder blades — firm heel of hand',
@@ -749,7 +760,7 @@ const MODULES = [
   {
     id:'stroke', title:'Stroke — FAST', desc:'Recognise & respond to stroke',
     accent:'#4840A8', bg:'rgba(72,64,168,0.08)',
-    tag:'Recognition first', diff:'Critical',
+    tag:'Animated demo', diff:'Critical', liveAI:false,
     keyPoints:[
       'Time is brain — every minute matters',
       'FAST: Face, Arms, Speech, Time',
@@ -767,7 +778,7 @@ const MODULES = [
   {
     id:'recovery', title:'Recovery Position', desc:'Safe airway for unconscious breathing victims',
     accent:'#0F9070', bg:'rgba(15,144,112,0.08)',
-    tag:'Unconscious & breathing', diff:'Essential',
+    tag:'Animated demo', diff:'Essential', liveAI:false,
     keyPoints:[
       'Only use if victim is unconscious but breathing normally',
       'Keeps airway open — prevents choking on vomit',
@@ -785,7 +796,7 @@ const MODULES = [
   {
     id:'aed', title:'AED', desc:'Automated defibrillator step by step',
     accent:'#2B7FD4', bg:'rgba(43,127,212,0.08)',
-    tag:'Device-assisted', diff:'Critical',
+    tag:'Animated demo', diff:'Critical', liveAI:false,
     keyPoints:[
       'Turn on the AED first — it will talk you through everything',
       'Continue CPR until AED pads are attached and ready',
@@ -803,12 +814,12 @@ const MODULES = [
 ];
 
 const EXPLORE_CARDS = [
-  {cat:'Bleeding control',title:'Severe bleeding & wound care',sub:'Applying direct pressure, tourniquets, and wound packing for major haemorrhage.',meta:'6 steps · Intermediate',acc:'#C0395E',bg:'rgba(192,57,94,0.08)',iconSvg:'<path d="M12 2v20M2 12h20"/>',prompt:'Open bleeding control module'},
-  {cat:'Burns & scalds',title:'Thermal & chemical burns',sub:'Cool-running-water protocol, burn classification, and when to escalate to emergency services.',meta:'5 steps · Essential',acc:'#A8660E',bg:'rgba(168,102,14,0.08)',iconSvg:'<path d="M12 2c0 0-5 5-5 11a5 5 0 0 0 10 0c0-6-5-11-5-11z"/>',prompt:'Open burns module'},
-  {cat:'Fractures & sprains',title:'Immobilisation & splinting',sub:'RICE protocol for soft tissue injuries and improvised splinting for suspected fractures.',meta:'5 steps · Essential',acc:'#2D6A4F',bg:'rgba(45,106,79,0.08)',iconSvg:'<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',prompt:'Open fractures module'},
-  {cat:'Diabetic emergency',title:'Hypoglycaemia & hyperglycaemia',sub:'Recognising and responding to a diabetic emergency before paramedics arrive.',meta:'4 steps · Advanced',acc:'#1B3A6B',bg:'rgba(27,58,107,0.08)',iconSvg:'<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>',prompt:'Open diabetic emergency module'},
-  {cat:'Anaphylaxis',title:'Allergic reaction & EpiPen use',sub:'Identifying anaphylaxis and administering auto-injector epinephrine correctly.',meta:'5 steps · Critical',acc:'#4840A8',bg:'rgba(72,64,168,0.08)',iconSvg:'<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>',prompt:'Open anaphylaxis module'},
-  {cat:'Mental health first aid',title:'Panic attacks & crisis support',sub:'Grounding techniques, de-escalation, and connecting someone in crisis to support.',meta:'4 steps · Awareness',acc:'#0F9070',bg:'rgba(15,144,112,0.08)',iconSvg:'<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>',prompt:'Open mental health first aid module'},
+  {cat:'Severe bleeding',title:'Haemorrhage control',sub:'Direct compression, compressive dressing, and tourniquet use for life-threatening external bleeding.',meta:'5 steps · Critical',acc:'#C0395E',bg:'rgba(192,57,94,0.08)',iconSvg:'<path d="M12 2v20M2 12h20"/>',prompt:'Open bleeding control module'},
+  {cat:'Burns & scalds',title:'Thermal, chemical & electrical burns',sub:'Cool running water protocol (10–15 min), burn degree assessment, and when to escalate to emergency services.',meta:'5 steps · Essential',acc:'#A8660E',bg:'rgba(168,102,14,0.08)',iconSvg:'<path d="M12 2c0 0-5 5-5 11a5 5 0 0 0 10 0c0-6-5-11-5-11z"/>',prompt:'Open burns module'},
+  {cat:'Fractures & dislocations',title:'Bone and joint trauma',sub:'RICE for soft tissue injuries, improvised immobilisation for suspected fractures, and when not to move the victim.',meta:'5 steps · Essential',acc:'#2D6A4F',bg:'rgba(45,106,79,0.08)',iconSvg:'<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',prompt:'Open fractures module'},
+  {cat:'Shock',title:'Hypovolaemic & distributive shock',sub:'Recognising shock early — Trendelenburg position, warmth, and monitoring while awaiting emergency services.',meta:'4 steps · Critical',acc:'#1B3A6B',bg:'rgba(27,58,107,0.08)',iconSvg:'<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>',prompt:'Open diabetic emergency module'},
+  {cat:'Anaphylaxis',title:'Severe allergic reaction',sub:'Insect sting and food allergy emergencies — airway, positioning, ice, and escalation to emergency services.',meta:'5 steps · Critical',acc:'#4840A8',bg:'rgba(72,64,168,0.08)',iconSvg:'<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>',prompt:'Open anaphylaxis module'},
+  {cat:'Seizures & fever',title:'Convulsions and high fever',sub:'Protecting the victim during a seizure, recovery position after crisis, and fever management with paracetamol.',meta:'4 steps · Awareness',acc:'#0F9070',bg:'rgba(15,144,112,0.08)',iconSvg:'<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>',prompt:'Open mental health first aid module'},
 ];
 
 /* ════════════════════════════════════════════════════════
@@ -1232,6 +1243,7 @@ function buildModGrid(){
       <div class="mod-title">${m.title}</div>
       <div class="mod-desc">${m.desc}</div>
       <div class="mod-tag">${m.tag}</div>
+      ${m.liveAI?`<div class="mod-live-badge" onclick="event.stopPropagation();window.sendPrompt&&sendPrompt('Open CPR training mode')">▶ Train with AI</div>`:''}
     </div>`).join('');
 }
 
@@ -1258,6 +1270,22 @@ function renderDemo(){
   document.getElementById('btnNext').style.setProperty('--btn-acc',m.accent);
   document.getElementById('progFill').style.background=m.accent;
   document.getElementById('progFill').style.boxShadow=`0 0 8px ${m.accent}`;
+  // Mode note
+  const modeNote=document.getElementById('demoModeNote');
+  const modeText=document.getElementById('demoModeText');
+  if(m.liveAI){
+    modeNote.style.background='rgba(0,229,160,0.08)';
+    modeNote.style.borderColor='rgba(0,229,160,0.25)';
+    modeNote.style.color='var(--mint)';
+    modeNote.querySelector('span').textContent='';
+    modeText.innerHTML='This is the <strong>live AI training</strong> module — open the app to practise with real-time TCN feedback on your compressions.';
+  } else {
+    modeNote.style.background='rgba(255,255,255,0.04)';
+    modeNote.style.borderColor='rgba(255,255,255,0.1)';
+    modeNote.style.color='var(--text-secondary)';
+    modeNote.querySelector('span').textContent='';
+    modeText.innerHTML='This is an <strong>animated step-by-step guide</strong>. Follow each step at your own pace — no camera required.';
+  }
   renderStep();
 }
 

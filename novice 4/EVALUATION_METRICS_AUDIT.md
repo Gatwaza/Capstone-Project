@@ -39,7 +39,7 @@ model.output_heads() → {
 | ST_Transformer | 60.62% | 88.39% | 67.14% | 72.05% | 73.07% | 92.10% | 76.97% |
 | **CNN_BiLSTM** | 75.92% | 94.05% | 74.79% | **81.59%** | 81.10% | 95.11% | 84.14% |
 
-**Best Model (by mean F1)**: CNN-BiLSTM with **81.59% mean F1**
+**Best Model (by mean F1)**: TCN and CNN-BiLSTM tie at **81.59% mean F1**. **TCN selected as production model** — superior Recoil F1 (78.19% vs 74.79%), Depth AUC (96.26% vs 95.11%), and Recoil AUC (84.25% vs 84.14%). The recoil head is the most clinically significant.
 
 #### Metrics per Task for CNN-BiLSTM:
 

@@ -1,5 +1,5 @@
-# Novice — First Aid Assessment
-### *Real-time web-based first aid technique evaluation*
+# Novice — First Aid AI Coach
+### *Real-time CPR assessment + interactive first aid procedure library*
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)](https://dart.dev)
@@ -7,77 +7,99 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Web-blue)](https://flutter.dev/web)
-[![Phase](https://img.shields.io/badge/Phase-Web%20Deployment-00E5A0)](SETUP.md)
+[![Phase](https://img.shields.io/badge/Phase-Field%20Validation-00E5A0)](SETUP.md)
 
 ---
 
 ## Overview
 
-**Novice** is a web-first first aid assessment application that runs real-time pose estimation and model inference to evaluate technique and deliver corrective feedback in the browser.
+**Novice** is a web-first first aid training application built for research and community use.
 
-The active assessment model is a **CNN-BiLSTM** classifier that outperformed other sequence architectures in validation and drives the connected web inference flow.
+Two distinct training modes:
 
-- Focused on **real-time web deployment**, not standalone demo mode
-- Uses pose landmarks + TF.js to run connected model assessment in-browser
-- Built for easy access in low-bandwidth settings and research-aware deployment
+| Mode | Procedure | How it works |
+|------|-----------|-------------|
+| **Live AI Training** | CPR only | Camera + MediaPipe pose estimation → TCN model assesses compression rate, depth, and recoil in real time |
+| **Animated Demo** | Choking, Stroke, Recovery Position, Bleeding, Burns | Interactive step-by-step guides with SVG animations — no camera required |
+
+The **TCN (Temporal Convolutional Network)** model is the deployed production model. It outperforms other evaluated architectures on the recoil task and achieves the best mean F1/AUC profile across all three compression quality heads.
+
+Content for all procedure guides is sourced from the **Rwanda Basic First Aid Training Manual** (Emergency Safety and Health Services / Belgian Red Cross, Flanders).
+
+---
+
+## Model Selection
+
+Full comparison from training notebook (Stage 9 `evaluate()`):
+
+| Model | Rate F1_w | Depth F1_w | Recoil F1_w | Mean F1 | Recoil AUC |
+|-------|-----------|-----------|------------|---------|------------|
+| BiLSTM | 77.34% | 90.08% | 67.42% | 78.28% | 77.52% |
+| CNN_LSTM | 77.90% | 91.50% | 64.87% | 78.09% | 73.90% |
+| GRU | 73.37% | 86.97% | 56.09% | 72.14% | 72.20% |
+| **TCN** | **73.94%** | **92.63%** | **78.19%** | **81.59%** | **84.25%** |
+| Conv1D | 82.72% | 92.92% | 72.80% | 82.81% | 78.57% |
+| ST_Transformer | 60.62% | 88.39% | 67.14% | 72.05% | 76.97% |
+| CNN_BiLSTM | 75.92% | 94.05% | 74.79% | 81.59% | 84.14% |
+
+**TCN selected as production model**: Best Recoil F1 (78.19%), best Depth AUC (96.26%), best Recoil AUC (84.25%). TCN and CNN-BiLSTM tie on mean F1 (81.59%), but TCN wins on the harder recoil task — the most clinically significant head.
+
+The TCN API is hosted on Hugging Face Spaces: `https://jeanrobert-novice.hf.space`
 
 ---
 
 ## Current Status
- 
-| Change | Detail |
-|---|---|
-| Web-only deployment | No native iOS/Android folders; Flutter compiles to `build/web` |
-| CNN-BiLSTM inference | `InferenceServiceWeb` → Hugging Face Spaces API; falls back to rule-based thresholds |
-| No `--web-renderer html` flag | Removed — the flag was dropped in Flutter 3.22 and caused Vercel build exit 64 |
-| MediaPipe pose bridge | JS bridge (`flutter_pose_bridge.js`) with `_novicePoseReady` guard to prevent zero-dimension frame crash |
-| Depth calibration | `normToPhysicalCmScale=20`, `fallbackTorsoHeightCm=8` — calibrated for ~1 m webcam distance |
-| AI MODEL tile | Shows `CNN-BiLSTM` when API reachable, `Rule-based` when not (no longer "Demo mode") |
-| Research logging | Frame NDJSON export + researcher review panel in results screen |
+
+| Item | Detail |
+|------|--------|
+| Deployed model | TCN (three-head: rate / depth / recoil) |
+| Web inference | `InferenceServiceWeb` → HF Spaces `/predict`; falls back to rule-based thresholds when API unreachable |
+| Pose bridge | `flutter_pose_bridge.js` — MediaPipe Pose WASM, `_novicePoseReady` guard |
+| Depth calibration | `normToPhysicalCmScale=20`, `fallbackTorsoHeightCm=8` (≈1 m webcam distance) |
+| Procedure library | 6 modules: CPR (live AI) + Choking / Stroke / Recovery / Bleeding / Burns (animated) |
+| Research logging | Frame NDJSON export; researcher dashboard (PIN-gated) |
 | Multilingual TTS | EN via Web Speech API · RW via Umuganda HTTP endpoint |
-| ML pipeline preserved | Python `ml_pipeline/` for training new model versions and TFJS/TFLite export |
- 
+| Field testing | Participant ID system (P001, P002…) — on-field sessions pending |
+
 ---
 
 ## Running locally
- 
+
 ```bash
 git clone git@github.com:Gatwaza/Capstone-Project.git
 cd "Capstone Project/novice 4"
- 
-# Install Flutter deps
+
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
- 
-# Run on web (Chrome recommended for WebGL + WASM)
+
+# Chrome recommended (WebGL + WASM)
 flutter run -d chrome
- 
-# Or build and serve statically
+
+# Or build for static hosting
 flutter build web --release --dart-define=RESEARCHER_PIN=2026
 cd build/web && python3 -m http.server 8080
 ```
- 
+
 ---
 
 ## Key Features
- 
+
 | Feature | Status | Notes |
-|---|---|---|
-| Real-time pose estimation | ✓ | `@mediapipe/pose` WASM via `flutter_pose_bridge.js` |
-| CNN-BiLSTM inference | ✓ | Hosted on Hugging Face Spaces; `(60 × 12)` input shape |
-| Rule-based fallback | ✓ | Activates automatically when API unreachable |
-| Live audio coaching | ✓ | 13 TTS prompts in EN + RW; 4 s cooldown per prompt |
-| Compression metrics | ✓ | Rate (bpm), depth (cm), CPR fraction, quality score |
-| Session persistence | ✓ | IndexedDB via `StorageService`; NDJSON frame export |
-| Researcher review panel | ✓ | Label sessions correct/partial/incorrect; export raw frames |
-| Multilingual UI | ✓ | English + Kinyarwanda (Kinyarwanda TTS prompts pending native speaker validation) |
-| ML training pipeline | ✓ | Python `ml_pipeline/` → TFJS + TFLite export |
- 
+|---------|--------|-------|
+| Real-time pose estimation | ✓ | `@mediapipe/pose` WASM |
+| TCN inference (3 heads) | ✓ | Hosted HF Spaces; `(60 × 12)` input |
+| Rule-based fallback | ✓ | Activates when API unreachable |
+| Animated procedure guides | ✓ | 5 non-CPR procedures with SVG step animations |
+| Live audio coaching | ✓ | 13 TTS prompts EN + RW; 4 s cooldown |
+| Compression metrics | ✓ | Rate (bpm), depth (cm), quality score |
+| Session persistence | ✓ | IndexedDB / NDJSON export |
+| Researcher dashboard | ✓ | PIN-gated; participant management |
+| Participant ID system | ✓ | P001, P002… — on-field testing ready |
+
 ---
 
+## Architecture
 
-## Architecture at a glance
- 
 ```
 Browser (Flutter Web)
 │
@@ -85,10 +107,9 @@ Browser (Flutter Web)
 │      (flutter_pose_bridge.js)
 │
 ├─ LandmarkMath (Dart)  →  12-dim feature vector per frame
-│      elbow angles · spine lean · wrist Y & velocity · shoulder width
 │
-├─ InferenceServiceWeb  →  60-frame window → CNN-BiLSTM
-│      (flutter_inference_bridge.js)       API: jeanrobert-novice.hf.space
+├─ InferenceServiceWeb  →  60-frame window → TCN (3-head)
+│      (flutter_inference_bridge.js)  API: jeanrobert-novice.hf.space
 │      ↳ falls back to rule-based thresholds when API unreachable
 │
 ├─ FeedbackEngine       →  priority queue · 4 s cooldown gating
@@ -97,176 +118,73 @@ Browser (Flutter Web)
 │
 └─ StorageService       →  IndexedDB session log · NDJSON frame export
 ```
- 
-**Hosted inference API:** `https://jeanrobert-novice.hf.space`
-The API runs the CNN-BiLSTM model server-side. `InferenceServiceWeb` polls `/health` at startup and streams `(60 × 12)` sequences to `/predict`.
- 
----
-## Project Structure
- 
-```
-novice/                                ← repo root
-│
-├── README.md                          ← this file
-├── SETUP.md                           ← complete local + Vercel setup guide
-├── pubspec.yaml                       ← Flutter 3.29.3, Dart ≥3.0.0
-├── pubspec.lock
-├── analysis_options.yaml
-├── vercel.json                        ← Vercel build + CORS/cache headers
-├── LICENSE                            ← GNU GPL v3
-│
-├── lib/                               ← Flutter app source
-│   ├── main.dart                      ← app entry point; calls setupDI()
-│   ├── core/
-│   │   ├── constants/app_constants.dart   ← CPR thresholds (ERC 2021), TTS prompts, model paths
-│   │   ├── theme/app_theme.dart           ← dark palette; accent green #00E5A0
-│   │   ├── di/injection.dart              ← GetIt DI bootstrap; loads model, registers services
-│   │   ├── router/app_router.dart         ← GoRouter: /, /training, /results/:id, /history, /demo, /settings
-│   │   └── utils/landmark_math.dart       ← 12-dim feature vector builder (pure Dart)
-│   ├── models/
-│   │   ├── session_model.dart             ← Freezed SessionModel (stored in IndexedDB)
-│   │   ├── landmark_frame.dart            ← Freezed per-frame pose snapshot
-│   │   └── research_models.dart           ← Freezed consent + survey models
-│   ├── services/
-│   │   ├── inference_service.dart         ← Mobile TFLite BiLSTM (stub on web)
-│   │   ├── feedback_engine.dart           ← Priority queue; 4 s TTS cooldown
-│   │   ├── tts_service.dart               ← Web Speech API (EN) + Umuganda HTTP (RW)
-│   │   ├── session_logger.dart            ← SQLite on mobile; IndexedDB on web
-│   │   ├── research_logger.dart           ← Research consent + survey logging
-│   │   └── platform/
-│   │       ├── pose_service_interface.dart    ← abstract PoseServiceInterface
-│   │       ├── pose_service_web.dart          ← calls flutter_pose_bridge.js JS interop
-│   │       ├── pose_service_mobile.dart       ← google_mlkit_pose_detection
-│   │       ├── inference_service_web.dart     ← CNN-BiLSTM API client (60×12 sequences)
-│   │       ├── cpr_api_service.dart           ← HTTP client → jeanrobert-novice.hf.space
-│   │       └── storage_service.dart           ← IndexedDB session CRUD + NDJSON export
-│   ├── providers/
-│   │   └── session_provider.dart          ← Riverpod LiveSessionNotifier; bpm/depth/compression state
-│   ├── features/
-│   │   ├── splash/                        ← animated entry with model preload
-│   │   ├── home/                          ← landing; Start Training · Demo · History
-│   │   ├── training/                      ← camera + MediaPipe + inference + feedback
-│   │   ├── results/                       ← post-session metrics (CNN-BiLSTM / Rule-based tile)
-│   │   ├── history/                       ← past sessions list
-│   │   ├── demo/                          ← animated CPR technique guide (Flutter CustomPainter)
-│   │   ├── settings/                      ← language toggle, data export, about
-│   │   └── research/                      ← consent + survey + researcher dashboard
-│   └── widgets/
-│       ├── bpm_indicator.dart             ← animated arc ring
-│       ├── compression_gauge.dart         ← vertical depth bar with target markers
-│       ├── feedback_banner.dart           ← slide-in corrective prompt banner
-│       └── pose_overlay.dart             ← CustomPainter skeleton overlay
-│
-├── web/                               ← Compiled Flutter web output root
-│   ├── index.html                     ← Flutter bootstrap (loads flutter_service_worker.js)
-│   ├── manifest.json                  ← PWA manifest
-│   ├── flutter_pose_bridge.js         ← MediaPipe Pose WASM → Dart JS interop
-│   ├── flutter_inference_bridge.js    ← TF.js in-browser bridge (supplementary)
-│   ├── demo_standalone_reference.html ← standalone HTML reference demo (not deployed)
-│   └── assets/
-│       └── models/                    ← TFJS model shards (model.json + *.bin via Git LFS)
-│
-├── assets/                            ← Flutter asset bundle
-│   ├── models/                        ← novice_cpr_classifier.tflite (Git LFS)
-│   ├── animations/                    ← cpr_instructor.riv (Phase 2 placeholder)
-│   ├── audio/en/                      ← pre-recorded EN prompts (optional TTS override)
-│   └── audio/rw/                      ← pre-recorded RW prompts (TODO)
-│
-├── ml_pipeline/                       ← Python training pipeline
-│   ├── requirements.txt               ← pinned for M1 Max + Metal GPU
-│   ├── CPR_Coach_Training.ipynb       ← full training notebook (Colab-ready)
-│   └── src/ (see docs/ML_PIPELINE.md for full structure)
-│
-├── docs/                              ← Technical documentation
-│   ├── ARCHITECTURE.md                ← system design, data flow, inference pipeline
-│   ├── ML_PIPELINE.md                 ← training, evaluation, export guide
-│   ├── DEPLOYMENT.md                  ← Vercel config, env vars, known issues
-│   └── API.md                         ← CNN-BiLSTM Hugging Face API reference
-│
-├── test/
-│   ├── unit/landmark_math_test.dart
-│   ├── unit/feedback_engine_test.dart
-│   └── widget_test.dart
-│
-└── scripts/
-    └── clean_repo.sh                  ← removes ghost folders + root duplicates
-```
- 
----
-
-## Getting Started
-
-See **[SETUP.md](SETUP.md)** for the complete web deployment and training guide.
-
-Quick start:
-```bash
-git clone git@github.com:Gatwaza/Capstone-Project.git
-cd "Capstone Project/novice 4"
-./scripts/clean_repo.sh
-flutter pub get
-cd web
-npm install
-npm run dev
-```
 
 ---
 
-### Dataset
-- `train_keypoints.pkl`: 1,344 entries
-- `test_keypoints.pkl`: 1,008 entries
-- Total unique physical videos: 2,352
-- Public dataset: [Google Drive](https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=drive_link)
+## Procedure Library
 
+Content sourced from **Rwanda Basic First Aid Training Manual** (Emergency Safety and Health Services / Belgian Red Cross):
 
-## ML Pipeline
- 
-### Model architecture
-```
-Input: (batch, 60, 12)   ← 60-frame window × 12 landmark features
-  → Conv1D encoder        ← local temporal pattern extraction
-  → Bidirectional LSTM    ← long-range sequence context
-  → Dense + Dropout
-  → Softmax (8 classes)
-```
- 
-### Error classes (Wang et al., 2023)
-| Index | Label |
-|---|---|
-| 0 | `correct_compression` |
-| 1 | `hand_too_high` |
-| 2 | `hand_too_low` |
-| 3 | `bent_elbows` |
-| 4 | `body_lean` |
-| 5 | `too_shallow` |
-| 6 | `too_deep` |
-| 7 | `incomplete_decomp` |
-
-### Model
-Production inference uses the **CNN-BiLSTM** model, which outperformed alternate architectures in sequence validation.
-
-### Evaluation targets
-| Metric | Target |
-|---|---|
-| F1-weighted | ≥ 0.80 |
-| TFJS inference latency | < 100 ms per frame |
-| Model size | < 10 MB |
+| # | Procedure | Mode | Module in Manual |
+|---|-----------|------|-----------------|
+| 1 | CPR | 🤖 Live AI (TCN) | Module 5 |
+| 2 | Choking | Animated demo | Module 6 |
+| 3 | Stroke — FAST | Animated demo | Module 9 |
+| 4 | Recovery Position | Animated demo | Module 3/4 |
+| 5 | Bleeding / Haemorrhage | Animated demo | Module 10 |
+| 6 | Burns | Animated demo | Module 14 |
 
 ---
+
 ## CPR Clinical Thresholds
- 
-All thresholds sourced from **Perkins et al. (2021) — ERC Guidelines 2021** (DOI: 10.1016/j.resuscitation.2021.02.009).
- 
+
+Sourced from **Perkins et al. (2021) — ERC Guidelines 2021** (DOI: 10.1016/j.resuscitation.2021.02.009):
+
 | Parameter | Target |
-|---|---|
+|-----------|--------|
 | Compression rate | 100–120 bpm |
 | Compression depth | 5.0–6.0 cm |
 | Elbow lock angle | ≥ 160° |
 | Max spine lean | ≤ 15° from vertical |
- 
+
+---
+
+## Quality Score Formula
+
+Multi-task weighted scoring using TCN AUC-weighted coefficients:
+
+```
+qualityScore = 0.364 × rateAcc + 0.341 × depthAcc + 0.295 × recoilAcc
+```
+
+Weights derived from TCN AUC-ROC per task (rate 98.3%, depth 99.3%, recoil 95.9% — Stage 9 evaluation).
+
+---
+
+## Field Validation
+
+On-field testing is the next phase. The infrastructure supports:
+
+- Participant ID assignment (P001, P002…) via `ParticipantGateScreen`
+- Session data export (NDJSON frame logs + summary metrics)
+- Researcher dashboard for session review and labelling
+- Supabase backend for remote data persistence
+
+For alternative validation without live camera setup, the animated procedure guides allow self-directed study and comprehension checking without requiring the TCN API.
+
+---
+
+## Dataset
+
+- `train_keypoints.pkl`: 1,344 entries
+- `test_keypoints.pkl`: 1,008 entries
+- Total unique physical videos: 2,352
+- [Google Drive dataset](https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=drive_link)
+
 ---
 
 ## License
 
-**GNU General Public License v3.0** — see [LICENSE](LICENSE).
+**GNU General Public License v3.0** — Jean Robert Gatwaza, African Leadership University 2024–2025
 
----
+See [LICENSE](LICENSE).
