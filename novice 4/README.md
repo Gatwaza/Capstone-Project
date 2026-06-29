@@ -27,7 +27,7 @@ All procedure content is sourced from the **[Rwanda First Aid Training Manual](h
 
 Open the app in Chrome (camera required for CPR training):
 
-> **[novice.vercel.app](https://novice.vercel.app)** ← live deployment
+> **[Novice](https://novice-lyart.vercel.app/)** ← live deployment
 
 **Browser requirements:** Chrome 90+ recommended. Camera permission required for the CPR module. All other modules work without a camera.
 
