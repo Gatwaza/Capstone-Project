@@ -52,9 +52,13 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
         title: const Text('Who is training?'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => context.pop(),
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => context.canPop() ? context.pop() : context.go(AppRoutes.procedures),
+          ),
         ),
       ),
       body: SingleChildScrollView(

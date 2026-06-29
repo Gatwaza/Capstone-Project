@@ -121,7 +121,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
                     color: AppTheme.textSecondary,
-                    onPressed: () => context.go(AppRoutes.home),
+                    onPressed: () => context.go(AppRoutes.procedures),
                   ),
                 ],
               ),
@@ -224,7 +224,7 @@ class _ResultsContentState extends State<_ResultsContent> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => context.go(AppRoutes.home),
+                  onPressed: () => context.go(AppRoutes.procedures),
                   child: Text(
                     'Back to Home',
                     style: TextStyle(color: AppTheme.textSecondary),

@@ -51,7 +51,7 @@ const _modules = [
     desc: 'Cardiopulmonary resuscitation',
     color: AppTheme.cprRed,
     icon: Icons.monitor_heart_rounded,
-    tag: '🤖 Live AI Training',
+    tag: 'Live AI Training',
     isLiveAI: true,
     keyPoints: [
       'Call emergency services (912 ambulance / 112 police & fire) before starting',
@@ -219,7 +219,9 @@ const _modules = [
 // ── Screen ───────────────────────────────────────────────────
 
 class DemoScreen extends StatefulWidget {
-  const DemoScreen({super.key});
+  /// [isHub] true when this screen IS the landing — no back button shown.
+  const DemoScreen({super.key, this.isHub = false});
+  final bool isHub;
   @override
   State<DemoScreen> createState() => _DemoScreenState();
 }
@@ -252,12 +254,28 @@ class _DemoScreenState extends State<DemoScreen>
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: const Text('Procedures'),
+        title: Text(widget.isHub ? 'First Aid Training' : 'Procedures'),
         backgroundColor: AppTheme.surface,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => context.pop(),
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.isHub
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                  onPressed: () => context.canPop() ? context.pop() : context.go(AppRoutes.procedures),
+                ),
+              ),
+        actions: widget.isHub
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.grid_view_rounded, size: 20),
+                  color: AppTheme.textSecondary,
+                  tooltip: 'Full dashboard',
+                  onPressed: () => context.push(AppRoutes.home),
+                ),
+              ]
+            : null,
       ),
       body: Column(
         children: [

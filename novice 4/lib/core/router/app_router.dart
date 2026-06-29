@@ -21,6 +21,9 @@ import '../theme/app_theme.dart';
 class AppRoutes {
   AppRoutes._();
   static const splash          = '/';
+  // The "procedures hub" is now the post-splash landing inside Flutter.
+  // The old /home remains as the full dashboard (accessible via settings/history).
+  static const procedures      = '/procedures';
   static const home            = '/home';
   static const participantGate = '/participant';
   static const training        = '/training/:participantId';
@@ -39,8 +42,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
     routes: [
-      GoRoute(path: AppRoutes.splash,          builder: (_, __) => const SplashScreen()),
-      GoRoute(path: AppRoutes.home,            builder: (_, __) => const HomeScreen()),
+      GoRoute(path: AppRoutes.splash,     builder: (_, __) => const SplashScreen()),
+      // Procedures hub — the first screen after splash
+      GoRoute(path: AppRoutes.procedures, builder: (_, __) => const DemoScreen(isHub: true)),
+      GoRoute(path: AppRoutes.home,       builder: (_, __) => const HomeScreen()),
       GoRoute(path: AppRoutes.participantGate, builder: (_, __) => const ParticipantGateScreen()),
       GoRoute(
         path: AppRoutes.training,

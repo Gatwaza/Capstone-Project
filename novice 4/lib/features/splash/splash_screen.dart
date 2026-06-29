@@ -27,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen>
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
     Future.delayed(const Duration(milliseconds: 2400), () {
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) context.go(AppRoutes.procedures);
     });
   }
 
@@ -48,7 +48,6 @@ class _SplashScreenState extends State<SplashScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ── Logo mark ──────────────────────────────
                 Container(
                   width: 80,
                   height: 80,
@@ -64,7 +63,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ],
                   ),
-                  child: Center(
+                  child: const Center(
                     child: Icon(
                       Icons.monitor_heart_rounded,
                       color: AppTheme.accent,
@@ -87,7 +86,6 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
                 const SizedBox(height: 56),
-                // ── Progress bar ──────────────────────────
                 SizedBox(
                   width: 140,
                   child: ClipRRect(

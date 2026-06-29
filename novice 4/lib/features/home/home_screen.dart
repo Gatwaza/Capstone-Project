@@ -25,11 +25,10 @@ class HomeScreen extends ConsumerWidget {
             children: [
               const SizedBox(height: 36),
 
-              // ── Header ────────────────────────────────────
+              // ── Header ──────────────────────────────────────
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo chip
                   Container(
                     width: 44,
                     height: 44,
@@ -68,7 +67,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 32),
 
-              // ── Eyebrow ───────────────────────────────────
+              // ── Eyebrow ─────────────────────────────────────
               Row(
                 children: [
                   Container(
@@ -90,7 +89,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 20),
 
-              // ── Stat chips ────────────────────────────────
+              // ── Stat chips ──────────────────────────────────
               Row(
                 children: [
                   _StatChip(label: '6', sub: 'Procedures'),
@@ -103,7 +102,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 28),
 
-              // ── Primary action — Start Training ──────────
+              // ── Primary action — Start Training ─────────────
               _PrimaryActionCard(
                 icon: Icons.smart_toy_rounded,
                 iconColor: AppTheme.accent,
@@ -115,7 +114,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 8),
 
-              // ── Secondary action — Browse Procedures ──────
+              // ── Secondary action — Browse Procedures ─────────
               _PrimaryActionCard(
                 icon: Icons.play_lesson_rounded,
                 iconColor: AppTheme.chokingAmber,
@@ -127,7 +126,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 20),
 
-              // ── Module quick-access row ───────────────────
+              // ── Module quick-access row ──────────────────────
               Text(
                 'ALL PROCEDURES',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -141,7 +140,7 @@ class HomeScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     _ModuleChip(
-                      label: 'CPR 🤖',
+                      label: 'CPR',
                       color: AppTheme.cprRed,
                       icon: Icons.monitor_heart_rounded,
                       onTap: () => context.push(AppRoutes.participantGate),
@@ -187,7 +186,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 20),
 
-              // ── Secondary actions ─────────────────────────
+              // ── Secondary actions ────────────────────────────
               Row(
                 children: [
                   Expanded(
@@ -220,7 +219,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 32),
 
-              // ── Footer ────────────────────────────────────
+              // ── Footer ──────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -265,7 +264,7 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ── Sub-widgets ─────────────────────────────────────────────
+// ── Sub-widgets ───────────────────────────────────────────────
 
 class _StatChip extends StatelessWidget {
   const _StatChip({required this.label, required this.sub, this.accent = false});
