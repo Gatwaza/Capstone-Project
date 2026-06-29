@@ -1,6 +1,6 @@
-# Novice — First Aid AI Coach
+# Novice — First Aid Assessment Tool
 
-> Real-time CPR coaching powered by pose estimation and a hosted AI model, paired with an interactive first aid procedure library built for Sub-Saharan Africa.
+> Real-time CPR assessment empowered by pose estimation and a hosted AI model, paired with an interactive first aid procedure library built for Sub-Saharan Africa.
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.29.3-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.7.2-0175C2?logo=dart)](https://dart.dev)
@@ -17,9 +17,9 @@ Novice is a web app that teaches you how to perform CPR and other first aid proc
 | Mode | Procedures | What happens |
 |------|------------|--------------|
 | **Live AI Training** | CPR | Your camera captures your movements. An AI model assesses your compression rate, depth, and chest recoil in real time and speaks corrections aloud as you train. |
-| **Guided Demo** | Choking · Stroke (FAST) · Recovery Position · AED | Step-by-step animated guides with no camera required. |
+| **Animated Guided** | Choking · Stroke (FAST) · Recovery Position · AED | Step-by-step animated guides with no camera required. |
 
-All procedure content is sourced from the **Rwanda Basic First Aid Training Manual** (Emergency Safety and Health Services / Belgian Red Cross, Flanders).
+All procedure content is sourced from the **[Rwanda First Aid Training Manual](https://drive.google.com/file/d/16h55TzFDJVPjsVaBVnEnhBy7eAor9KZc/view?usp=sharing)** (Emergency Safety and Health Services / Belgian Red Cross, Flanders).
 
 ---
 
@@ -71,13 +71,11 @@ If you have a Supabase project, add the following inside the `<head>` of `web/in
 ```html
 <script>
 window.__NOVICE_CONFIG__ = {
-  supabaseUrl:     "https://YOUR_PROJECT.supabase.co",
-  supabaseAnonKey: "YOUR_ANON_KEY"
+  supabaseUrl:     "https://gerdmqulomndzsdnksnd.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlcmRtcXVsb21uZHpzZG5rc25kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjIxNTcsImV4cCI6MjA5NzQzODE1N30.8toJtZWcV-eA_wgxBOOCcu2-qviNpb4YyhkFDMY4WUs"
 };
 </script>
 ```
-
-**Is the anon key safe to share?** Yes. The Supabase anon key is a public key by design — it is safe to commit to a public repository. Access to your data is controlled by Row Level Security (RLS) policies on each table, not the key itself. Never share your **service role key** (the secret key) — that one bypasses RLS.
 
 ---
 
@@ -153,7 +151,7 @@ Voice coach  →  speaks the highest-priority correction
                 (silent when technique is correct)
 ```
 
-The AI model (TCN — Temporal Convolutional Network) was trained on the CPR-Coach dataset (Wang et al., 2023) and hosted on Hugging Face Spaces. If the API is unreachable, the app falls back to rule-based threshold coaching automatically.
+The AI model (TCN — Temporal Convolutional Network) was trained on the [CPR Coach Dataset](https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=sharing) (Wang et al., 2023) and hosted on Hugging Face Spaces. If the API is unreachable, the app falls back to rule-based threshold coaching automatically.
 
 ---
 
