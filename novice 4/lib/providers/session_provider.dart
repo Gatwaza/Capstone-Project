@@ -226,12 +226,23 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       _taskConfidences['recoil'] = inference.recoilConfidence ?? 0.0;
     }
 
-    if (inference.currentBpm > 0) _bpmHistory.add(inference.currentBpm);
-    if (inference.estimatedDepthCm > 0) {
-      _depthHistory.add(inference.estimatedDepthCm);
+    // FIX (Bug 1 — see debugging session): this used to append to
+    // _bpmHistory/_depthHistory on EVERY frame, decoupled from the actual
+    // compression counter. _estimateBpm()'s single-frame velocity-peak
+    // detector has no cycle requirement or debounce, so pure landmark-
+    // tracking jitter (hand tremor, camera micro-noise) tripped it and got
+    // averaged into meanBpm/meanDepthCm even while the stricter, debounced
+    // _updateCompressionCount() correctly reported 0 compressions
+    // (reproduced: total_compressions=0 but mean_bpm=192). Fix: only
+    // accumulate history at the moment a real completed down→up compression
+    // cycle is registered.
+    final compressionJustCompleted = _updateCompressionCount(frame);
+    if (compressionJustCompleted) {
+      if (inference.currentBpm > 0) _bpmHistory.add(inference.currentBpm);
+      if (inference.estimatedDepthCm > 0) {
+        _depthHistory.add(inference.estimatedDepthCm);
+      }
     }
-
-    _updateCompressionCount(frame);
 
     final liveTaskAccuracies = {
       'rate': _mean(_rateAccuracies),
@@ -240,8 +251,18 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     };
 
     state = state.copyWith(
-      bpm: inference.currentBpm,
-      depthCm: inference.estimatedDepthCm,
+      // FIX (Bug 2 — see debugging session): bpm/depthCm are computed from
+      // local pose-landmark math in inference_service_web.dart, independent
+      // of whether the hosted TCN model actually responded. Previously
+      // these were surfaced unconditionally, so a "Model: Unavailable"
+      // session (API unreachable, no classification ran) would still show
+      // quantitative-looking bpm/depth numbers right next to it, implying
+      // something had been AI-assessed when nothing had. Fix: hide (zero)
+      // these live-display fields when the model isn't available;
+      // modelAvailable is already exposed in state for the UI to branch on
+      // and show "Model Unavailable" instead of a number.
+      bpm: inference.isSimulated ? 0 : inference.currentBpm,
+      depthCm: inference.isSimulated ? 0 : inference.estimatedDepthCm,
       cprFraction:
           _assessedFrameCount == 0 ? 0 : _activeFrameCount / _assessedFrameCount,
       currentPrompt: prompt,
@@ -265,16 +286,20 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     return getIt<InferenceService>().infer(frame);
   }
 
-  void _updateCompressionCount(LandmarkFrame frame) {
+  /// Returns true iff this call registered a newly-completed compression
+  /// (a debounced down→up cycle), so callers (onFrame's history
+  /// accumulation) can gate on real compressions rather than raw frames.
+  bool _updateCompressionCount(LandmarkFrame frame) {
     final v = frame.wristVelocityY;
     if (_lastVelocityY == null) {
       _lastVelocityY = v;
-      return;
+      return false;
     }
 
     final descending = v > _compressionVelocityThreshold;
     final ascending = v < -_compressionVelocityThreshold;
 
+    bool completed = false;
     if (descending) {
       _wasDescending = true;
     } else if (ascending && _wasDescending) {
@@ -287,11 +312,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
         // — count one compression.
         state = state.copyWith(compressions: state.compressions + 1);
         _lastCompressionAt = now;
+        completed = true;
       }
       _wasDescending = false;
     }
 
     _lastVelocityY = v;
+    return completed;
   }
 
   Future<String?> stopSession() async {
@@ -348,23 +375,34 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   int _computeQualityScore(double rateAcc, double depthAcc, double recoilAcc) {
     if (_assessedFrameCount == 0) return 0;
 
-    // Confirmed from sliding-window retrain (ml_pipeline/CPR_Coach_Training.ipynb,
+    // FIX (Bug 3 — see debugging session): this used to divide each
+    // accuracy by its F1 baseline (rateF1Baseline=91.7 etc.) before
+    // scaling to 0-100. Since those baselines are themselves already close
+    // to 100, that division compressed the formula's usable dynamic range
+    // into a thin sliver at the top: rateAcc=1.0 (perfect) computed to
+    // (100/91.7)=109%, which the .clamp(0,2)*100 ceiling then flattened to
+    // exactly 100, while a single misclassified frame dragged the ratio
+    // down fast since the denominator was already ~90-98. Net effect: a
+    // short session (20-40 assessed frames) almost always landed fully on
+    // 0 or 100, never in between. Fix: rateAcc/depthAcc/recoilAcc are
+    // already fair 0-1 accuracy fractions on their own — scale directly to
+    // 0-100, no baseline division. The AUC-derived weights below keep
+    // their intended role as a per-task importance weighting, not a
+    // denominator.
+    //
+    // Baselines from sliding-window retrain (ml_pipeline/CPR_Coach_Training.ipynb,
     // Stage 9 evaluate()) — TCN selected as deploy model in place of
     // CNN_BiLSTM (won on every task/metric: rate/depth/recoil F1_w and AUC).
-    // Was rate=81.4/depth=94.0/recoil=74.4 F1 and 0.7923/0.9466/0.8172 AUC
-    // weights from the pre-sliding-window CNN_BiLSTM run.
-    const rateF1Baseline = 91.7;
-    const depthF1Baseline = 98.3;
-    const recoilF1Baseline = 88.5;
-
-    const rateWeight = 0.983;
-    const depthWeight = 0.993;
-    const recoilWeight = 0.959;
+    // TCN test-set F1_w: rate=91.7%, depth=98.3%, recoil=88.5% (kept here
+    // for reference/reporting; not used as a scoring denominator).
+    const rateWeight = 0.983;   // TCN test-set rate AUC-ROC
+    const depthWeight = 0.993;  // TCN test-set depth AUC-ROC
+    const recoilWeight = 0.959; // TCN test-set recoil AUC-ROC
     const totalWeight = rateWeight + depthWeight + recoilWeight;
 
-    final rateScore = (rateAcc * 100 / rateF1Baseline).clamp(0, 2) * 100;
-    final depthScore = (depthAcc * 100 / depthF1Baseline).clamp(0, 2) * 100;
-    final recoilScore = (recoilAcc * 100 / recoilF1Baseline).clamp(0, 2) * 100;
+    final rateScore = rateAcc * 100;     // 0-100, no inflation
+    final depthScore = depthAcc * 100;   // 0-100, no inflation
+    final recoilScore = recoilAcc * 100; // 0-100, no inflation
 
     double weightedScore = ((rateScore * rateWeight) +
             (depthScore * depthWeight) +
