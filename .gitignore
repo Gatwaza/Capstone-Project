@@ -1,2 +1,5 @@
 *.pem
 *.key
+.vercel
+.env*
+.DS_Store
