@@ -2,7 +2,10 @@
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 
+import 'dart:collection';
 import 'dart:math' as math;
+
+import '../../models/landmark_frame.dart';
 
 /// Pure mathematical utilities for landmark geometry.
 ///
@@ -184,4 +187,162 @@ enum HandPlacementResult {
   tooHigh,
   tooLow,
   unknown,
+}
+
+// ── Causal feature extractor (train/live parity fix) ──────────────────────
+//
+// [LandmarkMath.buildFeatureVector] above is kept unchanged for backward
+// compatibility (existing unit tests + any other callers depend on its
+// signature). It is no longer what feeds the live model.
+//
+// This extractor replaces it. It mirrors
+// ml_pipeline/CPR_Coach_Training.ipynb Stage 4's `extract_features_full()`
+// AFTER the train/live feature-mismatch fix, feature-for-feature:
+//
+//   idx  training (Stage 4)                          live (here)
+//   0-2  elbow angles, raw AlphaPose pixel coords     same formula, on
+//                                                      MediaPipe coords
+//                                                      converted to pixel
+//                                                      space first (see
+//                                                      [update])
+//   3    spine lean, degrees(atan2(|dx|,|dy|+eps))    identical formula
+//   4    wristY_px / shoulderWidth_px (ratio)          identical formula
+//   5    causal backward diff of the ratio             identical formula
+//   6    causal backward diff of #5                    identical formula
+//   7    abs(ratio - ROLLING 60-frame mean)             identical formula
+//   8    shoulder width, pixel space (MIN_SHOULDER_PX   identical formula
+//        floor guards near-zero degenerate frames)
+//   9    real per-joint confidence mean (upper body)     frame.meanLandmarkConfidence
+//                                                         (already the same
+//                                                         6-joint mean)
+//   10-11 left/right elbow confidence < 0.3              frame.leftElbowVisibility /
+//                                                         rightElbowVisibility < 0.3
+//
+// Construct ONE instance per session (or per continuous recording) and
+// feed frames in capture order via [update] — the rolling window and
+// backward-difference state are only meaningful across a single
+// continuous stream. Do not reuse an instance across sessions; call
+// [reset] instead if you must.
+class CprCausalFeatureExtractor {
+  CprCausalFeatureExtractor({this.rollingWindow = 60});
+
+  /// Rolling-window length (frames) for the amplitude-deviation feature
+  /// (index 7). Should match the model's temporal window (SEQ_LEN=60 in
+  /// the notebook / AppConstants.temporalWindowFrames in the app) so a
+  /// live inference call and a training window see the same amount of
+  /// "recent history" when computing the deviation.
+  final int rollingWindow;
+
+  /// Degenerate-frame guard for shoulder width, mirrors
+  /// `MIN_SHOULDER_PX` in the notebook's Stage 4 cell. Real shoulder
+  /// widths at typical rescuer-to-camera distance run well into the tens
+  /// of pixels at minimum; anything below this indicates a failed
+  /// detection for that frame, not a genuinely close camera.
+  static const double _minShoulderPx = 5.0;
+
+  /// Must match the notebook's Stage 4 literal threshold exactly
+  /// (`conf[...] < 0.3`) — this is a fixed model-input convention, not a
+  /// UI/UX tunable, so it intentionally does NOT reuse
+  /// AppConstants.minLandmarkVisibility (0.5), which serves a different
+  /// purpose (excluding a frame's *display* rather than a training label).
+  static const double _lowConfidenceThreshold = 0.3;
+
+  final ListQueue<double> _ratioHistory = ListQueue<double>();
+  double? _prevRatio;
+  double? _prevVelocity;
+
+  /// Builds the causal 12-D feature vector for one frame.
+  ///
+  /// [frame] supplies MediaPipe's normalized (0.0–1.0 per axis) landmark
+  /// coordinates, unchanged. [videoWidthPx]/[videoHeightPx] are the
+  /// source video's real pixel dimensions (from the JS bridge's
+  /// `_novicePoseVideoWidth`/`_novicePoseVideoHeight`) — required to
+  /// undo MediaPipe's per-axis normalization before running angle/ratio
+  /// formulas that assume square-pixel geometry, exactly as the training
+  /// data (raw AlphaPose pixel coordinates) does.
+  List<double> update(
+    LandmarkFrame frame, {
+    required double videoWidthPx,
+    required double videoHeightPx,
+  }) {
+    double px(double normX) => normX * videoWidthPx;
+    double py(double normY) => normY * videoHeightPx;
+
+    final lsx = px(frame.leftShoulderX),  lsy = py(frame.leftShoulderY);
+    final rsx = px(frame.rightShoulderX), rsy = py(frame.rightShoulderY);
+    final lex = px(frame.leftElbowX),     ley = py(frame.leftElbowY);
+    final rex = px(frame.rightElbowX),    rey = py(frame.rightElbowY);
+    final lwx = px(frame.leftWristX),     lwy = py(frame.leftWristY);
+    final rwx = px(frame.rightWristX),    rwy = py(frame.rightWristY);
+    final lhx = px(frame.leftHipX),       lhy = py(frame.leftHipY);
+    final rhx = px(frame.rightHipX),      rhy = py(frame.rightHipY);
+
+    // idx 0-2: elbow angles, pixel space (matches Stage 4's angle_deg).
+    final leftElbowAngle  = LandmarkMath.jointAngleDeg(lsx, lsy, lex, ley, lwx, lwy);
+    final rightElbowAngle = LandmarkMath.jointAngleDeg(rsx, rsy, rex, rey, rwx, rwy);
+    final meanElbowAngle  = (leftElbowAngle + rightElbowAngle) / 2;
+
+    // idx 3: spine lean — degrees(atan2(|dx|, |dy| + eps)), matches
+    // Stage 4 exactly (deliberately NOT LandmarkMath.spineVerticalityDeg,
+    // which uses a different formula and would reintroduce a mismatch).
+    final midSx = (lsx + rsx) / 2, midSy = (lsy + rsy) / 2;
+    final midHx = (lhx + rhx) / 2, midHy = (lhy + rhy) / 2;
+    final dx = (midHx - midSx).abs();
+    final dy = (midHy - midSy).abs();
+    final spineLean = math.atan2(dx, dy + 1e-8) * 180.0 / math.pi;
+
+    // idx 8: shoulder width, pixel space, with degenerate-frame floor.
+    final rawShoulderWidth = LandmarkMath.distance2d(lsx, lsy, rsx, rsy);
+    final shoulderWidthPx =
+        rawShoulderWidth < _minShoulderPx ? _minShoulderPx : rawShoulderWidth;
+
+    // idx 4: wrist/shoulder-width ratio.
+    final wristMidYPx = (lwy + rwy) / 2;
+    final ratio = wristMidYPx / shoulderWidthPx;
+
+    // idx 5, 6: causal backward difference — per-frame (not per-second),
+    // matching pose_service_web.dart's existing wristVelocityY convention.
+    final velocity = _prevRatio == null ? 0.0 : ratio - _prevRatio!;
+    final acceleration = _prevVelocity == null ? 0.0 : velocity - _prevVelocity!;
+    _prevRatio = ratio;
+    _prevVelocity = velocity;
+
+    // idx 7: causal rolling-window amplitude deviation (replaces the
+    // notebook's old whole-video mean, which live inference can never
+    // know ahead of time).
+    _ratioHistory.addLast(ratio);
+    while (_ratioHistory.length > rollingWindow) {
+      _ratioHistory.removeFirst();
+    }
+    final rollingMean =
+        _ratioHistory.reduce((a, b) => a + b) / _ratioHistory.length;
+    final wristAmp = (ratio - rollingMean).abs();
+
+    // idx 9-11: real confidence — frame.meanLandmarkConfidence is already
+    // the mean of exactly the same 6 upper-body joints
+    // (shoulders+elbows+wrists) as Stage 4's `conf[t, upper_joints].mean()`.
+    return [
+      leftElbowAngle,
+      rightElbowAngle,
+      meanElbowAngle,
+      spineLean,
+      ratio,
+      velocity,
+      acceleration,
+      wristAmp,
+      shoulderWidthPx,
+      frame.meanLandmarkConfidence,
+      frame.leftElbowVisibility  < _lowConfidenceThreshold ? 1.0 : 0.0,
+      frame.rightElbowVisibility < _lowConfidenceThreshold ? 1.0 : 0.0,
+    ];
+  }
+
+  /// Clears rolling-window and finite-difference state. Call this when
+  /// starting a new session with a reused extractor instance (normally
+  /// unnecessary — prefer constructing a fresh instance per session).
+  void reset() {
+    _ratioHistory.clear();
+    _prevRatio = null;
+    _prevVelocity = null;
+  }
 }

@@ -8,14 +8,12 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/di/injection.dart';
 import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
 import '../services/feedback_engine.dart';
-import '../services/inference_service.dart';
 import '../services/platform/inference_service_web.dart';
 import '../services/platform/storage_service.dart';
 import '../services/platform/telemetry_service.dart'; // FIX: import added
@@ -173,6 +171,16 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _lastCompressionAt = null;
     _feedback.reset();
 
+    // FIX: InferenceServiceWeb is a DI singleton whose causal feature
+    // extractor, 60-frame model buffer, BPM history, depth calibration,
+    // and cached API result all persist across sessions unless explicitly
+    // cleared here. Without this, a second session run in the same
+    // browser tab (no page reload) leaks the previous participant's
+    // in-flight rolling-window/derivative state into the first ~2.4s of
+    // the new session. Must run before the first onFrame() call for this
+    // session.
+    getIt<InferenceServiceWeb>().resetSession();
+
     state = state.copyWith(
       isActive: true,
       participantId: participantId,
@@ -275,15 +283,12 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
   }
 
-  /// Routes to the platform-appropriate inference backend. injection.dart
-  /// registers exactly one of these depending on kIsWeb — InferenceService
-  /// (mobile, on-device TFLite) or InferenceServiceWeb (web, hosted
-  /// TCN API) — never both, so the kIsWeb check here must match.
+  /// Web-only build: mobile (on-device TFLite) inference is on hold.
+  /// injection.dart only ever registers InferenceServiceWeb now.
+  /// NOTE: re-add the kIsWeb ? ... : getIt<InferenceService>() branch here
+  /// (and restore inference_service.dart) if mobile work resumes.
   InferenceResult _runInference(LandmarkFrame frame) {
-    if (kIsWeb) {
-      return getIt<InferenceServiceWeb>().infer(frame);
-    }
-    return getIt<InferenceService>().infer(frame);
+    return getIt<InferenceServiceWeb>().infer(frame);
   }
 
   /// Returns true iff this call registered a newly-completed compression

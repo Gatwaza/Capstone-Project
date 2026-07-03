@@ -8,6 +8,19 @@ window._novicePoseTimestamp  = 0;
 window._novicePoseVideoReady = false;
 window._novicePoseReady      = false;
 
+// FIX (train/live feature-mismatch, root-cause table idx 0-3, 8): MediaPipe
+// landmarks are normalized PER AXIS (x = px/videoWidth, y = px/videoHeight
+// independently), which distorts angle and ratio calculations whenever the
+// video isn't square -- the training model was built on raw AlphaPose pixel
+// coordinates, where aspect ratio is preserved automatically. Exposing the
+// live video's real pixel dimensions here lets Dart convert normalized
+// landmarks back to pixel space (x*width, y*height) before running the same
+// geometry formulas the notebook uses, instead of feeding it
+// aspect-distorted values. See CprCausalFeatureExtractor in
+// lib/core/utils/landmark_math.dart.
+window._novicePoseVideoWidth  = 0;
+window._novicePoseVideoHeight = 0;
+
 function initPoseBridge() {
   // Use the global Pose already available from CDN script tag
   if (typeof Pose === 'undefined') {
@@ -66,6 +79,11 @@ function initPoseBridge() {
           video.videoWidth > 0 &&    // ← key fix: wait for real dimensions
           video.videoHeight > 0      // ← key fix
         ) {
+          // Keep the pixel-dimension globals current every frame -- cheap
+          // (two int reads) and avoids any race with camera resolution
+          // changing mid-session (e.g. device rotation, permission re-grant).
+          window._novicePoseVideoWidth  = video.videoWidth;
+          window._novicePoseVideoHeight = video.videoHeight;
           await pose.send({ image: video });
         }
       } catch (e) {

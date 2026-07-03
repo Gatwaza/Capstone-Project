@@ -4,38 +4,32 @@
 //
 // Dependency injection — registers all services into GetIt.
 //
-// Platform service matrix:
-//   Service           | iOS/Android              | Web
-//   ──────────────────────────────────────────────────────────────────────
-//   Pose estimation   | PoseServiceMobile        | PoseServiceWeb
-//   ML inference      | InferenceService (TFLite)| InferenceServiceWeb (TF.js)
-//   Session storage   | SessionLogger (SQLite)   | StorageService (SharedPrefs)
-//   Research logging  | ResearchLogger (SQLite)  | ResearchLoggerWeb (SharedPrefs)
-//   TTS               | flutter_tts (offline)    | flutter_tts (Web Speech API)
-//   Feedback engine   | FeedbackEngine           | FeedbackEngine (same Dart)
+// WEB-ONLY BUILD (mobile on hold, see PROJECT_STATUS notes):
+//   Service           | Web
+//   ─────────────────────────────────────────────────────
+//   Pose estimation   | PoseServiceWeb
+//   ML inference      | InferenceServiceWeb (TF.js / hosted TCN API)
+//   Session storage   | StorageService (SharedPrefs)
+//   Research logging  | ResearchLoggerWeb (SharedPrefs)
+//   TTS               | flutter_tts (Web Speech API)
+//   Feedback engine   | FeedbackEngine (same Dart)
 //
-// FIX (2025-06): ResearchLoggerWeb is now registered on web so that
-//   researcher_dashboard.dart can call getIt<ResearchLoggerWeb>() safely.
-//   The dashboard previously called getIt<ResearchLogger>() unconditionally,
-//   crashing on web with "Object/factory with type ResearchLogger is not
-//   registered inside GetIt."
+// Mobile counterparts (PoseServiceMobile, InferenceService, SessionLogger,
+// ResearchLogger) were removed from this file when Android/iOS work was
+// paused. To resume mobile work: restore those four files from git history,
+// re-add their imports below, and reinstate the kIsWeb branches removed
+// from this function (see git blame on this file for the prior version).
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get_it/get_it.dart';
 import 'package:logger/logger.dart';
 
 import '../../services/feedback_engine.dart';
-import '../../services/inference_service.dart';
 import '../../services/participant_service.dart';
-import '../../services/research_logger.dart';
 import '../../services/research_logger_web.dart';
-import '../../services/session_logger.dart';
 import '../../services/platform/inference_service_web.dart'
     show InferenceServiceWeb;
 import '../../services/platform/pose_service_interface.dart'
     show PoseServiceInterface;
-import '../../services/platform/pose_service_mobile.dart'
-    show PoseServiceMobile;
 import '../../services/platform/pose_service_web.dart' show PoseServiceWeb;
 import '../../services/platform/storage_service.dart';
 import '../../services/platform/telemetry_service.dart';
@@ -51,17 +45,10 @@ Future<void> configureDependencies() async {
   final log = getIt<Logger>();
 
   // ── Session storage ────────────────────────────────────────────────────────
-  SessionLogger? sqliteLogger;
-  if (!kIsWeb) {
-    sqliteLogger = SessionLogger();
-    await sqliteLogger.init();
-    getIt.registerSingleton<SessionLogger>(sqliteLogger);
-  }
-  getIt.registerSingleton<StorageService>(
-    StorageService(mobileLogger: sqliteLogger),
-  );
+  getIt.registerSingleton<StorageService>(StorageService());
   getIt.registerLazySingleton<TelemetryService>(() => TelemetryService());
   getIt.registerLazySingleton<ParticipantService>(() => ParticipantService());
+
   // ── TTS ────────────────────────────────────────────────────────────────────
   const umugandaUrl =
       String.fromEnvironment('UMUGANDA_TTS_URL', defaultValue: '');
@@ -72,50 +59,31 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<TtsService>(tts);
 
   // ── Pose estimation ────────────────────────────────────────────────────────
-  final PoseServiceInterface pose =
-      kIsWeb ? PoseServiceWeb() : PoseServiceMobile();
+  final PoseServiceInterface pose = PoseServiceWeb();
   getIt.registerSingleton<PoseServiceInterface>(pose);
 
   // ── ML Inference ───────────────────────────────────────────────────────────
-  bool modelLoaded = false;
-  if (kIsWeb) {
-    final inferWeb = InferenceServiceWeb();
-    await inferWeb.init();
-    modelLoaded = inferWeb.isModelLoaded;
-    getIt.registerSingleton<InferenceServiceWeb>(inferWeb);
-  } else {
-    final infer = InferenceService();
-    await infer.loadModel();
-    modelLoaded = infer.isModelLoaded;
-    getIt.registerSingleton<InferenceService>(infer);
-  }
+  final inferWeb = InferenceServiceWeb();
+  await inferWeb.init();
+  final modelLoaded = inferWeb.isModelLoaded;
+  getIt.registerSingleton<InferenceServiceWeb>(inferWeb);
 
   // ── Feedback engine ────────────────────────────────────────────────────────
   getIt.registerSingleton<FeedbackEngine>(FeedbackEngine());
 
   // ── Research logger ────────────────────────────────────────────────────────
-  // Web:    ResearchLoggerWeb (SharedPreferences / localStorage)
-  // Mobile: ResearchLogger   (SQLite via sqflite)
-  // Both are registered so researcher_dashboard + consent_screen
-  // can use the ResearchLoggerAdapter helper below without platform checks.
-  if (kIsWeb) {
-    // Read optional cloud webhook from compile-time env var:
-    //   flutter build web --dart-define=RESEARCH_WEBHOOK_URL=https://...
-    const webhookUrl = String.fromEnvironment('RESEARCH_WEBHOOK_URL',
-        defaultValue: '');
-    final webLogger = ResearchLoggerWeb(
-      cloudWebhookUrl: webhookUrl.isEmpty ? null : webhookUrl,
-    );
-    await webLogger.init();
-    getIt.registerSingleton<ResearchLoggerWeb>(webLogger);
-  } else {
-    final research = ResearchLogger();
-    await research.init();
-    getIt.registerSingleton<ResearchLogger>(research);
-  }
+  // Read optional cloud webhook from compile-time env var:
+  //   flutter build web --dart-define=RESEARCH_WEBHOOK_URL=https://...
+  const webhookUrl =
+      String.fromEnvironment('RESEARCH_WEBHOOK_URL', defaultValue: '');
+  final webLogger = ResearchLoggerWeb(
+    cloudWebhookUrl: webhookUrl.isEmpty ? null : webhookUrl,
+  );
+  await webLogger.init();
+  getIt.registerSingleton<ResearchLoggerWeb>(webLogger);
 
   log.i(
-    'DI ready | platform=${kIsWeb ? "web" : "mobile"} | '
+    'DI ready | platform=web | '
     'model=${modelLoaded ? "loaded" : "rule-based fallback"}',
   );
 }

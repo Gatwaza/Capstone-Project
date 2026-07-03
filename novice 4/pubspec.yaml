@@ -2,12 +2,11 @@
 # GNU General Public License v3.0
 # Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 #
-# Cross-platform Flutter app: iOS · Android · Web
-# One codebase — platform-conditional services via kIsWeb + dart:html
+# Web-only build (Android/iOS on hold — see lib/core/di/injection.dart header)
 name: novice
 description: >
-  Novice — Real-time CPR coaching using pose estimation and on-device ML.
-  Empowers bystanders in Sub-Saharan Africa. iOS · Android · Web.
+  Novice — Real-time CPR coaching using pose estimation and hosted ML
+  inference. Empowers bystanders in Sub-Saharan Africa. Web (mobile on hold).
 version: 0.1.0+1
 publish_to: none
 environment:
@@ -17,10 +16,6 @@ dependencies:
     sdk: flutter
   # ── Camera ────────────────────────────────────────────────
   camera: ^0.11.2+1
-  # ── Pose estimation (MOBILE only — conditionally imported) ─
-  google_mlkit_pose_detection: ^0.14.0
-  # ── ML Inference (MOBILE only — conditionally imported) ───
-  tflite_flutter: ^0.12.1
   # ── TTS ───────────────────────────────────────────────────
   flutter_tts: ^4.2.5
   # ── State management ──────────────────────────────────────
@@ -29,9 +24,7 @@ dependencies:
   # ── Dependency injection ──────────────────────────────────
   get_it: ^9.2.1
   # ── Local storage ─────────────────────────────────────────
-  sqflite: ^2.3.2
   shared_preferences: ^2.2.3
-  path_provider: ^2.1.2
   # ── HTTP ──────────────────────────────────────────────────
   http: ^1.2.1
   # ── Routing ───────────────────────────────────────────────
@@ -42,10 +35,7 @@ dependencies:
   json_annotation: ^4.9.0      # bumped to satisfy json_serializable
   intl: ^0.20.2
   logger: ^2.0.2+1
-  # ── Permissions ───────────────────────────────────────────
-  permission_handler: ^12.0.3
   # ── File utilities ────────────────────────────────────────
-  path: ^1.9.0
   share_plus: ^12.0.2
 dev_dependencies:
   flutter_test:
@@ -58,9 +48,14 @@ dev_dependencies:
   riverpod_generator: ^2.3.9
 flutter:
   uses-material-design: true
-  assets:
-    - assets/models/
-    - assets/animations/
-    - assets/images/
-    - assets/audio/en/
-    - assets/audio/rw/
+  # NOTE: no local assets right now — audio/images/animations folders were
+  # removed (nothing in the app currently loads Image.asset/AssetImage/
+  # AssetSource from them; TTS uses the Web Speech API, not bundled audio).
+  # The old assets/models/ entry is gone too — that only ever fed the
+  # mobile TFLite path (AppConstants.tfliteModelPath), which was removed
+  # along with inference_service.dart. Web inference is the hosted API
+  # via InferenceServiceWeb.
+  #
+  # If you add real assets later, re-add an `assets:` list here pointing
+  # at folders that actually exist on disk — flutter pub get / build web
+  # will fail on a declared path that isn't there.

@@ -2,42 +2,37 @@
 // GNU General Public License v3.0
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 //
-// ResearchLoggerAdapter — platform-transparent facade over:
-//   • ResearchLogger     (mobile / SQLite)
-//   • ResearchLoggerWeb  (web / SharedPreferences + browser download)
+// ResearchLoggerAdapter — thin facade over ResearchLoggerWeb
+// (web / SharedPreferences + browser download).
 //
 // Usage in any screen:
 //   final logger = ResearchLoggerAdapter();
 //   await logger.enrollParticipant(profile);
-//   await logger.exportCsv();   // web only — triggers browser download
+//   await logger.exportCsv();   // triggers browser download
 //
-// This eliminates all kIsWeb checks from UI code and fixes the original
-// "ResearchLogger not registered on web" crash.
-
-import 'package:flutter/foundation.dart' show kIsWeb;
+// NOTE: mobile (SQLite via ResearchLogger) support is on hold. If mobile
+// work resumes, restore ResearchLogger and the kIsWeb branches this file
+// used to have (see git history) instead of the direct _web calls below.
 
 import '../core/di/injection.dart';
 import '../models/research_models.dart';
-import '../services/research_logger.dart';
 import '../services/research_logger_web.dart';
 
 class ResearchLoggerAdapter {
-  // ── Singleton access helpers ──────────────────────────────
+  // ── Singleton access helper ───────────────────────────────
 
-  ResearchLogger? get _mobile => kIsWeb ? null : getIt<ResearchLogger>();
-  ResearchLoggerWeb? get _web => kIsWeb ? getIt<ResearchLoggerWeb>() : null;
+  ResearchLoggerWeb get _web => getIt<ResearchLoggerWeb>();
 
   // ── UserProfile ───────────────────────────────────────────
 
-  Future<void> enrollParticipant(UserProfile profile) => kIsWeb
-      ? _web!.enrollParticipant(profile)
-      : _mobile!.enrollParticipant(profile);
+  Future<void> enrollParticipant(UserProfile profile) =>
+      _web.enrollParticipant(profile);
 
   Future<UserProfile?> loadParticipant(String userId) =>
-      kIsWeb ? _web!.loadParticipant(userId) : _mobile!.loadParticipant(userId);
+      _web.loadParticipant(userId);
 
   Future<List<UserProfile>> loadAllParticipants() =>
-      kIsWeb ? _web!.loadAllParticipants() : _mobile!.loadAllParticipants();
+      _web.loadAllParticipants();
 
   // ── ResearchSession ───────────────────────────────────────
 
@@ -49,17 +44,7 @@ class ResearchLoggerAdapter {
     required String deviceModel,
     required String osVersion,
   }) {
-    if (kIsWeb) {
-      return _web!.startResearchSession(
-        userId: userId,
-        studyGroup: studyGroup,
-        language: language,
-        modelActive: modelActive,
-        deviceModel: deviceModel,
-        osVersion: osVersion,
-      );
-    }
-    return _mobile!.startResearchSession(
+    return _web.startResearchSession(
       userId: userId,
       studyGroup: studyGroup,
       language: language,
@@ -69,52 +54,34 @@ class ResearchLoggerAdapter {
     );
   }
 
-  Future<void> endResearchSession(ResearchSession session) => kIsWeb
-      ? _web!.endResearchSession(session)
-      : _mobile!.endResearchSession(session);
+  Future<void> endResearchSession(ResearchSession session) =>
+      _web.endResearchSession(session);
 
-  Future<List<ResearchSession>> loadSessionsByGroup(StudyGroup group) => kIsWeb
-      ? _web!.loadSessionsByGroup(group)
-      : _mobile!.loadSessionsByGroup(group);
+  Future<List<ResearchSession>> loadSessionsByGroup(StudyGroup group) =>
+      _web.loadSessionsByGroup(group);
 
   // ── FeedbackEvent ─────────────────────────────────────────
 
   Future<void> logFeedbackEvent(FeedbackEvent event) =>
-      kIsWeb ? _web!.logFeedbackEvent(event) : _mobile!.logFeedbackEvent(event);
+      _web.logFeedbackEvent(event);
 
   // ── Survey responses ──────────────────────────────────────
 
-  Future<void> saveSusSurvey(SusSurvey survey) =>
-      kIsWeb ? _web!.saveSusSurvey(survey) : _mobile!.saveSusSurvey(survey);
+  Future<void> saveSusSurvey(SusSurvey survey) => _web.saveSusSurvey(survey);
 
-  Future<void> saveNasaTlxSurvey(NasaTlxSurvey survey) => kIsWeb
-      ? _web!.saveNasaTlxSurvey(survey)
-      : _mobile!.saveNasaTlxSurvey(survey);
+  Future<void> saveNasaTlxSurvey(NasaTlxSurvey survey) =>
+      _web.saveNasaTlxSurvey(survey);
 
-  Future<void> saveSelfEfficacySurvey(SelfEfficacySurvey survey) => kIsWeb
-      ? _web!.saveSelfEfficacySurvey(survey)
-      : _mobile!.saveSelfEfficacySurvey(survey);
+  Future<void> saveSelfEfficacySurvey(SelfEfficacySurvey survey) =>
+      _web.saveSelfEfficacySurvey(survey);
 
   // ── Export ────────────────────────────────────────────────
 
-  /// Triggers a CSV browser download on web.
-  /// On mobile, returns empty (use share_plus separately).
-  Future<void> exportCsv() async {
-    if (kIsWeb) {
-      await _web!.exportCsv();
-    }
-    // Mobile CSV handled via share_plus in researcher_dashboard
-  }
+  /// Triggers a CSV browser download.
+  Future<void> exportCsv() => _web.exportCsv();
 
-  /// Full JSON export. On web triggers a browser download.
-  Future<String> exportResearchData() =>
-      kIsWeb ? _web!.exportResearchData() : _mobile!.exportResearchData();
+  /// Full JSON export. Triggers a browser download.
+  Future<String> exportResearchData() => _web.exportResearchData();
 
-  Future<void> dispose() async {
-    if (kIsWeb) {
-      await _web!.dispose();
-    } else {
-      await _mobile!.dispose();
-    }
-  }
+  Future<void> dispose() => _web.dispose();
 }

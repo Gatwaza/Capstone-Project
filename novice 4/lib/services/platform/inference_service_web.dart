@@ -7,6 +7,8 @@
 
 import 'dart:async';
 import 'dart:collection';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/landmark_math.dart';
@@ -18,6 +20,34 @@ class InferenceServiceWeb {
   final _frameBuffer   = ListQueue<List<double>>();
   final _wristYHistory = ListQueue<_TimedSample>();
   final _api           = CprApiService();
+
+  // ── FIX (train/live feature-mismatch, root-cause table): replaces the
+  // old buildFeatureVector() call below with a causal, pixel-space,
+  // rolling-window feature extractor that matches
+  // ml_pipeline/CPR_Coach_Training.ipynb Stage 4 after the parity fix.
+  // One instance per InferenceServiceWeb (i.e. per session) — its rolling
+  // window / backward-difference state must not be shared across sessions.
+  final _causalExtractor =
+      CprCausalFeatureExtractor(rollingWindow: AppConstants.temporalWindowFrames);
+
+  // Fallback video dimensions (typical ResolutionPreset.high webcam
+  // capture) used only for the handful of frames before
+  // flutter_pose_bridge.js's onResults has fired at least once — after
+  // that, real dimensions are always available.
+  static const double _fallbackVideoWidthPx  = 640;
+  static const double _fallbackVideoHeightPx = 480;
+
+  double _videoWidthPx() {
+    final w = js.context['_novicePoseVideoWidth'];
+    final n = (w is num) ? w.toDouble() : 0.0;
+    return n > 0 ? n : _fallbackVideoWidthPx;
+  }
+
+  double _videoHeightPx() {
+    final h = js.context['_novicePoseVideoHeight'];
+    final n = (h is num) ? h.toDouble() : 0.0;
+    return n > 0 ? n : _fallbackVideoHeightPx;
+  }
 
   // ── FIX: the real model's prediction was being computed and thrown away ──
   // `infer()` (called every frame) used to fire `inferAsync()` without
@@ -54,7 +84,35 @@ class InferenceServiceWeb {
   bool get isModelLoaded => _api.isReachable;
 
   Future<void> init() async {
+    _causalExtractor.reset();
     await _api.checkHealth();
+  }
+
+  // FIX: InferenceServiceWeb is a DI singleton (constructed once in
+  // injection.dart, init() called once at app startup) — but it holds
+  // per-session state: the causal feature extractor's rolling-window /
+  // backward-difference history, the 60-frame model input buffer, BPM
+  // peak-detection history, depth calibration accumulators, and the last
+  // cached API prediction. Without an explicit reset, a second CPR session
+  // run in the same browser tab (no full page reload — the normal case
+  // during a field study testing multiple participants back-to-back)
+  // inherits all of that from the previous participant's session. Features
+  // 5/6/7 (velocity/acceleration/rolling amplitude) would be silently wrong
+  // for roughly the first ~60 frames (~2.4s) of every session after the
+  // first, and a stale cached API result could briefly drive feedback for
+  // a participant who hasn't even started compressing yet.
+  //
+  // Call this from session_provider.dart's startSession(), before the
+  // first frame of a new session is processed.
+  void resetSession() {
+    _causalExtractor.reset();
+    _frameBuffer.clear();
+    _wristYHistory.clear();
+    _lastApiResult = null;
+    _lastApiCallAt = null;
+    _apiCallInFlight = false;
+    _shoulderWidthPxSum = 0;
+    _shoulderWidthSamples = 0;
   }
 
   /// Fires the remote BiLSTM prediction when appropriate and caches the
@@ -210,23 +268,22 @@ class InferenceServiceWeb {
     );
   }
 
+  // FIX (train/live feature-mismatch, root-cause table): this used to call
+  // LandmarkMath.buildFeatureVector() with frame.wristMidY fed in raw (no
+  // division by shoulder width), frame.wristVelocityY/wristAccelerationY
+  // (per-frame deltas of raw wristMidY, not of the ratio the model was
+  // trained on), no rolling-window amplitude feature, MediaPipe's
+  // per-axis-normalized coordinates (aspect-distorted vs. training's raw
+  // pixel angles), and a constant-shaped confidence pair that never
+  // reflected real per-joint visibility variation the way training now
+  // does. CprCausalFeatureExtractor (landmark_math.dart) replaces all of
+  // that with formulas that match ml_pipeline/CPR_Coach_Training.ipynb
+  // Stage 4 index-for-index — see its class doc for the full mapping.
   List<double> _buildFeatures(LandmarkFrame frame) {
-    return LandmarkMath.buildFeatureVector(
-      leftElbowAngle:     frame.leftElbowAngle,
-      rightElbowAngle:    frame.rightElbowAngle,
-      spineVerticality:   frame.spineVerticality,
-      wristY:             frame.wristMidY,
-      wristVelocityY:     frame.wristVelocityY,
-      wristAccelerationY: frame.wristAccelerationY,
-      normalizedDepth: LandmarkMath.normalizedWristDisplacement(
-        frame.wristMidY, frame.leftShoulderY, frame.leftHipY,
-      ),
-      shoulderWidth:    frame.shoulderWidth,
-      meanConfidence:   frame.meanLandmarkConfidence,
-      leftElbowVisible:
-          frame.leftElbowVisibility > AppConstants.minLandmarkVisibility,
-      rightElbowVisible:
-          frame.rightElbowVisibility > AppConstants.minLandmarkVisibility,
+    return _causalExtractor.update(
+      frame,
+      videoWidthPx:  _videoWidthPx(),
+      videoHeightPx: _videoHeightPx(),
     );
   }
 

@@ -3,17 +3,16 @@
 // Copyright (C) 2024 Jean Robert Gatwaza — African Leadership University
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../session_logger.dart';
 import '../../models/session_model.dart';
 import '../../models/landmark_frame.dart';
 
-/// Cross-platform session storage.
+/// Web-only session storage: sessions as JSON in SharedPreferences
+/// (backed by localStorage in the browser).
 ///
-/// Mobile (iOS/Android): delegates to SessionLogger (SQLite via sqflite).
-/// Web:                  stores sessions as JSON in SharedPreferences
-///                       (backed by localStorage in the browser).
+/// NOTE: mobile (SQLite via SessionLogger) support is on hold. If mobile
+/// work resumes, restore SessionLogger, the mobileLogger constructor param,
+/// and the kIsWeb branches this file used to have (see git history).
 ///
 /// Schema v2: SessionModel now includes rawFrames (List<LandmarkFrame>).
 /// Raw frames are stored with the session but stripped from the summary
@@ -23,28 +22,19 @@ import '../../models/landmark_frame.dart';
 ///   novice_sessions_v2        — JSON array of sessions (rawFrames included)
 ///   novice_frames_<sessionId> — overflow key for very large frame sets
 class StorageService {
-  StorageService({SessionLogger? mobileLogger})
-      : _mobileLogger = mobileLogger;
+  StorageService();
 
-  final SessionLogger? _mobileLogger;
   static const _sessionsKey = 'novice_sessions_v2';
 
   // ── Save ───────────────────────────────────────────────
 
   Future<void> saveSession(SessionModel session) async {
-    if (!kIsWeb && _mobileLogger != null) {
-      await _mobileLogger!.saveSession(session);
-    } else {
-      await _saveWeb(session);
-    }
+    await _saveWeb(session);
   }
 
   // ── Load all (summaries — rawFrames stripped) ──────────
 
   Future<List<SessionModel>> loadAllSessions() async {
-    if (!kIsWeb && _mobileLogger != null) {
-      return _mobileLogger!.loadAllSessions();
-    }
     final all = await _loadAllWeb();
     // Strip raw frames from the list view to keep memory low
     return all.map((s) => s.copyWith(rawFrames: const [])).toList();
@@ -53,9 +43,6 @@ class StorageService {
   // ── Load one (with rawFrames intact) ──────────────────
 
   Future<SessionModel?> loadSession(String id) async {
-    if (!kIsWeb && _mobileLogger != null) {
-      return _mobileLogger!.loadSession(id);
-    }
     final all = await _loadAllWeb();
     try {
       return all.firstWhere((s) => s.id == id);

@@ -11,8 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart'
-    if (dart.library.html) '../../core/utils/mlkit_stub.dart';
+// Web-only build: google_mlkit_pose_detection is mobile-only and no longer
+// a dependency. mlkit_stub.dart supplies the InputImageRotation type used
+// below. If mobile work resumes, swap this back to the conditional import:
+//   import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart'
+//       if (dart.library.html) '../../core/utils/mlkit_stub.dart';
+import '../../core/utils/mlkit_stub.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
@@ -23,8 +27,12 @@ import '../../widgets/bpm_indicator.dart';
 import '../../widgets/compression_gauge.dart';
 import '../../widgets/pose_overlay.dart';
 
-import 'package:permission_handler/permission_handler.dart'
-    if (dart.library.html) '../../core/utils/permission_stub.dart';
+// Web-only build: permission_handler is mobile-only and no longer a
+// dependency. permission_stub.dart supplies the Permission type used below.
+// If mobile work resumes, swap this back to the conditional import:
+//   import 'package:permission_handler/permission_handler.dart'
+//       if (dart.library.html) '../../core/utils/permission_stub.dart';
+import '../../core/utils/permission_stub.dart';
 
 class TrainingScreen extends ConsumerStatefulWidget {
   const TrainingScreen({super.key, required this.participantId});
