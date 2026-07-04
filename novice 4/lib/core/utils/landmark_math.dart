@@ -321,6 +321,8 @@ class CprCausalFeatureExtractor {
     // idx 9-11: real confidence — frame.meanLandmarkConfidence is already
     // the mean of exactly the same 6 upper-body joints
     // (shoulders+elbows+wrists) as Stage 4's `conf[t, upper_joints].mean()`.
+    // TEMP DEBUG — remove after diagnosing recoil bias
+// ignore: avoid_print
     return [
       leftElbowAngle,
       rightElbowAngle,

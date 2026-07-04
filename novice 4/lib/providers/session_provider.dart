@@ -30,6 +30,7 @@ class LiveSessionState {
     this.bpm = 0,
     this.depthCm = 0,
     this.cprFraction = 0,
+    this.modelUptimeFraction = 0,
     this.language = 'en',
     this.modelAvailable = false,
     this.currentPrompt,
@@ -44,7 +45,29 @@ class LiveSessionState {
   final int compressions;
   final double bpm;
   final double depthCm;
+
+  /// FIX: this now measures real compression-motion activity
+  /// (frames where wrist velocity crossed the compression threshold, or a
+  /// down-cycle was in progress) divided by assessed frames — the actual
+  /// clinical Chest Compression Fraction concept (ERC/AHA target ≥60%).
+  /// Previously this was `_activeFrameCount / _assessedFrameCount` where
+  /// _activeFrameCount only tracked `!inference.isSimulated` (model API
+  /// reachability), which is a completely different quantity that happened
+  /// to share a plausible-sounding field name. An idle, zero-compression
+  /// session showed 88% "CPR Fraction" under the old definition purely
+  /// because the model stayed reachable — see [modelUptimeFraction] below
+  /// for that metric, now correctly separated out and labeled honestly.
   final double cprFraction;
+
+  /// Fraction of assessed frames where the inference API actually
+  /// responded (was not in isSimulated/fallback mode). This is what
+  /// `cprFraction` used to silently measure. Kept as a distinct,
+  /// correctly-named diagnostic signal — useful for spotting connectivity
+  /// issues (e.g. the "Model: Unavailable" + nonzero score case, where this
+  /// value being low over the session explains why the score is based on
+  /// only a partial sample of frames even though the LAST frame shows
+  /// Unavailable).
+  final double modelUptimeFraction;
   final String language;
   final bool modelAvailable;
   final FeedbackPrompt? currentPrompt;
@@ -71,6 +94,7 @@ class LiveSessionState {
     double? bpm,
     double? depthCm,
     double? cprFraction,
+    double? modelUptimeFraction,
     String? language,
     bool? modelAvailable,
     FeedbackPrompt? currentPrompt,
@@ -86,6 +110,7 @@ class LiveSessionState {
       bpm: bpm ?? this.bpm,
       depthCm: depthCm ?? this.depthCm,
       cprFraction: cprFraction ?? this.cprFraction,
+      modelUptimeFraction: modelUptimeFraction ?? this.modelUptimeFraction,
       language: language ?? this.language,
       modelAvailable: modelAvailable ?? this.modelAvailable,
       currentPrompt: currentPrompt ?? this.currentPrompt,
@@ -118,7 +143,8 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   final List<LandmarkFrame> _frameBuffer = [];
 
   int _assessedFrameCount = 0;
-  int _activeFrameCount = 0;
+  int _activeFrameCount = 0;      // model-uptime counter (renamed meaning, see modelUptimeFraction)
+  int _compressionMotionFrameCount = 0; // FIX: real compression-activity counter, see cprFraction
 
   // Per-task accuracy histories, used both for the live taskAccuracies
   // readout and for the final SessionModel research metrics at stopSession.
@@ -166,6 +192,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _taskConfidences['recoil'] = 0.0;
     _assessedFrameCount = 0;
     _activeFrameCount = 0;
+    _compressionMotionFrameCount = 0;
     _lastVelocityY = null;
     _wasDescending = false;
     _lastCompressionAt = null;
@@ -221,17 +248,40 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _assessedFrameCount++;
     if (!inference.isSimulated) _activeFrameCount++;
 
-    if (inference.rateAccuracy != null) {
-      _rateAccuracies.add(inference.rateAccuracy!);
-      _taskConfidences['rate'] = inference.rateConfidence ?? 0.0;
-    }
-    if (inference.depthAccuracy != null) {
-      _depthAccuracies.add(inference.depthAccuracy!);
-      _taskConfidences['depth'] = inference.depthConfidence ?? 0.0;
-    }
-    if (inference.recoilAccuracy != null) {
-      _recoilAccuracies.add(inference.recoilAccuracy!);
-      _taskConfidences['recoil'] = inference.recoilConfidence ?? 0.0;
+    // FIX (Bug 4 — see debugging session): rate/depth/recoil accuracy used
+    // to accumulate on EVERY assessed frame, with no check for whether any
+    // compression motion was actually happening. RATE_CLASSES/DEPTH_CLASSES
+    // have no "no compression" option (['Correct','Too_Fast','Too_Slow'] /
+    // ['Correct','Too_Deep','Too_Shallow']), so a static/idle frame is
+    // out-of-distribution input the model was never trained to abstain on —
+    // it defaults toward SOME label regardless (observed: 'Correct' for
+    // rate/depth, 'Incomplete' for recoil, on a genuinely idle session).
+    // Every one of those meaningless idle-frame guesses was getting
+    // averaged into the accuracy that feeds the final quality score,
+    // reproduced live as: 0 compressions, 0 bpm → Rate 100%, Depth 100%.
+    // Fix: only accumulate accuracy for a frame while real compression
+    // motion is in progress — descending past the velocity threshold, or
+    // still mid-down-cycle (_wasDescending) — computed BEFORE
+    // _updateCompressionCount() below runs and mutates _wasDescending for
+    // the next frame.
+    final v = frame.wristVelocityY;
+    final inCompressionMotion =
+        v.abs() > _compressionVelocityThreshold || _wasDescending;
+    if (inCompressionMotion) _compressionMotionFrameCount++;
+
+    if (inCompressionMotion) {
+      if (inference.rateAccuracy != null) {
+        _rateAccuracies.add(inference.rateAccuracy!);
+        _taskConfidences['rate'] = inference.rateConfidence ?? 0.0;
+      }
+      if (inference.depthAccuracy != null) {
+        _depthAccuracies.add(inference.depthAccuracy!);
+        _taskConfidences['depth'] = inference.depthConfidence ?? 0.0;
+      }
+      if (inference.recoilAccuracy != null) {
+        _recoilAccuracies.add(inference.recoilAccuracy!);
+        _taskConfidences['recoil'] = inference.recoilConfidence ?? 0.0;
+      }
     }
 
     // FIX (Bug 1 — see debugging session): this used to append to
@@ -271,8 +321,14 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       // and show "Model Unavailable" instead of a number.
       bpm: inference.isSimulated ? 0 : inference.currentBpm,
       depthCm: inference.isSimulated ? 0 : inference.estimatedDepthCm,
-      cprFraction:
-          _assessedFrameCount == 0 ? 0 : _activeFrameCount / _assessedFrameCount,
+      // FIX: now the real Chest Compression Fraction (compression-motion
+      // frames / assessed frames), not model uptime — see field doc above.
+      cprFraction: _assessedFrameCount == 0
+          ? 0
+          : _compressionMotionFrameCount / _assessedFrameCount,
+      modelUptimeFraction: _assessedFrameCount == 0
+          ? 0
+          : _activeFrameCount / _assessedFrameCount,
       currentPrompt: prompt,
       lastInference: inference,
       lastFrame: frame,
