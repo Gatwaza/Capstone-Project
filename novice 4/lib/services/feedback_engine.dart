@@ -100,7 +100,7 @@ class FeedbackEngine {
 
   /// Returns true only when TTS should fire.
   ///
-  /// FIX — silence-on-correct behaviour:
+  /// Silence-on-correct behaviour:
   ///   • FeedbackSeverity.good → never speaks (except one optional praise
   ///     cue per sustained-correct streak).
   ///   • Errors speak immediately after the cooldown window, never blocked

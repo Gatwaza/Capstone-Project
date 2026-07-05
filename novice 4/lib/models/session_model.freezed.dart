@@ -1023,7 +1023,7 @@ mixin _$InferenceResult {
   String? get depthLabel => throw _privateConstructorUsedError;
   String? get recoilLabel => throw _privateConstructorUsedError;
   bool get isSimulated =>
-      throw _privateConstructorUsedError; // FIX: distinguishes a frame carrying a genuinely-fresh API
+      throw _privateConstructorUsedError; // distinguishes a frame carrying a genuinely-fresh API
 // classification from one merely reusing the last cached result
 // (inference_service_web.dart throttles real API calls to every
 // ~600ms / 15 frames at 25fps, then serves the cached label+accuracy
@@ -1425,7 +1425,7 @@ class _$InferenceResultImpl implements _InferenceResult {
   @override
   @JsonKey()
   final bool isSimulated;
-// FIX: distinguishes a frame carrying a genuinely-fresh API
+// distinguishes a frame carrying a genuinely-fresh API
 // classification from one merely reusing the last cached result
 // (inference_service_web.dart throttles real API calls to every
 // ~600ms / 15 frames at 25fps, then serves the cached label+accuracy
@@ -1599,7 +1599,7 @@ abstract class _InferenceResult implements InferenceResult {
   String? get recoilLabel;
   @override
   bool
-      get isSimulated; // FIX: distinguishes a frame carrying a genuinely-fresh API
+      get isSimulated; // distinguishes a frame carrying a genuinely-fresh API
 // classification from one merely reusing the last cached result
 // (inference_service_web.dart throttles real API calls to every
 // ~600ms / 15 frames at 25fps, then serves the cached label+accuracy

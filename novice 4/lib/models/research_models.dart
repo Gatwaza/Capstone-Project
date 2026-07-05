@@ -188,7 +188,7 @@ class FrameRecord with _$FrameRecord {
     required String sessionId,          // FK → ResearchSession.sessionId
     required DateTime timestamp,
 
-    /// BiLSTM or rule-based output class label.
+    /// TCN or rule-based output class label.
     required String errorClass,
 
     /// Confidence score for errorClass (0.0–1.0).

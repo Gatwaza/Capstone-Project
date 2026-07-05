@@ -128,12 +128,11 @@ class FeedbackBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: was using raw Unicode glyphs ('✓'/'⚠') inside Text widgets.
-    // Flutter's default font (Roboto/Noto) doesn't ship checkmark/warning
-    // glyphs, so every render of this banner — which fires constantly
-    // during a live session — logged "Could not find a set of Noto fonts
-    // to display all missing characters." Material Icons are bundled
-    // vector glyphs with no font-lookup dependency, so this can't recur.
+    // Material Icons are used instead of raw Unicode glyphs ('✓'/'⚠') here
+    // since Flutter's default font (Roboto/Noto) doesn't ship
+    // checkmark/warning glyphs — Material Icons are bundled vector glyphs
+    // with no font-lookup dependency, which matters since this banner
+    // renders constantly during a live session.
     final (borderColor, iconColor, bgColor, icon) = switch (prompt.severity) {
       FeedbackSeverity.good     => (
           AppTheme.accent.withOpacity(0.4),

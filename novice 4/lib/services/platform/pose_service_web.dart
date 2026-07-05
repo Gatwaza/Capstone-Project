@@ -17,10 +17,10 @@ class PoseServiceWeb implements PoseServiceInterface {
   @override
   Future<LandmarkFrame?> processFrame(CameraImage? image, dynamic rotation) async {
     try {
-      // FIX (primary guard — secondary to the readiness poller in TrainingScreen):
-      // MediaPipe crashes with "roi->width > 0 && roi->height > 0" when it
-      // processes a frame before the <video> element has been rendered by the
-      // browser. We check the JS-side video dimensions before touching landmarks.
+      // Guard against processing a frame before the <video> element has been
+      // rendered by the browser — MediaPipe throws "roi->width > 0 &&
+      // roi->height > 0" if it processes a frame too early. This is a
+      // secondary guard to the readiness poller in TrainingScreen.
       // _novicePoseVideoReady is set to true by the bridge once videoWidth > 0.
       final videoReady = js.context['_novicePoseVideoReady'];
       if (videoReady != true) return null;
@@ -48,30 +48,22 @@ class PoseServiceWeb implements PoseServiceInterface {
 
       final now = DateTime.now();
 
-      // FIX: this used to divide by dt to produce a per-SECOND velocity
-      // (Δy / Δt), while the compression state machine's thresholds in
+      // Velocity is a plain per-frame delta (Δy only, no /dt), matching the
+      // units the compression state machine's thresholds in
       // session_provider.dart (_downThreshold = 0.006, _upThreshold =
-      // -0.004) — and pose_service_mobile.dart's LandmarkMath.wristVelocity
-      // — are tuned for a per-FRAME delta (Δy only, no /dt). At ~25–30fps
-      // that /dt was inflating every velocity reading ~25–30×, so ordinary
-      // hand jitter blew through both thresholds almost every frame: the
-      // compression counter incremented constantly with no real compression,
-      // and the BPM peak-detector (also velocity-based) whipsawed wildly.
-      // Use a plain per-frame delta here so web matches mobile's units and
-      // the existing thresholds behave as designed.
+      // -0.004) and LandmarkMath.wristVelocity are tuned for. Dividing by dt
+      // would produce a per-second velocity ~25–30x larger at typical
+      // camera frame rates, which would blow through both thresholds on
+      // ordinary hand jitter.
       final wristVY = wmy - _prevWristY;
       final wristAY = wristVY - _prevWristVY;
       _prevWristY   = wmy;
       _prevWristVY  = wristVY;
 
-      // FIX: the previous inline implementation here computed
-      // (180/pi) * clamp(dot/mag) WITHOUT taking acos() first — i.e. it
-      // returned a rescaled cosine, not an actual angle in degrees. That
-      // silently fed wrong numbers into every "are the elbows locked"
-      // decision on web (bent_elbows feedback, the skeleton color-coding,
-      // and the BiLSTM feature vector). Mobile never had this bug because
-      // it already calls LandmarkMath.jointAngleDeg. Use the same function
-      // here so both platforms agree.
+      // Spine verticality is computed in true degrees via
+      // LandmarkMath.spineVerticalityDeg (acos of the normalized dot
+      // product, not a rescaled cosine), so it's directly comparable to the
+      // elbow-lock and posture thresholds elsewhere in the pipeline.
       final smx = (lsx+rsx)/2; final smy = (lsy+rsy)/2;
       final hmx = (lhx+rhx)/2; final hmy = (lhy+rhy)/2;
       final spineVerticality = LandmarkMath.spineVerticalityDeg(smx, smy, hmx, hmy);

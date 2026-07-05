@@ -4,13 +4,11 @@
 //
 // ResearcherDashboard — researcher-only view for pilot study management.
 //
-// FIXES applied (2025-06):
-//   1. Replaced direct getIt<ResearchLogger>() (crashes on web) with
-//      ResearchLoggerAdapter — works on both web and mobile.
-//   2. Added PIN gate (default 2026) so participants can't reach this screen.
-//   3. Added CSV export button (web: triggers browser download;
-//      mobile: uses share_plus).
-//   4. Added data-privacy notice per §3.12.3.
+//   • Uses ResearchLoggerAdapter (works on both web and mobile) rather than
+//     getIt<ResearchLogger>() directly.
+//   • PIN-gated (default 2026) so participants can't reach this screen.
+//   • CSV export (web: triggers browser download; mobile: uses share_plus).
+//   • Data-privacy notice per §3.12.3.
 //
 // Access: Settings → Researcher Dashboard → PIN entry
 

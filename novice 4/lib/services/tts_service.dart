@@ -64,17 +64,13 @@ class TtsService {
   /// [key] is used to look up a pre-baked WAV file for Kinyarwanda.
   /// Pass null to always use TTS synthesis.
   ///
-  /// FIX: this used to call `await stop()` before every utterance whenever
-  /// something was already speaking. On the Web Speech API, cancelling an
-  /// in-progress utterance fires an `error` event with reason
-  /// "interrupted" — so any time feedback changed while a prompt was still
-  /// being read (which was happening almost every frame before the web
-  /// wrist-velocity-units fix), the coach would get cut off mid-sentence
-  /// and spam the log with SpeechSynthesisErrorEvent/"interrupted" entries.
-  /// FeedbackEngine.shouldSpeak() already rate-limits how often a prompt is
-  /// allowed through (voiceCoachingCooldownMs, critical prompts bypass it),
-  /// so it's safe — and far less jarring — to just skip a new non-critical
-  /// prompt if the coach is mid-sentence rather than barge in over it.
+  /// On the Web Speech API, cancelling an in-progress utterance fires an
+  /// `error` event with reason "interrupted". FeedbackEngine.shouldSpeak()
+  /// already rate-limits how often a prompt is allowed through
+  /// (voiceCoachingCooldownMs, critical prompts bypass it), so a new
+  /// non-critical prompt is simply skipped if the coach is mid-sentence
+  /// rather than barging in over it — less jarring than cutting off the
+  /// current utterance.
   Future<void> speak(String message, {String? key}) async {
     if (!_initialized) await init();
     if (_isSpeaking) {

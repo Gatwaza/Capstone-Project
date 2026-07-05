@@ -53,11 +53,11 @@ cd novice
 # 2. Install Flutter dependencies
 flutter pub get
 
-# 3. Generate model bindings (required once after cloning)
-dart run build_runner build --delete-conflicting-outputs
-
-# 4. Run in Chrome
+# 3. Run in Chrome
 flutter run -d chrome
+
+# Only needed if you edit a @freezed/@JsonSerializable model:
+# dart run build_runner build --delete-conflicting-outputs
 ```
 
 The app will open in Chrome. The CPR training module will ask for camera permission — allow it and position yourself so your upper body is visible.
@@ -116,7 +116,7 @@ novice/
 │       └── settings/                   # Language toggle (English / Kinyarwanda)
 ├── web/index.html                       # App shell + AI bridge + config
 ├── scripts/vercel_build.sh             # Production build pipeline
-├── docs/                               # Technical documentation
+├── SETUP.md                             # Local setup + deployment guide
 ├── pubspec.yaml
 └── vercel.json                         # Deployment configuration
 ```
@@ -190,7 +190,7 @@ cd build/web && python3 -m http.server 8080
 # Open http://localhost:8080
 ```
 
-See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full Vercel setup guide including environment variables and CORS headers required for the AI bridge.
+See [`SETUP.md`](SETUP.md) for the full deployment guide covering Vercel, Supabase, and the Hugging Face Spaces inference API — including required environment variables.
 
 ---
 
@@ -222,4 +222,4 @@ flutter test
 
 ## Technical documentation
 
-For architecture, API reference, and deployment details see the [`docs/`](docs/) directory.
+For local setup, environment variables, and deployment (Vercel, Supabase, Hugging Face Spaces) see [`SETUP.md`](SETUP.md).

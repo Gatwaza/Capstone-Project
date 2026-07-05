@@ -4,8 +4,8 @@
 //
 // ConsentScreen — Participant enrolment + informed consent.
 //
-// FIX (2025-06): replaced direct getIt<ResearchLogger>() with
-//   ResearchLoggerAdapter so this screen works on both web and mobile.
+// Uses ResearchLoggerAdapter rather than getIt<ResearchLogger>() directly
+// so this screen works on both web and mobile.
 //
 // Implements §3.12.2:
 //   "Written informed consent will be obtained from all participants

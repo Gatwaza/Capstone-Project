@@ -16,7 +16,7 @@ import '../models/session_model.dart';
 import '../services/feedback_engine.dart';
 import '../services/platform/inference_service_web.dart';
 import '../services/platform/storage_service.dart';
-import '../services/platform/telemetry_service.dart'; // FIX: import added
+import '../services/platform/telemetry_service.dart';
 import '../services/tts_service.dart';
 
 /// Immutable snapshot of an in-progress (or not-yet-started) training
@@ -46,27 +46,17 @@ class LiveSessionState {
   final double bpm;
   final double depthCm;
 
-  /// FIX: this now measures real compression-motion activity
-  /// (frames where wrist velocity crossed the compression threshold, or a
-  /// down-cycle was in progress) divided by assessed frames — the actual
-  /// clinical Chest Compression Fraction concept (ERC/AHA target ≥60%).
-  /// Previously this was `_activeFrameCount / _assessedFrameCount` where
-  /// _activeFrameCount only tracked `!inference.isSimulated` (model API
-  /// reachability), which is a completely different quantity that happened
-  /// to share a plausible-sounding field name. An idle, zero-compression
-  /// session showed 88% "CPR Fraction" under the old definition purely
-  /// because the model stayed reachable — see [modelUptimeFraction] below
-  /// for that metric, now correctly separated out and labeled honestly.
+  /// The clinical Chest Compression Fraction (ERC/AHA target ≥60%): frames
+  /// where real compression motion was detected (wrist velocity crossed the
+  /// compression threshold, or a down-cycle was in progress) divided by
+  /// assessed frames.
   final double cprFraction;
 
-  /// Fraction of assessed frames where the inference API actually
-  /// responded (was not in isSimulated/fallback mode). This is what
-  /// `cprFraction` used to silently measure. Kept as a distinct,
-  /// correctly-named diagnostic signal — useful for spotting connectivity
-  /// issues (e.g. the "Model: Unavailable" + nonzero score case, where this
-  /// value being low over the session explains why the score is based on
-  /// only a partial sample of frames even though the LAST frame shows
-  /// Unavailable).
+  /// Fraction of assessed frames where the inference API actually responded
+  /// (i.e. was not in isSimulated/fallback mode). A distinct diagnostic
+  /// signal from [cprFraction] above — useful for spotting connectivity
+  /// issues, since a low value here means the score is based on only a
+  /// partial sample of frames even when the model shows as available.
   final double modelUptimeFraction;
   final String language;
   final bool modelAvailable;
@@ -127,13 +117,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _feedback = FeedbackEngine();
     _tts = getIt<TtsService>();
     _storage = getIt<StorageService>();
-    _telemetry = getIt<TelemetryService>(); // FIX: wire in TelemetryService
+    _telemetry = getIt<TelemetryService>();
   }
 
   late final FeedbackEngine _feedback;
   late final TtsService _tts;
   late final StorageService _storage;
-  late final TelemetryService _telemetry; // FIX: field added
+  late final TelemetryService _telemetry;
 
   DateTime? _sessionStart;
   Timer? _ticker;
@@ -144,7 +134,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
   int _assessedFrameCount = 0;
   int _activeFrameCount = 0;      // model-uptime counter (renamed meaning, see modelUptimeFraction)
-  int _compressionMotionFrameCount = 0; // FIX: real compression-activity counter, see cprFraction
+  int _compressionMotionFrameCount = 0; // real compression-activity counter, see cprFraction
 
   // Per-task accuracy histories, used both for the live taskAccuracies
   // readout and for the final SessionModel research metrics at stopSession.
@@ -161,12 +151,9 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   // → upward direction change of wristVelocityY (i.e. each completed press
   // cycle).
   //
-  // FIX: the original 0.002 threshold was within the noise floor of
-  // MediaPipe landmark jitter — small frame-to-frame tracking wobble was
-  // enough to flip descending/ascending state even with hands completely
-  // still, producing physically impossible counts (200+ bpm, 170+
-  // compressions in 38s). Two changes:
-  //   1. Threshold raised to 0.012 — well above jitter, comfortably below
+  // The threshold and debounce below keep MediaPipe landmark jitter from
+  // registering as compressions:
+  //   1. Threshold set to 0.012 — well above jitter, comfortably below
   //      real compression velocity (~0.03-0.08 normalized units/frame at
   //      25fps for a 5-6cm press).
   //   2. Minimum 300ms between counted compressions (hard caps the counter
@@ -198,14 +185,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _lastCompressionAt = null;
     _feedback.reset();
 
-    // FIX: InferenceServiceWeb is a DI singleton whose causal feature
-    // extractor, 60-frame model buffer, BPM history, depth calibration,
-    // and cached API result all persist across sessions unless explicitly
-    // cleared here. Without this, a second session run in the same
-    // browser tab (no page reload) leaks the previous participant's
-    // in-flight rolling-window/derivative state into the first ~2.4s of
-    // the new session. Must run before the first onFrame() call for this
-    // session.
+    // InferenceServiceWeb is a DI singleton whose causal feature extractor,
+    // 60-frame model buffer, BPM history, depth calibration, and cached API
+    // result all persist across sessions unless explicitly cleared here —
+    // otherwise a second session run in the same browser tab (no page
+    // reload) would leak the previous participant's in-flight
+    // rolling-window/derivative state into the first ~2.4s of the new
+    // session. Must run before the first onFrame() call for this session.
     getIt<InferenceServiceWeb>().resetSession();
 
     state = state.copyWith(
@@ -248,22 +234,16 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _assessedFrameCount++;
     if (!inference.isSimulated) _activeFrameCount++;
 
-    // FIX (Bug 4 — see debugging session): rate/depth/recoil accuracy used
-    // to accumulate on EVERY assessed frame, with no check for whether any
-    // compression motion was actually happening. RATE_CLASSES/DEPTH_CLASSES
-    // have no "no compression" option (['Correct','Too_Fast','Too_Slow'] /
-    // ['Correct','Too_Deep','Too_Shallow']), so a static/idle frame is
-    // out-of-distribution input the model was never trained to abstain on —
-    // it defaults toward SOME label regardless (observed: 'Correct' for
-    // rate/depth, 'Incomplete' for recoil, on a genuinely idle session).
-    // Every one of those meaningless idle-frame guesses was getting
-    // averaged into the accuracy that feeds the final quality score,
-    // reproduced live as: 0 compressions, 0 bpm → Rate 100%, Depth 100%.
-    // Fix: only accumulate accuracy for a frame while real compression
-    // motion is in progress — descending past the velocity threshold, or
-    // still mid-down-cycle (_wasDescending) — computed BEFORE
+    // RATE_CLASSES/DEPTH_CLASSES have no "no compression" option
+    // (['Correct','Too_Fast','Too_Slow'] / ['Correct','Too_Deep','Too_Shallow']),
+    // so a static/idle frame is out-of-distribution input the model was
+    // never trained to abstain on — it will default toward some label
+    // regardless. Accuracy is therefore only accumulated for a frame while
+    // real compression motion is in progress — descending past the velocity
+    // threshold, or still mid-down-cycle (_wasDescending) — computed BEFORE
     // _updateCompressionCount() below runs and mutates _wasDescending for
-    // the next frame.
+    // the next frame. This keeps idle frames from being averaged into the
+    // quality score.
     final v = frame.wristVelocityY;
     final inCompressionMotion =
         v.abs() > _compressionVelocityThreshold || _wasDescending;
@@ -284,16 +264,12 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       }
     }
 
-    // FIX (Bug 1 — see debugging session): this used to append to
-    // _bpmHistory/_depthHistory on EVERY frame, decoupled from the actual
-    // compression counter. _estimateBpm()'s single-frame velocity-peak
-    // detector has no cycle requirement or debounce, so pure landmark-
-    // tracking jitter (hand tremor, camera micro-noise) tripped it and got
-    // averaged into meanBpm/meanDepthCm even while the stricter, debounced
-    // _updateCompressionCount() correctly reported 0 compressions
-    // (reproduced: total_compressions=0 but mean_bpm=192). Fix: only
-    // accumulate history at the moment a real completed down→up compression
-    // cycle is registered.
+    // _estimateBpm()'s single-frame velocity-peak detector has no cycle
+    // requirement or debounce on its own, so history is only accumulated at
+    // the moment a real, completed down→up compression cycle is registered
+    // by the stricter, debounced _updateCompressionCount() below. This keeps
+    // landmark-tracking jitter (hand tremor, camera micro-noise) from being
+    // averaged into meanBpm/meanDepthCm.
     final compressionJustCompleted = _updateCompressionCount(frame);
     if (compressionJustCompleted) {
       if (inference.currentBpm > 0) _bpmHistory.add(inference.currentBpm);
@@ -309,20 +285,16 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     };
 
     state = state.copyWith(
-      // FIX (Bug 2 — see debugging session): bpm/depthCm are computed from
-      // local pose-landmark math in inference_service_web.dart, independent
-      // of whether the hosted TCN model actually responded. Previously
-      // these were surfaced unconditionally, so a "Model: Unavailable"
-      // session (API unreachable, no classification ran) would still show
-      // quantitative-looking bpm/depth numbers right next to it, implying
-      // something had been AI-assessed when nothing had. Fix: hide (zero)
-      // these live-display fields when the model isn't available;
-      // modelAvailable is already exposed in state for the UI to branch on
-      // and show "Model Unavailable" instead of a number.
+      // bpm/depthCm are computed from local pose-landmark math in
+      // inference_service_web.dart, independent of whether the hosted TCN
+      // model actually responded. These are hidden (zeroed) when the model
+      // is unavailable so the UI never shows quantitative-looking numbers
+      // implying an AI assessment happened when it didn't; the UI branches
+      // on `modelAvailable` to show "Model Unavailable" instead.
       bpm: inference.isSimulated ? 0 : inference.currentBpm,
       depthCm: inference.isSimulated ? 0 : inference.estimatedDepthCm,
-      // FIX: now the real Chest Compression Fraction (compression-motion
-      // frames / assessed frames), not model uptime — see field doc above.
+      // Chest Compression Fraction (compression-motion frames / assessed
+      // frames) — see field doc above.
       cprFraction: _assessedFrameCount == 0
           ? 0
           : _compressionMotionFrameCount / _assessedFrameCount,
@@ -416,7 +388,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     // Save locally (SharedPreferences on web, SQLite on mobile)
     await _storage.saveSession(session);
 
-    // FIX: Upload to Supabase. Fire-and-forget — TelemetryService has its
+    // Upload to Supabase. Fire-and-forget — TelemetryService has its
     // own 10s timeout and silent error handling, so we never await this.
     // A network failure here must not block navigation to the results screen.
     unawaited(_telemetry.uploadSession(session));
@@ -436,20 +408,12 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   int _computeQualityScore(double rateAcc, double depthAcc, double recoilAcc) {
     if (_assessedFrameCount == 0) return 0;
 
-    // FIX (Bug 3 — see debugging session): this used to divide each
-    // accuracy by its F1 baseline (rateF1Baseline=91.7 etc.) before
-    // scaling to 0-100. Since those baselines are themselves already close
-    // to 100, that division compressed the formula's usable dynamic range
-    // into a thin sliver at the top: rateAcc=1.0 (perfect) computed to
-    // (100/91.7)=109%, which the .clamp(0,2)*100 ceiling then flattened to
-    // exactly 100, while a single misclassified frame dragged the ratio
-    // down fast since the denominator was already ~90-98. Net effect: a
-    // short session (20-40 assessed frames) almost always landed fully on
-    // 0 or 100, never in between. Fix: rateAcc/depthAcc/recoilAcc are
-    // already fair 0-1 accuracy fractions on their own — scale directly to
-    // 0-100, no baseline division. The AUC-derived weights below keep
-    // their intended role as a per-task importance weighting, not a
-    // denominator.
+    // rateAcc/depthAcc/recoilAcc are already fair 0-1 accuracy fractions on
+    // their own, so they scale directly to 0-100 with no baseline division.
+    // The AUC-derived weights below are a per-task importance weighting
+    // only, not a denominator — dividing by baselines this close to 100
+    // would compress the formula's usable range and push most short
+    // sessions to a flat 0 or 100 with nothing in between.
     //
     // Baselines from sliding-window retrain (ml_pipeline/CPR_Coach_Training.ipynb,
     // Stage 9 evaluate()) — TCN selected as deploy model in place of
@@ -461,9 +425,9 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     const recoilWeight = 0.959; // TCN test-set recoil AUC-ROC
     const totalWeight = rateWeight + depthWeight + recoilWeight;
 
-    final rateScore = rateAcc * 100;     // 0-100, no inflation
-    final depthScore = depthAcc * 100;   // 0-100, no inflation
-    final recoilScore = recoilAcc * 100; // 0-100, no inflation
+    final rateScore = rateAcc * 100;     // 0-100
+    final depthScore = depthAcc * 100;   // 0-100
+    final recoilScore = recoilAcc * 100; // 0-100
 
     double weightedScore = ((rateScore * rateWeight) +
             (depthScore * depthWeight) +

@@ -55,11 +55,11 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   bool _permissionDenied = false;
   Timer? _webPoseTimer;
 
-  // FIX: track whether the MediaPipe JS bridge has confirmed a valid frame.
-  // The crash "roi->width > 0 && roi->height > 0" happens because the poll
-  // loop starts before the <video> element has non-zero dimensions. We wait
-  // until the JS bridge sets window._novicePoseReady = true (inside its
-  // onResults callback) or until a 4-second timeout, then start the loop.
+  // Tracks whether the MediaPipe JS bridge has confirmed a valid frame.
+  // The crash "roi->width > 0 && roi->height > 0" happens if the poll
+  // loop starts before the <video> element has non-zero dimensions, so we
+  // wait until the JS bridge sets window._novicePoseReady = true (inside
+  // its onResults callback) or until a 4-second timeout, then start the loop.
   bool _poseReady = false;
   Timer? _poseReadyPoller;
 
@@ -102,14 +102,14 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
     setState(() => _cameraReady = true);
 
     if (kIsWeb) {
-      // FIX: Do NOT poll MediaPipe immediately after initialize().
-      // The Flutter camera plugin attaches the stream to a <video> element,
-      // but the element has videoWidth=0/videoHeight=0 until the browser
-      // paints the first decoded frame. Sending a frame to MediaPipe before
-      // this causes the fatal RET_CHECK crash. We poll a JS readiness flag
-      // set by the bridge after its own first successful onResults, then start
-      // the 200ms pose loop. PoseServiceWeb also guards per-frame as a
-      // secondary safety net.
+      // Do NOT poll MediaPipe immediately after initialize(). The Flutter
+      // camera plugin attaches the stream to a <video> element, but the
+      // element has videoWidth=0/videoHeight=0 until the browser paints the
+      // first decoded frame, and sending a frame to MediaPipe before that
+      // causes a fatal RET_CHECK crash. We poll a JS readiness flag set by
+      // the bridge after its own first successful onResults, then start the
+      // pose loop. PoseServiceWeb also guards per-frame as a secondary
+      // safety net.
       _waitForPoseBridgeReady();
     } else {
       _camera!.startImageStream(_onCameraFrame);
@@ -153,15 +153,12 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   }
 
   void _startWebPoseLoop() {
-    // FIX: this was hardcoded to 200ms (5 fps), four times slower than the
-    // app's own documented target (AppConstants.poseEstimationTargetFps =
-    // 25fps, i.e. ~40ms). At 5fps the skeleton overlay visibly stair-steps
-    // and the compression-counting state machine only sees 5 velocity
-    // samples per second, which is also why feedback felt delayed — by the
-    // time a frame was sampled, evaluated, and spoken, the user had already
-    // moved well past the moment the feedback was about. Mobile never had
-    // this problem because it runs off the camera's native frame stream.
-    // We poll at the target rate here so web matches that responsiveness.
+    // Polls at AppConstants.poseEstimationTargetFps (25fps, ~40ms) rather
+    // than a slower fixed interval — the skeleton overlay and the
+    // compression-counting state machine both need enough velocity samples
+    // per second to stay responsive; too slow a poll makes the overlay
+    // stair-step and delays feedback relative to when the user actually
+    // moved.
     final intervalMs = (1000 / AppConstants.poseEstimationTargetFps).round();
     _webPoseTimer = Timer.periodic(
       Duration(milliseconds: intervalMs),

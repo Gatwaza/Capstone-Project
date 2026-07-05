@@ -9,15 +9,10 @@ import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
 
 /// Draws the real-time pose skeleton on top of the camera feed, built from
-/// the same shoulder/elbow/wrist/hip landmarks the model is trained on.
-///
-/// FIX: this painter used to be a placeholder — it drew a fixed dashed
-/// circle at a hardcoded 50%/55% screen position regardless of where the
-/// person actually was. It never received landmark data at all (only the
-/// aggregate [InferenceResult]), so nothing on screen tracked the user's
-/// real hands, elbows, or body. This version draws the actual tracked
-/// joints and limb segments every frame, so the overlay moves with the
-/// person instead of sitting still while they move around it.
+/// the same shoulder/elbow/wrist/hip landmarks the model is trained on. It
+/// draws the actual tracked joints and limb segments every frame from live
+/// landmark data (not just the aggregate [InferenceResult]), so the overlay
+/// moves with the person in real time.
 ///
 /// Connections are coloured by clinical importance:
 ///   Green  = correct technique (elbow angle ≥ [AppConstants.elbowLockAngleDeg])

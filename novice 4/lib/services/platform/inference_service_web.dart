@@ -21,12 +21,11 @@ class InferenceServiceWeb {
   final _wristYHistory = ListQueue<_TimedSample>();
   final _api           = CprApiService();
 
-  // ── FIX (train/live feature-mismatch, root-cause table): replaces the
-  // old buildFeatureVector() call below with a causal, pixel-space,
-  // rolling-window feature extractor that matches
-  // ml_pipeline/CPR_Coach_Training.ipynb Stage 4 after the parity fix.
-  // One instance per InferenceServiceWeb (i.e. per session) — its rolling
-  // window / backward-difference state must not be shared across sessions.
+  // Causal, pixel-space, rolling-window feature extractor matching
+  // ml_pipeline/CPR_Coach_Training.ipynb Stage 4's train/live feature
+  // parity. One instance per InferenceServiceWeb (i.e. per session) — its
+  // rolling window / backward-difference state must not be shared across
+  // sessions.
   final _causalExtractor =
       CprCausalFeatureExtractor(rollingWindow: AppConstants.temporalWindowFrames);
 
@@ -49,25 +48,22 @@ class InferenceServiceWeb {
     return n > 0 ? n : _fallbackVideoHeightPx;
   }
 
-  // ── FIX: the real model's prediction was being computed and thrown away ──
-  // `infer()` (called every frame) used to fire `inferAsync()` without
-  // awaiting it, then immediately return a rule-based result regardless of
-  // what the trained BiLSTM API said. That meant:
-  //   1. The actual ML model never drove feedback on web — only the rule
-  //      fallback did, even when `modelAvailable` was true.
-  //   2. Every single frame sent a full (60×12) HTTP POST to the hosted
-  //      Hugging Face Space, fire-and-forget, regardless of how fast the
-  //      caller polled — at 25 Hz that's 25 overlapping requests/sec.
-  // Fix: cache the latest real prediction and use it when fresh; only issue
-  // a new API call when the previous one has resolved and enough time has
-  // passed (the 60-frame window doesn't change meaningfully frame-to-frame).
+  // `infer()` is called every frame but must not block on the network, so it
+  // fires `inferAsync()` fire-and-forget and returns the most recently
+  // cached TCN result (`_lastApiResult`) immediately. `inferAsync()` itself
+  // is internally throttled (see below) so it doesn't fire a full (60×12)
+  // HTTP POST to the hosted Hugging Face Space on every frame — at 25 Hz
+  // that would be 25 overlapping requests/sec. The latest cached prediction
+  // is reused while fresh; a new API call is only issued once the previous
+  // one has resolved and enough time has passed (the 60-frame window
+  // doesn't change meaningfully frame-to-frame).
   InferenceResult? _lastApiResult;
   DateTime? _lastApiCallAt;
   bool _apiCallInFlight = false;
   static const Duration _apiCallInterval = Duration(milliseconds: 600);
   static const Duration _apiResultMaxAge = Duration(milliseconds: 1500);
 
-  // ── FIX: Depth calibration ─────────────────────────────────────────────────
+  // ── Depth calibration ───────────────────────────────────────────────────
   // Track wrist Y range within the session to normalise depth dynamically.
   // On first frames we have no range yet — we use a conservative fixed scale
   // until we have enough history (>= _depthCalibFrames samples).
@@ -88,7 +84,7 @@ class InferenceServiceWeb {
     await _api.checkHealth();
   }
 
-  // FIX: InferenceServiceWeb is a DI singleton (constructed once in
+  // InferenceServiceWeb is a DI singleton (constructed once in
   // injection.dart, init() called once at app startup) — but it holds
   // per-session state: the causal feature extractor's rolling-window /
   // backward-difference history, the 60-frame model input buffer, BPM
@@ -115,10 +111,9 @@ class InferenceServiceWeb {
     _shoulderWidthSamples = 0;
   }
 
-  /// Fires the remote BiLSTM prediction when appropriate and caches the
+  /// Fires the remote TCN prediction when appropriate and caches the
   /// result. This is fire-and-forget by design (it updates `_lastApiResult`
-  /// asynchronously) but — unlike before — that cached result is now
-  /// actually consumed by `infer()` below instead of being thrown away.
+  /// asynchronously) and that cached result is consumed by `infer()` below.
   Future<void> _maybeCallApi(LandmarkFrame frame) async {
     if (!_api.isReachable) return;
     if (_apiCallInFlight) return;
@@ -138,29 +133,22 @@ class InferenceServiceWeb {
       if (prediction != null) {
         print('[InferenceServiceWeb] API → ${prediction.resolvedLabel} '
               '(${prediction.resolvedConfidence.toStringAsFixed(2)})');
-        // FIX: rate/depth/recoil accuracy + confidence were never being
-        // read off `prediction` here — only `topClassLabel` and
-        // `allClassScores` (which nothing downstream even consumes) were
-        // set. session_provider.dart's onFrame() only accumulates into
+        // rate/depth/recoil accuracy and confidence are read directly off
+        // `prediction` here (not just `topClassLabel`), since
+        // session_provider.dart's onFrame() only accumulates into
         // _rateAccuracies / _depthAccuracies / _recoilAccuracies when the
-        // corresponding field is non-null, so those histories stayed
-        // empty all session → mean defaults to 0.0 → the Rate/Depth/Recoil
-        // tiles and the final Quality Score were stuck at 0% regardless of
-        // actual performance, even though the API was returning real
-        // per-task predictions the whole time.
+        // corresponding field is non-null.
         // Per-task accuracy is 1.0 when that task's label is 'Correct',
         // 0.0 otherwise (mirrors the same 'Correct' check resolvedLabel
         // already uses to decide which error to surface).
         //
-        // FIX (2026-06): allClassScores map keys are now namespaced with a
-        // task prefix ('rate_', 'depth_', 'recoil_') to prevent Dart
-        // map-literal duplicate-key collisions. When two or more tasks
-        // simultaneously predict 'Correct', the bare-key version silently
-        // dropped all but the last entry because Dart map literals use
-        // last-write-wins for duplicate keys. rateLabel/depthLabel/
-        // recoilLabel below are still set as plain 'Correct'/'Too_Fast' etc.
-        // — those are the values compared for accuracy and never go through
-        // allClassScores, so they're unaffected by the collision.
+        // allClassScores map keys are namespaced with a task prefix
+        // ('rate_', 'depth_', 'recoil_') because Dart map literals use
+        // last-write-wins for duplicate keys — without a prefix, two tasks
+        // simultaneously predicting 'Correct' would silently collapse to a
+        // single entry. rateLabel/depthLabel/recoilLabel below are set
+        // separately as plain 'Correct'/'Too_Fast' etc.; those are the
+        // values compared for accuracy and never go through allClassScores.
         _lastApiResult = InferenceResult(
           timestamp:           DateTime.now(),
           topClassIndex:       0,
@@ -180,18 +168,13 @@ class InferenceServiceWeb {
           rateConfidence:      prediction.rateConfidence,
           depthAccuracy:       prediction.depthLabel  == 'Correct' ? 1.0 : 0.0,
           depthConfidence:     prediction.depthConfidence,
-          // FIX: recoil's good-state label from the API is 'Complete', not
-          // 'Correct' -- rate and depth use 'Correct' for their good state
+          // Recoil's good-state label from the API is 'Complete', not
+          // 'Correct'. Rate and depth use 'Correct' for their good state
           // (matches the notebook's LabelEncoder classes for those two
-          // tasks), but recoil's LabelEncoder was only ever fit on
+          // tasks), but recoil's LabelEncoder is fit only on
           // 'Complete'/'Incomplete' (see CPR_Coach_Training.ipynb Stage 2,
-          // single_error_to_labels). This was previously checking
-          // 'Correct', which the recoil API response would never actually
-          // send -- it accidentally read as correct-ish before app.py's
-          // RECOIL_CLASSES bug was fixed (that bug coincidentally mapped
-          // model index 0 to the string "Correct" instead of "Complete").
-          // Both sides were fixed together; do not change one without the
-          // other.
+          // single_error_to_labels). Keep this in sync with app.py's
+          // RECOIL_CLASSES mapping — both sides assume the same label set.
           recoilAccuracy:      prediction.recoilLabel == 'Complete' ? 1.0 : 0.0,
           recoilConfidence:    prediction.recoilConfidence,
           // Plain labels — used for accuracy comparison and class-count
@@ -268,17 +251,14 @@ class InferenceServiceWeb {
     );
   }
 
-  // FIX (train/live feature-mismatch, root-cause table): this used to call
-  // LandmarkMath.buildFeatureVector() with frame.wristMidY fed in raw (no
-  // division by shoulder width), frame.wristVelocityY/wristAccelerationY
-  // (per-frame deltas of raw wristMidY, not of the ratio the model was
-  // trained on), no rolling-window amplitude feature, MediaPipe's
-  // per-axis-normalized coordinates (aspect-distorted vs. training's raw
-  // pixel angles), and a constant-shaped confidence pair that never
-  // reflected real per-joint visibility variation the way training now
-  // does. CprCausalFeatureExtractor (landmark_math.dart) replaces all of
-  // that with formulas that match ml_pipeline/CPR_Coach_Training.ipynb
-  // Stage 4 index-for-index — see its class doc for the full mapping.
+  // CprCausalFeatureExtractor (landmark_math.dart) builds the feature
+  // vector with formulas that match ml_pipeline/CPR_Coach_Training.ipynb
+  // Stage 4 index-for-index: shoulder-width-normalized wrist ratio (not raw
+  // wristMidY), per-frame deltas of that ratio (not of raw position), a
+  // rolling-window amplitude feature, un-normalized pixel-space coordinates
+  // (undoing MediaPipe's per-axis normalization, which would otherwise
+  // distort angle/ratio geometry), and real per-joint confidence that
+  // reflects visibility variation — see its class doc for the full mapping.
   List<double> _buildFeatures(LandmarkFrame frame) {
     return _causalExtractor.update(
       frame,
@@ -334,11 +314,9 @@ class InferenceServiceWeb {
     return (normDisp * torsoHeightCm).clamp(0.0, 10.0);
   }
 
-  // FIX: 0.005 was inside the landmark-jitter noise floor — small
-  // frame-to-frame tracking wobble produced multiple false peaks per
-  // second even with hands still, inflating BPM to physically impossible
-  // values (200+ bpm) and feeding a falsely "too fast" signal into the
-  // hosted rate classifier. Raised to match the same threshold used for
+  // Threshold is set above the landmark-jitter noise floor so ordinary
+  // frame-to-frame tracking wobble (hands still) doesn't register as
+  // compression peaks and inflate BPM. Matches the threshold used for
   // compression counting in session_provider.dart.
   double _estimateBpm() {
     if (_wristYHistory.length < 10) return 0;

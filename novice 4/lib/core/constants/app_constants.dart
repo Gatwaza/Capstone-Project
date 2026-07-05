@@ -16,14 +16,16 @@ class AppConstants {
   static const String appTagline = 'CPR Coach for Sub-Saharan Africa';
 
   // ── ML Model ────────────────────────────────────────────
-  /// TFLite INT8 quantized BiLSTM model (produced by ml_pipeline/src/export/)
+  /// Path reserved for a future on-device TFLite model (mobile is on hold —
+  /// see pubspec.yaml). The current web build calls the hosted TCN model
+  /// over HTTP instead; this path is unused on web.
   static const String tfliteModelPath =
       'assets/models/novice_cpr_classifier.tflite';
 
   /// Number of landmark feature dimensions per frame
   static const int landmarkFeatureDims = 12;
 
-  /// Temporal window (frames) fed into BiLSTM — must match API shape (1, 60, 12)
+  /// Temporal window (frames) fed into the TCN model — must match API shape (1, 60, 12)
   static const int temporalWindowFrames = 60;
 
   /// Minimum MediaPipe landmark visibility score to include a frame
@@ -44,64 +46,33 @@ class AppConstants {
   // ── Session ──────────────────────────────────────────────
   static const int sessionInferenceHz        = 5;
   static const int poseEstimationTargetFps   = 25;
-  // FIX: was 4000ms (and effectively 8000ms for a repeated cue, since
-  // shouldSpeak() blocks repeats for cooldown*2). For a live physical
-  // correction like "lock your elbows," 4–8 seconds of silence after the
-  // error is detected means the person has already done another 6–10 bad
-  // compressions before they hear about the first one — that's the
-  // "delayed, not real-time" feeling. 1800ms is short enough to feel like
-  // live coaching while still leaving room between cues so they don't
-  // overlap or talk over each other.
+  // For a live physical correction like "lock your elbows," too long a
+  // cooldown means the person has already done several more bad
+  // compressions before hearing about the first one — it feels delayed
+  // rather than real-time. 1800ms is short enough to feel like live
+  // coaching while still leaving room between cues so they don't overlap
+  // or talk over each other.
   static const int voiceCoachingCooldownMs   = 1800;
 
   // ── Depth estimation calibration ─────────────────────────
   //
-  // PROBLEM (why depth was always clamping at 10 cm):
-  //   normToPhysicalCmScale = 200 was far too high.
-  //   With a typical web-camera normalised shoulder width of ~0.20:
-  //     torsoHeightCm = (0.20 × 200) / 0.85 = 47 cm
-  //   Even a modest 25% torso displacement → 0.25 × 47 = 11.8 cm → clamped to 10.
+  // normalizedWristDisplacement() returns wrist position relative to the
+  // shoulder→hip span, not compression depth directly — at rest (hands on
+  // chest) wristMidY already sits ~30–40% down the torso span, so the ideal
+  // signal is really the CHANGE in wristMidY during a compression cycle,
+  // not its absolute position. Until the inference pipeline is retrained
+  // with dedicated delta-depth features, the constants below use a
+  // conservative scale/ratio pair (normToPhysicalCmScale=20,
+  // shoulderWidthToTorsoRatio=1.0) that maps the wrist's MOTION range
+  // (not absolute position) to a ~0–8 cm output, which puts a real 5–6 cm
+  // compression in the correct displayed zone without clamping at 10 cm.
+  // Calibrated for ~1 m camera-to-rescuer distance on a laptop webcam;
+  // re-measure during the pilot study.
   //
-  // FIX — calibrated for ~1 m camera-to-rescuer distance, laptop webcam:
-  //
-  //   Measured: at 1 m distance, an adult shoulder span of ~40 cm real-world
-  //   maps to normalised width ≈ 0.35–0.45 in MediaPipe coordinates
-  //   (fraction of frame width, frame width ≈ 640 px at ResolutionPreset.high).
-  //
-  //   Target: normShoulderWidth × scale ≈ real biacromial width in cm (≈ 40 cm)
-  //     → scale = 40 / 0.40 = 100
-  //
-  //   Torso height from shoulder width:
-  //     torsoHeightCm = (normShoulderWidth × 100) / 0.85
-  //     At norm=0.40: torsoHeightCm = 40 / 0.85 ≈ 47 cm  ← still too high
-  //
-  //   The real fix is also raising shoulderWidthToTorsoRatio.
-  //   Adult biacromial width (40 cm) vs torso height (shoulder→hip ≈ 50 cm):
-  //     ratio = 40/50 = 0.80  ← close to prior value, not the problem
-  //
-  //   Root issue: normalizedWristDisplacement() returns wrist position relative
-  //   to the shoulder→hip span, not actual compression depth.
-  //   At rest (hands on chest), wristMidY sits ~30–40% down the torso span,
-  //   so normDisp ≈ 0.30–0.40 even with zero compression.
-  //
-  //   CORRECT approach: the depth signal is the CHANGE in wristMidY during
-  //   a compression cycle, not the absolute position.
-  //   Until the inference pipeline is retrained with delta-depth features,
-  //   we use a conservative scale that makes the displayed number reflect
-  //   plausible cm ranges without clamping:
-  //
-  //     scale = 40   (was 200)  →  torsoHeightCm at norm=0.40: 40/0.85 ≈ 47 cm
-  //     ... still high. Use scale = 20, ratio = 1.0 as interim:
-  //     torsoHeightCm = (0.40 × 20) / 1.0 = 8 cm  ← motion range, not full torso
-  //
-  //   This maps the wrist MOTION range (not absolute position) to ~0–8 cm,
-  //   which puts a real 5–6 cm compression in the correct zone.
-  //
-  //   TODO: replace with a proper delta-depth estimator in ml_pipeline once
-  //   pilot study frame data is labelled and retraining runs.
+  // TODO: replace with a proper delta-depth estimator in ml_pipeline once
+  // pilot study frame data is labelled and retraining runs.
 
   /// Conversion factor: normalised shoulder width → physical cm.
-  /// Reduced from 200 → 20 to prevent depth from clamping at 10 cm.
   /// Calibrated for ~1 m webcam distance; re-measure during pilot study.
   static const double normToPhysicalCmScale = 20.0;
 
@@ -114,11 +85,10 @@ class AppConstants {
   static const double fallbackTorsoHeightCm = 8.0;
 
   // ── TTS prompts — English ────────────────────────────────
-  // FIX: the old phrasing read like a textbook checklist item read aloud
-  // ("Straighten your arms. Lock your elbows.") rather than a live cue. A
-  // person mid-compression needs something short, specific, and actionable
-  // — what to change, not a restatement of the rule. Kept short enough to
-  // speak in well under voiceCoachingCooldownMs.
+  // Prompts are phrased as short, specific, actionable live cues (what to
+  // change, not a restatement of the rule) rather than a textbook checklist
+  // read aloud — a person mid-compression needs something quick. Kept short
+  // enough to speak in well under voiceCoachingCooldownMs.
   static const Map<String, String> promptsEn = {
     'start':            'Hands on the center of the chest. Begin compressions.',
     'good':             'Good rhythm — keep that up.',

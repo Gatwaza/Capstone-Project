@@ -4,8 +4,8 @@
 //
 // SurveyScreen — pre/post-session surveys for pilot study analysis.
 //
-// FIX (2025-06): replaced direct getIt<ResearchLogger>() with
-//   ResearchLoggerAdapter — works on both web and mobile.
+// Uses ResearchLoggerAdapter rather than getIt<ResearchLogger>() directly —
+// works on both web and mobile.
 //
 // Instruments (§3.10.1):
 //   1. Self-Efficacy Scale (1–7 Likert, 4 items) — pre AND post
