@@ -321,8 +321,21 @@ class CprCausalFeatureExtractor {
     // idx 9-11: real confidence — frame.meanLandmarkConfidence is already
     // the mean of exactly the same 6 upper-body joints
     // (shoulders+elbows+wrists) as Stage 4's `conf[t, upper_joints].mean()`.
-    // TEMP DEBUG — remove after diagnosing recoil bias
-// ignore: avoid_print
+    //
+    // KNOWN LIMITATION (documented, not a bug): live testing shows recoil
+    // classification biased toward 'Incomplete' more than the model's
+    // held-out test-set numbers (93% recall on 'Complete') suggest it
+    // should be. Feature 4 (`ratio`) is an absolute wrist/shoulder-width
+    // ratio, not calibrated against an individual's own resting/hands-off
+    // baseline — likely a generalization gap across rescuer body
+    // proportions and camera setups, not a live feature-computation error
+    // (verified via temporary instrumentation: ratio/amp/vel traces and
+    // videoWidthPx/videoHeightPx were all sane and stable throughout an
+    // affected session). Candidate fix for a future iteration: a
+    // per-session calibrated baseline (e.g. captured during a brief
+    // "hands off" moment at session start) instead of an absolute ratio —
+    // requires a retrain and is deferred past the current field study.
+
     return [
       leftElbowAngle,
       rightElbowAngle,
