@@ -6,7 +6,7 @@
 name: novice
 description: >
   Novice — Real-time CPR coaching using pose estimation and hosted ML
-  inference. Empowers bystanders in Sub-Saharan Africa. Web (mobile on hold).
+  inference. Empowers trainees in Sub-Saharan Africa. Web.
 version: 0.1.0+1
 publish_to: none
 environment:
@@ -14,18 +14,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ── Camera ────────────────────────────────────────────────
+  # Camera 
   camera: ^0.11.2+1
-  # ── TTS ───────────────────────────────────────────────────
+  # TTS
   flutter_tts: ^4.2.5
-  # ── State management ──────────────────────────────────────
+  #  State management
   flutter_riverpod: ^2.4.9
   riverpod_annotation: ^2.3.3
-  # ── Dependency injection ──────────────────────────────────
+  # Dependency injection
   get_it: ^9.2.1
-  # ── Local storage ─────────────────────────────────────────
+  # Local storage
   shared_preferences: ^2.2.3
-  # ── HTTP ──────────────────────────────────────────────────
+  # HTTP
   http: ^1.2.1
   # ── Routing ───────────────────────────────────────────────
   go_router: ^17.0.0

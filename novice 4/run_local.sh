@@ -1,10 +1,10 @@
 #!/bin/bash
 # run_local.sh — Novice CPR Coach
-# Keys are read from ~/.novice_env — never hardcode them here.
+# Keys are read from ~/.novice_env — not hardcoded
 set -e
 cd "$(dirname "$0")"
 
-# ── Load env vars ───────────────────────────────────────────────────────────
+# load env
 [ -f "$HOME/.novice_env" ] && source "$HOME/.novice_env"
 
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
