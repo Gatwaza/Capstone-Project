@@ -26,8 +26,12 @@ class _SplashScreenState extends State<SplashScreen>
     _slide = Tween<double>(begin: 28, end: 0)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
+    // Home is now the single entry point Flutter falls back to once booted
+    // (the landing page's own CTAs all target /home too — see index.html's
+    // ROUTE_MAP). This only fires if nothing else has already navigated
+    // away from splash by the time it elapses.
     Future.delayed(const Duration(milliseconds: 2400), () {
-      if (mounted) context.go(AppRoutes.procedures);
+      if (mounted) context.go(AppRoutes.home);
     });
   }
 

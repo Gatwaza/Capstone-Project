@@ -121,7 +121,7 @@ class _ResultsContentState extends State<_ResultsContent> {
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
                     color: AppTheme.textSecondary,
-                    onPressed: () => context.go(AppRoutes.procedures),
+                    onPressed: () => context.go(AppRoutes.home),
                   ),
                 ],
               ),
@@ -229,8 +229,19 @@ class _ResultsContentState extends State<_ResultsContent> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () =>
-                      context.go('/training/${widget.session.participantId}'),
+                  // A plain go() to the same '/training/:participantId'
+                  // location doesn't count as a navigation change to
+                  // GoRouter/Flutter — same path, same widget position in
+                  // the tree — so TrainingScreen's State (and everything
+                  // in it: elapsed timer, rep buffers, session logs) just
+                  // carried over from the finished session instead of
+                  // resetting. Appending a fresh timestamp query param
+                  // makes each tap a genuinely new location, forcing a
+                  // real unmount/remount so a new session starts clean.
+                  onPressed: () => context.go(
+                    '/training/${widget.session.participantId}'
+                    '?ts=${DateTime.now().millisecondsSinceEpoch}',
+                  ),
                   child: const Text('Practice Again'),
                 ),
               ),
@@ -238,7 +249,7 @@ class _ResultsContentState extends State<_ResultsContent> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => context.go(AppRoutes.procedures),
+                  onPressed: () => context.go(AppRoutes.home),
                   child: Text(
                     'Back to Home',
                     style: TextStyle(color: AppTheme.textSecondary),

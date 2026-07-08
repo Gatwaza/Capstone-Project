@@ -21,8 +21,13 @@ import '../theme/app_theme.dart';
 class AppRoutes {
   AppRoutes._();
   static const splash          = '/';
-  // The "procedures hub" is now the post-splash landing inside Flutter.
-  // The old /home remains as the full dashboard (accessible via settings/history).
+  // Home is the single entry point Flutter lands on — both from splash's
+  // auto-redirect and from every landing-page CTA in web/index.html's
+  // ROUTE_MAP. /procedures (DemoScreen isHub:true) still exists as a
+  // route but nothing links to it anymore; kept only in case something
+  // deep-links to it directly. Ordinary "browse procedures" navigation
+  // goes through /demo (isHub:false), pushed from Home, which has a
+  // normal back button.
   static const procedures      = '/procedures';
   static const home            = '/home';
   static const participantGate = '/participant';
@@ -49,7 +54,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.participantGate, builder: (_, __) => const ParticipantGateScreen()),
       GoRoute(
         path: AppRoutes.training,
+        // Keyed by the full location (participantId + optional ?ts=...)
+        // rather than left unkeyed. Without a key, Flutter's element
+        // reconciliation sees "same widget type, same tree position" on a
+        // revisit to the same participantId and reuses the existing
+        // State — timers, buffers, session logs all carry over instead of
+        // resetting. The ?ts= cache-buster from "Practice Again" (see
+        // results_screen.dart) only forces a genuinely new mount if it's
+        // reflected in the key here too.
         builder: (_, state) => TrainingScreen(
+          key: ValueKey(state.uri.toString()),
           participantId: state.pathParameters['participantId']!,
         ),
       ),

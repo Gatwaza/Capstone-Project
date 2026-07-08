@@ -1520,15 +1520,26 @@ window.showHomeView = showHomeView;
 //  When a CTA fires, the overlay fades out revealing the Flutter app.
 // ════════════════════════════════════════════════════════
 
+// Every landing-page CTA now opens the SAME place: the Flutter home screen.
+// Previously each action deep-linked straight into a specific screen
+// (CPR → /participant, other modules → /demo, results → /history) —
+// bypassing Home entirely. That meant screens like the procedures hub had
+// no reliable way back to the landing page, since the user never passed
+// through the one screen with an exit affordance. Now Home is the single
+// entry point, and Home's own tiles (Start CPR Training, Browse Procedures,
+// My Results...) handle onward navigation with normal push/pop, so back/
+// forward works everywhere and the logo tap always has somewhere sane to
+// land. The ROUTE_MAP is kept (rather than deleted outright) as a single
+// place to retarget a specific CTA later, without touching call sites.
 const ROUTE_MAP = {
-  'Open CPR training mode':         '/participant',
-  'View my results':                '/history',
-  'Open bleeding control module':   '/demo',
-  'Open burns module':              '/demo',
-  'Open fractures module':          '/demo',
-  'Open diabetic emergency module': '/demo',
-  'Open anaphylaxis module':        '/demo',
-  'Open mental health first aid module': '/demo',
+  'Open CPR training mode':         '/home',
+  'View my results':                '/home',
+  'Open bleeding control module':   '/home',
+  'Open burns module':              '/home',
+  'Open fractures module':          '/home',
+  'Open diabetic emergency module': '/home',
+  'Open anaphylaxis module':        '/home',
+  'Open mental health first aid module': '/home',
 };
 
 window.sendPrompt = function(action) {
@@ -1595,26 +1606,35 @@ window._noviceConsumeRoute = function() {
 // ── Physical browser back/forward ───────────────────────────────────────
 // Previously nothing listened for 'popstate' — only launchFlutter() and
 // showLanding() called history.pushState(), so pressing the physical
-// back/forward button changed the URL without the landing overlay or
-// Flutter's GoRouter reacting to it (a blank/stuck state: URL flips to
-// '/' but Flutter stays parked on its last app route, still hidden behind
-// nothing). This keeps both sides in sync with real navigation events too.
+// back/forward button changed the URL without the landing overlay
+// reacting to it (a blank/stuck state: URL flips to '/' but the overlay
+// stays hidden).
+//
+// This listener's ONLY job is the overlay's visibility. It does NOT call
+// _noviceFlutterNavigate for in-app paths: GoRouter (via
+// usePathUrlStrategy()) already listens to popstate itself and drives its
+// own back/forward stack for every Flutter-internal push (Home →
+// Procedures, Home → Participant Gate, etc.) — calling the bridge again
+// here would just re-trigger a navigation GoRouter is already handling.
+// The one thing outside Flutter's reach is the HTML overlay, so that's
+// all this does: show it when the URL pops back to '/', hide it when the
+// URL moves off '/' again (e.g. pressing forward after going back).
 window.addEventListener('popstate', function () {
   const path = window.location.pathname;
+  const landing = document.getElementById('landing-page');
+  const isLandingVisible = landing && landing.style.display !== 'none';
+
   if (path === '/' || path === '') {
-    showLanding();
-  } else if (window._noviceFlutterNavigate) {
-    const landing = document.getElementById('landing-page');
-    if (landing) {
-      landing.style.transition = 'opacity 0.32s ease, transform 0.36s cubic-bezier(.16,1,.3,1)';
-      landing.style.opacity = '0';
-      landing.style.transform = 'scale(0.98)';
-      landing.style.pointerEvents = 'none';
-      landing.style.display = 'none';
-    }
-    if (window.showHomeView) window.showHomeView();
-    window._noviceFlutterNavigate(path);
+    if (!isLandingVisible) showLanding();
+  } else if (isLandingVisible && landing) {
+    landing.style.transition = 'opacity 0.32s ease, transform 0.36s cubic-bezier(.16,1,.3,1)';
+    landing.style.opacity = '0';
+    landing.style.transform = 'scale(0.98)';
+    landing.style.pointerEvents = 'none';
+    landing.style.display = 'none';
   }
+  // else: popping between two Flutter-internal routes — GoRouter already
+  // handles this itself, nothing for the landing-page JS to do.
 });
 </script>
 </div><!-- /#landing-page -->

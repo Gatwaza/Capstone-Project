@@ -57,7 +57,7 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
           padding: const EdgeInsets.only(left: 4),
           child: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-            onPressed: () => context.canPop() ? context.pop() : context.go(AppRoutes.procedures),
+            onPressed: () => context.canPop() ? context.pop() : context.go(AppRoutes.home),
           ),
         ),
       ),

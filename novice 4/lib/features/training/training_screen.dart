@@ -19,6 +19,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/utils/mlkit_stub.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/session_provider.dart';
 import '../../core/di/injection.dart';
@@ -290,7 +291,12 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
               children: [
                 _HudButton(
                   icon: Icons.arrow_back_ios_rounded,
-                  onTap: () => context.pop(),
+                  // Was context.pop(), which just returns to whatever's
+                  // below Training on the stack (the participant gate) —
+                  // not a real exit. Camera/pose teardown still happens
+                  // normally via dispose() below regardless of how the
+                  // widget is removed, so this is safe mid-session.
+                  onTap: () => context.go(AppRoutes.home),
                 ),
                 const Spacer(),
                 BpmIndicator(bpm: session.bpm),
