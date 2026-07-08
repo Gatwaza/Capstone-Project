@@ -67,24 +67,15 @@ class _NoviceAppState extends ConsumerState<NoviceApp> {
 
   // ── JS ↔ Flutter bridge ──────────────────────────────────────────────────
   // Registers window._noviceFlutterNavigate so the landing page can call
-  // router.go(route) once Flutter has mounted.
+  // router.go(route) once Flutter has mounted. The old floating
+  // '#back-to-landing' DOM button (and the _noviceShowBackButton hook that
+  // revealed it) has been removed — exiting back to the landing page is now
+  // done from Flutter's side via a tappable logo in home_screen.dart, which
+  // calls window.showLanding() directly.
   void _registerJsBridge() {
     js.context['_noviceFlutterNavigate'] = js.allowInterop((String route) {
       _routerWrapper.navigateTo(route);
-      _showBackButton();
     });
-
-    js.context['_noviceShowBackButton'] =
-        js.allowInterop(() => _showBackButton());
-  }
-
-  void _showBackButton() {
-    try {
-      // ignore: undefined_prefixed_name
-      final btn = js.context['document']
-          .callMethod('getElementById', ['back-to-landing']);
-      if (btn != null) btn['style']['display'] = 'block';
-    } catch (_) {}
   }
 
   @override

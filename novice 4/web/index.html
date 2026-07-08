@@ -1552,10 +1552,6 @@ function launchFlutter(route) {
     setTimeout(() => { if (landing) landing.style.display = 'none'; }, 380);
   }
 
-  // Show "← Back" button
-  const btn = document.getElementById('back-to-landing');
-  if (btn) btn.style.display = 'block';
-
   // If Flutter bridge is already registered, navigate now
   if (window._noviceFlutterNavigate) {
     window._noviceFlutterNavigate(route);
@@ -1595,6 +1591,31 @@ window._noviceConsumeRoute = function() {
   window._noviceTargetRoute = null;
   return r;
 };
+
+// ── Physical browser back/forward ───────────────────────────────────────
+// Previously nothing listened for 'popstate' — only launchFlutter() and
+// showLanding() called history.pushState(), so pressing the physical
+// back/forward button changed the URL without the landing overlay or
+// Flutter's GoRouter reacting to it (a blank/stuck state: URL flips to
+// '/' but Flutter stays parked on its last app route, still hidden behind
+// nothing). This keeps both sides in sync with real navigation events too.
+window.addEventListener('popstate', function () {
+  const path = window.location.pathname;
+  if (path === '/' || path === '') {
+    showLanding();
+  } else if (window._noviceFlutterNavigate) {
+    const landing = document.getElementById('landing-page');
+    if (landing) {
+      landing.style.transition = 'opacity 0.32s ease, transform 0.36s cubic-bezier(.16,1,.3,1)';
+      landing.style.opacity = '0';
+      landing.style.transform = 'scale(0.98)';
+      landing.style.pointerEvents = 'none';
+      landing.style.display = 'none';
+    }
+    if (window.showHomeView) window.showHomeView();
+    window._noviceFlutterNavigate(path);
+  }
+});
 </script>
 </div><!-- /#landing-page -->
 
@@ -1626,25 +1647,15 @@ window.addEventListener('flutter-first-frame', function () {
 });
 </script>
 
-<!-- "← Back to landing" button -->
-<style>
-#back-to-landing {
-  display:none;position:fixed;top:12px;left:12px;z-index:1000;
-  background:var(--nav-bg);border:1px solid var(--border);
-  border-radius:10px;padding:8px 14px;color:var(--text-primary);
-  font-family:'DM Sans',system-ui,sans-serif;font-size:13px;font-weight:500;
-  cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  transition:background .15s;box-shadow:var(--shadow-sm);
-}
-#back-to-landing:hover{background:var(--card);}
-</style>
-<button id="back-to-landing" onclick="showLanding()">← Back</button>
-
 <script>
+// The old floating '#back-to-landing' DOM button (fixed top-left, on top of
+// every Flutter screen) has been removed — it wasn't part of any screen's
+// layout, just a bolted-on overlay that clipped into app content like
+// "Session History" and "Settings". The single, explicit exit is now the
+// tappable Novice logo/wordmark inside home_screen.dart, which calls this
+// same showLanding() function via the existing dart:js bridge.
 function showLanding() {
   const landing = document.getElementById('landing-page');
-  const btn = document.getElementById('back-to-landing');
-  if (btn) btn.style.display = 'none';
   if (landing) {
     landing.style.display = '';
     void landing.offsetHeight;

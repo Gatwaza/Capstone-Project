@@ -1,6 +1,10 @@
 // Novice — CPR-AI Coach · Integrated Design
 // GNU General Public License v3.0
 
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +12,21 @@ import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/theme_mode_provider.dart';
+
+// Hands control back to web/index.html's landing overlay without resetting
+// GoRouter — Flutter stays parked on whatever route it's on, paused behind
+// the overlay, same as on first boot. This deliberately sidesteps
+// SplashScreen's auto-redirect-to-/procedures, since Flutter's router state
+// is never sent back to '/'. This is the single, explicit "leave the app"
+// affordance (see the tappable Novice logo below); the old floating
+// '#back-to-landing' DOM button has been removed as it overlapped app
+// content and didn't reset any state on its own.
+void _returnToLanding() {
+  if (!kIsWeb) return;
+  try {
+    js.context.callMethod('showLanding', []);
+  } catch (_) {}
+}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -31,32 +50,43 @@ class HomeScreen extends ConsumerWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.monitor_heart_rounded,
-                          color: AppTheme.accent, size: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Novice',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineLarge
-                                ?.copyWith(fontSize: 28, letterSpacing: -1)),
-                        Text('First Aid CPR Training',
-                            style: Theme.of(context).textTheme.bodyMedium),
-                      ],
+                    child: GestureDetector(
+                      onTap: _returnToLanding,
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppTheme.card,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.border),
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.monitor_heart_rounded,
+                                  color: AppTheme.accent, size: 22),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Novice',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineLarge
+                                        ?.copyWith(fontSize: 28, letterSpacing: -1)),
+                                Text('First Aid CPR Training',
+                                    style: Theme.of(context).textTheme.bodyMedium),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   IconButton(
@@ -97,7 +127,7 @@ class HomeScreen extends ConsumerWidget {
 
               const SizedBox(height: 12),
               Text(
-                'Tap a card below to begin. You can return here anytime from the back arrow.',
+                'Tap a card below to begin. Tap the Novice logo above anytime to exit to the landing page.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12.5),
               ),
 
