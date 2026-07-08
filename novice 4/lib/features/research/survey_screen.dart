@@ -467,6 +467,6 @@ class _SurveyScreenState extends State<SurveyScreen> {
     );
   }
 
-  TextStyle _scaleLabel() => const TextStyle(
+  TextStyle _scaleLabel() => TextStyle(
       color: AppTheme.textSecondary, fontSize: 10, letterSpacing: 0.5);
 }

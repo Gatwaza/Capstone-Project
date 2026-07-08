@@ -38,7 +38,7 @@ class HistoryScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.history_rounded,
+                  Icon(Icons.history_rounded,
                       color: AppTheme.textSecondary, size: 48),
                   const SizedBox(height: 16),
                   Text('No sessions yet',
@@ -113,7 +113,7 @@ class HistoryScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded,
+                      Icon(Icons.chevron_right_rounded,
                           color: AppTheme.textSecondary),
                     ],
                   ),

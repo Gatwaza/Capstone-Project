@@ -379,7 +379,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
       ),
       child: Column(children: [
         _tableHeader(),
-        const Divider(height: 1, color: AppTheme.border),
+        Divider(height: 1, color: AppTheme.border),
         ...rows.map((r) => _tableRow(r.$1, r.$2, r.$3, r.$4)),
       ]),
     );
@@ -388,13 +388,13 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
   Widget _tableHeader() => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     child: Row(children: [
-      const Expanded(flex: 4,
+      Expanded(flex: 4,
           child: Text('METRIC', style: TextStyle(fontSize: 9,
               letterSpacing: 1, color: AppTheme.textSecondary))),
       const Expanded(child: Text('A', textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, letterSpacing: 1,
               color: AppTheme.accent, fontWeight: FontWeight.w700))),
-      const Expanded(child: Text('B', textAlign: TextAlign.center,
+      Expanded(child: Text('B', textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, letterSpacing: 1,
               color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
       const SizedBox(width: 48),
@@ -412,10 +412,10 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
             style: const TextStyle(color: AppTheme.accent,
                 fontFamily: 'Courier New', fontWeight: FontWeight.w700, fontSize: 13))),
         Expanded(child: Text(fmt(b), textAlign: TextAlign.center,
-            style: const TextStyle(color: AppTheme.textSecondary,
+            style: TextStyle(color: AppTheme.textSecondary,
                 fontFamily: 'Courier New', fontSize: 13))),
         SizedBox(width: 48, child: Text(target, textAlign: TextAlign.right,
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 9))),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 9))),
       ]),
     );
   }
@@ -478,7 +478,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: Theme.of(context).textTheme.titleMedium),
         Text('Target: $target',
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppTheme.textSecondary, fontSize: 10)),
         const SizedBox(height: 12),
         Row(children: [
@@ -594,7 +594,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
                 label: const Text('Export JSON'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textSecondary,
-                  side: const BorderSide(color: AppTheme.border),
+                  side: BorderSide(color: AppTheme.border),
                 ),
               ),
             ),
@@ -672,11 +672,11 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
         border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: AppTheme.textSecondary,
+        Text(label, style: TextStyle(color: AppTheme.textSecondary,
             fontSize: 9, letterSpacing: 1)),
         Text(value, style: TextStyle(color: color, fontSize: 26,
             fontWeight: FontWeight.w700, fontFamily: 'Courier New')),
-        Text(target, style: const TextStyle(
+        Text(target, style: TextStyle(
             color: AppTheme.textSecondary, fontSize: 9)),
       ]),
     );
@@ -685,7 +685,7 @@ class _ResearcherDashboardState extends State<ResearcherDashboard> {
   Widget _emptyState(String msg) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 20),
     child: Center(child: Text(msg,
-        style: const TextStyle(color: AppTheme.textSecondary))),
+        style: TextStyle(color: AppTheme.textSecondary))),
   );
 
   Widget _sectionLabel(String text) =>

@@ -222,7 +222,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
             CameraPreview(_camera!)
           else
             Container(
-              color: AppTheme.surface,
+              color: AppTheme.surfaceDark,
               child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -234,7 +234,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                           ? 'Initialising camera…\nAllow camera access when prompted.'
                           : 'Starting camera…',
                       style: TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 13),
+                          color: AppTheme.textSecondaryDark, fontSize: 13),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -259,7 +259,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                   child: const Text(
                     'Initialising pose detection…',
                     style:
-                        TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        TextStyle(color: AppTheme.textSecondaryDark, fontSize: 12),
                   ),
                 ),
               ),
@@ -383,7 +383,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.camera_alt_outlined,
+              Icon(Icons.camera_alt_outlined,
                   color: AppTheme.textSecondary, size: 48),
               const SizedBox(height: 16),
               Text('Camera access required',
@@ -477,7 +477,7 @@ class _HudButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.5),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: AppTheme.borderDark),
         ),
         child: Center(
           child: icon != null
@@ -506,7 +506,7 @@ class _HudChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.55),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: AppTheme.borderDark),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -527,7 +527,7 @@ class _HudChip extends StatelessWidget {
               if (sublabel != null)
                 Text(sublabel!,
                     style: const TextStyle(
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.textSecondaryDark,
                         fontSize: 9,
                         letterSpacing: 0.5)),
             ],

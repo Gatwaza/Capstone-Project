@@ -139,13 +139,13 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
             const SizedBox(height: 20),
             Row(
               children: [
-                const Expanded(child: Divider(color: AppTheme.border)),
+                Expanded(child: Divider(color: AppTheme.border)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text('OR',
                       style: Theme.of(context).textTheme.labelSmall),
                 ),
-                const Expanded(child: Divider(color: AppTheme.border)),
+                Expanded(child: Divider(color: AppTheme.border)),
               ],
             ),
             const SizedBox(height: 20),
@@ -163,7 +163,7 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.history_rounded,
+                      Icon(Icons.history_rounded,
                           color: AppTheme.textSecondary, size: 22),
                       const SizedBox(width: 10),
                       Text('I have already registered',
@@ -203,18 +203,18 @@ class _ParticipantGateScreenState extends State<ParticipantGateScreen> {
                         value: _selectedId,
                         isExpanded: true,
                         dropdownColor: AppTheme.card,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppTheme.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
                           labelText: 'Participant ID',
-                          labelStyle: const TextStyle(
+                          labelStyle: TextStyle(
                               color: AppTheme.textSecondary, fontSize: 13),
                           filled: true,
                           fillColor: AppTheme.bg,
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide:
-                                  const BorderSide(color: AppTheme.border)),
+                                  BorderSide(color: AppTheme.border)),
                         ),
                         items: list
                             .map((p) => DropdownMenuItem(

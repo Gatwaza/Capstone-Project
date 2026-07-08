@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/session_provider.dart';
+import '../../providers/theme_mode_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -14,6 +15,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(sessionHistoryProvider);
+    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -58,6 +60,12 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
+                    onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+                    icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                    color: AppTheme.textSecondary,
+                    tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+                  ),
+                  IconButton(
                     onPressed: () => context.push(AppRoutes.settings),
                     icon: const Icon(Icons.tune_rounded),
                     color: AppTheme.textSecondary,
@@ -85,6 +93,12 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 12),
+              Text(
+                'Tap a card below to begin. You can return here anytime from the back arrow.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12.5),
               ),
 
               const SizedBox(height: 20),
@@ -122,66 +136,6 @@ class HomeScreen extends ConsumerWidget {
                 subtitle: 'Animated step-by-step guides: choking, stroke, recovery & more',
                 accentColor: AppTheme.chokingAmber,
                 onTap: () => context.push(AppRoutes.demo),
-              ),
-
-              const SizedBox(height: 20),
-
-              // ── Module quick-access row ──────────────────────
-              Text(
-                'ALL PROCEDURES',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  letterSpacing: 2, color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _ModuleChip(
-                      label: 'CPR',
-                      color: AppTheme.cprRed,
-                      icon: Icons.monitor_heart_rounded,
-                      onTap: () => context.push(AppRoutes.participantGate),
-                    ),
-                    const SizedBox(width: 8),
-                    _ModuleChip(
-                      label: 'Choking',
-                      color: AppTheme.chokingAmber,
-                      icon: Icons.air_rounded,
-                      onTap: () => context.push(AppRoutes.demo),
-                    ),
-                    const SizedBox(width: 8),
-                    _ModuleChip(
-                      label: 'Stroke',
-                      color: AppTheme.strokePurple,
-                      icon: Icons.psychology_rounded,
-                      onTap: () => context.push(AppRoutes.demo),
-                    ),
-                    const SizedBox(width: 8),
-                    _ModuleChip(
-                      label: 'Recovery',
-                      color: AppTheme.recoveryTeal,
-                      icon: Icons.airline_seat_flat_angled_rounded,
-                      onTap: () => context.push(AppRoutes.demo),
-                    ),
-                    const SizedBox(width: 8),
-                    _ModuleChip(
-                      label: 'Bleeding',
-                      color: const Color(0xFFC0395E),
-                      icon: Icons.water_drop_rounded,
-                      onTap: () => context.push(AppRoutes.demo),
-                    ),
-                    const SizedBox(width: 8),
-                    _ModuleChip(
-                      label: 'Burns',
-                      color: const Color(0xFFD4781A),
-                      icon: Icons.local_fire_department_rounded,
-                      onTap: () => context.push(AppRoutes.demo),
-                    ),
-                  ],
-                ),
               ),
 
               const SizedBox(height: 20),
@@ -241,7 +195,7 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'CPR training uses live AI (TCN model) to grade your compressions in real time. All other procedures are interactive animated guides — no camera needed.',
+                        'CPR is graded live by AI. Other procedures are animated guides — no camera needed.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
                       ),
                     ),
@@ -249,13 +203,13 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               Text(
                 'GNU GPL v3 · Gatwaza · ALU 2024',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelSmall,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -299,44 +253,6 @@ class _StatChip extends StatelessWidget {
                     .textTheme
                     .labelSmall
                     ?.copyWith(fontSize: 9)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ModuleChip extends StatelessWidget {
-  const _ModuleChip({
-    required this.label,
-    required this.color,
-    required this.icon,
-    required this.onTap,
-  });
-  final String label;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.1),
-          borderRadius: BorderRadius.circular(AppTheme.rMd),
-          border: Border.all(color: color.withOpacity(.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    color: color, fontSize: 13, fontWeight: FontWeight.w600)),
           ],
         ),
       ),

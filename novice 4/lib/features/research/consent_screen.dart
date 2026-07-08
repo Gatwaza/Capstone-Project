@@ -272,11 +272,11 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.arrow_back_rounded,
+                  Icon(Icons.arrow_back_rounded,
                       size: 16, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
                   Text('Back to information sheet',
-                      style: const TextStyle(color: AppTheme.textSecondary)),
+                      style: TextStyle(color: AppTheme.textSecondary)),
                 ],
               ),
             ),
@@ -336,7 +336,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
             onPressed: () => context.go(AppRoutes.home),
             child: Text('Back to Home',
                 style:
-                    const TextStyle(color: AppTheme.textSecondary)),
+                    TextStyle(color: AppTheme.textSecondary)),
           ),
         ],
       ),
@@ -420,17 +420,17 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
   InputDecoration _inputDec({required String label, String? hint}) =>
       InputDecoration(
         labelText: label, hintText: hint,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
             color: AppTheme.textSecondary, fontSize: 13),
         hintStyle: TextStyle(
             color: AppTheme.textSecondary.withOpacity(0.5)),
         filled: true, fillColor: AppTheme.card,
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppTheme.border)),
+            borderSide: BorderSide(color: AppTheme.border)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppTheme.border)),
+            borderSide: BorderSide(color: AppTheme.border)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide:
@@ -446,7 +446,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
     return DropdownButtonFormField<T>(
       value: value, items: items, onChanged: onChanged,
       dropdownColor: AppTheme.card,
-      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+      style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
       decoration: _inputDec(label: label),
     );
   }

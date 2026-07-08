@@ -13,6 +13,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/di/injection.dart';
 import '../../core/router/app_router.dart';
 import '../../providers/session_provider.dart';
+import '../../providers/theme_mode_provider.dart';
 import '../../services/platform/storage_service.dart';
 
 
@@ -22,6 +23,8 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(liveSessionProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -36,6 +39,24 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Appearance ────────────────────────────────────
+          const _SectionHeader('Appearance'),
+          _SettingTile(
+            title: 'Dark mode',
+            subtitle: isDark
+                ? 'Dark surfaces across the app'
+                : 'Light surfaces across the app',
+            trailing: Switch(
+              value: isDark,
+              activeColor: AppTheme.accent,
+              onChanged: (value) {
+                ref.read(themeModeProvider.notifier).setMode(
+                      value ? ThemeMode.dark : ThemeMode.light,
+                    );
+              },
+            ),
+          ),
+
           // ── Language ──────────────────────────────────────
           const _SectionHeader('Language'),
           _SettingTile(
@@ -44,7 +65,7 @@ class SettingsScreen extends ConsumerWidget {
             trailing: DropdownButton<String>(
               value: session.language,
               dropdownColor: AppTheme.card,
-              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
               underline: const SizedBox(),
               items: const [
                 DropdownMenuItem(value: 'en', child: Text('English')),

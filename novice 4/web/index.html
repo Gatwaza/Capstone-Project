@@ -13,6 +13,22 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 <link rel="manifest" href="manifest.json"/>
 <title>Novice — First Aid · CPR Coach</title>
+<!-- Theme bootstrap — runs before first paint to avoid a light-mode flash.
+     Shares the 'novice.theme_mode' preference with the Flutter app: the
+     shared_preferences web plugin persists it to localStorage under
+     'flutter.novice.theme_mode', so whichever side (landing page or the
+     Flutter app) the person last toggled in "wins" on next load. -->
+<script>
+(function(){
+  var KEY = 'flutter.novice.theme_mode';
+  var saved = null;
+  try { saved = window.localStorage.getItem(KEY); } catch (e) {}
+  // Matches ThemeModeNotifier's default in theme_mode_provider.dart:
+  // light unless a saved preference explicitly says otherwise.
+  var dark = saved === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
 <!-- TensorFlow.js for web inference -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -22,18 +38,31 @@
 /* ── Flutter × Novice Design System ──────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  /* Flutter-sourced dark palette */
-  --bg:       #0A0D0F;
-  --surface:  #111518;
-  --card:     #161C20;
-  --border:   rgba(255,255,255,0.08);
-  --border-m: rgba(255,255,255,0.14);
-  --text-primary: #E8EAEC;
-  --text-secondary: #5A6470;
-  --text-muted: #2E3540;
+  /* Light palette — matches AppTheme.light() in the Flutter app */
+  --bg:       #F7F8F6;
+  --surface:  #FFFFFF;
+  --card:     #FFFFFF;
+  --border:   #E3E6E2;
+  --border-m: #D2D6D1;
+  --text-primary: #14181A;
+  --text-secondary: #5E6A66;
+  --text-muted: #97A19D;
+
+  /* Dark "stage" panel — reserved for the hero live-preview mockup only.
+     Mirrors AppTheme's bgDark/cardDark/borderDark in Flutter: a live
+     coaching preview reads better as a dark device-style screen than as
+     a plain light card, same reasoning as the training-screen camera HUD
+     staying dark regardless of the app theme. */
+  --stage-bg:      #0A0D0F;
+  --stage-surface: #111518;
+  --stage-card:    #161C20;
+  --stage-border:  rgba(255,255,255,0.08);
+  --stage-text-2:  rgba(255,255,255,0.4);
+  --stage-text-3:  rgba(255,255,255,0.3);
+  --stage-dot:     rgba(255,255,255,0.15);
 
   /* Flutter accents */
-  --mint:    #00E5A0;  /* primary CTA — "go/good" */
+  --mint:    #00A876;  /* primary CTA — "go/good" (deepened for light-mode contrast) */
   --coral:   #FF4D6D;  /* warn/error */
   --amber:   #FFC947;  /* caution/rate */
 
@@ -51,6 +80,40 @@
   --shadow-sm:0 1px 4px rgba(0,0,0,.3);
   --shadow-md:0 4px 18px rgba(0,0,0,.5);
   --shadow-lg:0 16px 48px rgba(0,0,0,.6);
+
+  /* Chrome that changes between themes (nav bar, back button, loader) */
+  --nav-bg:        rgba(255,255,255,0.88);
+  --loader-bg:     #F7F8F6;
+  --toggle-bg:     var(--card);
+  --toggle-border: var(--border);
+  --toggle-icon:   var(--text-primary);
+}
+
+/* Dark palette — matches AppTheme.dark() in the Flutter app.
+   Applied via [data-theme="dark"] on <html>, toggled by the button in
+   the nav and kept in sync with the Flutter app's themeModeProvider
+   through the shared 'novice.theme_mode' SharedPreferences/localStorage
+   key (see the theme bootstrap + toggle script near the end of <body>). */
+html[data-theme="dark"]{
+  --bg:       #0A0D0F;
+  --surface:  #111518;
+  --card:     #161C20;
+  --border:   rgba(255,255,255,0.08);
+  --border-m: rgba(255,255,255,0.13);
+  --text-primary:   #E8EAEC;
+  --text-secondary: #9AA4A8;
+  --text-muted:     rgba(255,255,255,0.35);
+
+  --mint:  #00A876;
+  --coral: #FF4D6D;
+  --amber: #FFC947;
+
+  --nav-bg:    rgba(10,13,15,0.82);
+  --loader-bg: #0A0D0F;
+
+  --shadow-sm:0 1px 4px rgba(0,0,0,.5);
+  --shadow-md:0 4px 18px rgba(0,0,0,.65);
+  --shadow-lg:0 16px 48px rgba(0,0,0,.75);
 }
 html{scroll-behavior:smooth}
 body{
@@ -59,6 +122,7 @@ body{
   color:var(--text-primary);
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+  transition:background .2s ease,color .2s ease;
 }
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
@@ -68,12 +132,26 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 .nav{
   display:flex;align-items:center;justify-content:space-between;
   padding:1rem 2rem;
-  background:rgba(17,21,24,0.88);
+  background:var(--nav-bg);
   backdrop-filter:blur(16px);
   -webkit-backdrop-filter:blur(16px);
   border-bottom:1px solid var(--border);
   position:sticky;top:0;z-index:100;
 }
+
+/* ── Theme toggle ────────────────────────────────────── */
+.theme-toggle{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:999px;margin-left:12px;
+  background:var(--toggle-bg);border:1px solid var(--toggle-border);
+  color:var(--toggle-icon);transition:background .15s,border-color .15s;
+  flex-shrink:0;
+}
+.theme-toggle:hover{border-color:var(--mint)}
+.theme-toggle svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.theme-toggle .icon-sun{display:none}
+html[data-theme="dark"] .theme-toggle .icon-moon{display:none}
+html[data-theme="dark"] .theme-toggle .icon-sun{display:block}
 .nav-brand{
   display:flex;align-items:center;gap:.625rem;
   font-family:'DM Serif Display',serif;
@@ -168,7 +246,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 /* Hero right — dark stage */
 .hero-right{
   position:relative;
-  background:linear-gradient(135deg,var(--surface) 0%,var(--bg) 100%);
+  background:linear-gradient(135deg,var(--stage-surface) 0%,var(--stage-bg) 100%);
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
 }
@@ -193,7 +271,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 }
 .scene-label{
   font-size:10px;letter-spacing:2px;text-transform:uppercase;
-  color:rgba(255,255,255,.3);margin-bottom:1.5rem;
+  color:var(--stage-text-3);margin-bottom:1.5rem;
 }
 .hero-step-ticker{
   margin-top:1.75rem;
@@ -202,19 +280,19 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 .hero-step-dots{display:flex;gap:6px}
 .hero-sdot{
   width:6px;height:6px;border-radius:50%;
-  background:rgba(255,255,255,.15);
+  background:var(--stage-dot);
   transition:background .3s,transform .3s;
 }
 .hero-sdot.active{background:var(--mint);transform:scale(1.4)}
 .hero-step-label{
-  font-size:12px;color:rgba(255,255,255,.4);
+  font-size:12px;color:var(--stage-text-2);
   letter-spacing:.5px;min-height:18px;
 }
 /* Hero SVG backdrop card */
 .hero-svg-card{
   width:100%;max-width:300px;
-  background:var(--card);
-  border:1px solid var(--border);
+  background:var(--stage-card);
+  border:1px solid var(--stage-border);
   border-radius:16px;
   overflow:hidden;
   box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(0,229,160,.05);
@@ -242,6 +320,20 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
   font-size:15px;color:var(--text-secondary);line-height:1.7;
   max-width:500px;margin-bottom:3rem;
 }
+
+/* ── Procedures view topbar ──────────────────────────── */
+.procedures-topbar{
+  padding:1rem 2rem 0;
+}
+.back-home-link{
+  display:inline-flex;align-items:center;gap:.4rem;
+  background:transparent;color:var(--text-secondary);
+  font-family:'DM Sans',system-ui,sans-serif;
+  font-size:13px;font-weight:600;
+  padding:.5rem .25rem;
+  transition:color .15s;
+}
+.back-home-link:hover{color:var(--text-primary)}
 
 /* ── Module grid ─────────────────────────────────────── */
 .modules-section{background:var(--surface);border-top:1px solid var(--border)}
@@ -583,7 +675,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
 </style>
 <script>window.__NOVICE_CONFIG__={supabaseUrl:"https://gerdmqulomndzsdnksnd.supabase.co",supabaseAnonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlcmRtcXVsb21uZHpzZG5rc25kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjIxNTcsImV4cCI6MjA5NzQzODE1N30.8toJtZWcV-eA_wgxBOOCcu2-qviNpb4YyhkFDMY4WUs",researcherPin:"2026"};</script></head>
 <body>
-<div id="landing-page" style="position:fixed;inset:0;z-index:999;overflow-y:auto;background:#0A0D0F;">
+<div id="landing-page" style="position:fixed;inset:0;z-index:999;overflow-y:auto;background:var(--bg);">
 
 <!-- ══ Nav ══════════════════════════════════════════════ -->
 <nav class="nav">
@@ -594,15 +686,19 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
     Novice
   </div>
   <div class="nav-links">
-    <a class="nav-link" href="javascript:void(0)" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">Procedures</a>
-    <a class="nav-link" href="javascript:void(0)" onclick="document.getElementById('explore').scrollIntoView({behavior:'smooth'})">Learn More</a>
+    <a class="nav-link" href="javascript:void(0)" onclick="showProceduresView()">Procedures</a>
+    <a class="nav-link" href="javascript:void(0)" onclick="showProceduresView('explore')">Learn More</a>
     <a class="nav-link" href="javascript:void(0)">About</a>
   </div>
-  <button class="nav-cta" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">Start learning</button>
+  <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleNoviceTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">
+    <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+  </button>
+  <button class="nav-cta" onclick="showProceduresView()">Start learning</button>
 </nav>
 
 <!-- ══ Hero ═════════════════════════════════════════════ -->
-<section class="hero">
+<section class="hero" id="hero">
   <div class="hero-left">
     <p class="hero-eyebrow">
       <span class="eyebrow-dot"></span>
@@ -611,7 +707,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
     <h1 class="hero-h1">Skills that<br><em>save lives</em><br>start here.</h1>
     <p class="hero-sub">Essential first aid procedures. <strong>CPR training with live AI feedback</strong> — your camera grades every compression. All other procedures feature animated 3D step-by-step coaching. No experience needed.</p>
     <div class="hero-actions">
-      <button class="btn-primary" onclick="document.getElementById('modules').scrollIntoView({behavior:'smooth'})">
+      <button class="btn-primary" onclick="showProceduresView()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Explore procedures
       </button>
@@ -647,6 +743,20 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
   </div>
 </section>
 
+<!-- ══ PROCEDURES VIEW ═══════════════════════════════════
+     Everything below (module grid, demo stage, explore, CTA)
+     is hidden until the person chooses "Procedures" — it never
+     shows alongside the hero landing view. Supervisor feedback:
+     "What do you want to practise?" lives ONLY here. -->
+<div id="procedures-view" style="display:none;">
+
+<div class="procedures-topbar">
+  <button class="back-home-link" onclick="showHomeView()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Home
+  </button>
+</div>
+
 <!-- ══ Module grid ══════════════════════════════════════ -->
 <section class="modules-section" id="modules">
   <div class="section" style="padding-bottom:2rem">
@@ -664,7 +774,7 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
       <h2 class="demo-title" id="demoTitle">CPR — Cardiopulmonary Resuscitation</h2>
       <span class="demo-badge" id="demoBadge">Critical</span>
     </div>
-    <div id="demoModeNote" style="margin-bottom:1rem;padding:.6rem 1rem;border-radius:8px;font-size:12px;font-weight:600;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);color:var(--mint);display:flex;align-items:center;gap:.5rem;">
+    <div id="demoModeNote" style="margin-bottom:1rem;padding:.6rem 1rem;border-radius:8px;font-size:12px;font-weight:600;background:rgba(0,168,118,0.08);border:1px solid rgba(0,168,118,0.25);color:var(--mint);display:flex;align-items:center;gap:.5rem;">
       <span id="demoModeText">This is the <strong>live AI training</strong> module — open the app to practise with real-time feedback on your compressions.</span>
     </div>
     <div class="demo-layout">
@@ -715,6 +825,8 @@ button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
     <button class="cta-bar-btn sec" onclick="window.sendPrompt&&sendPrompt('View my results')">View results</button>
   </div>
 </div>
+
+</div><!-- /#procedures-view -->
 
 <script>
 /* ════════════════════════════════════════════════════════
@@ -1280,8 +1392,8 @@ function renderDemo(){
     modeNote.querySelector('span').textContent='';
     modeText.innerHTML='This is the <strong>live AI training</strong> module — open the app to practise with real-time TCN feedback on your compressions.';
   } else {
-    modeNote.style.background='rgba(255,255,255,0.04)';
-    modeNote.style.borderColor='rgba(255,255,255,0.1)';
+    modeNote.style.background='rgba(20,24,26,0.04)';
+    modeNote.style.borderColor='var(--border-m)';
     modeNote.style.color='var(--text-secondary)';
     modeNote.querySelector('span').textContent='';
     modeText.innerHTML='This is an <strong>animated step-by-step guide</strong>. Follow each step at your own pace — no camera required.';
@@ -1373,6 +1485,34 @@ renderDemo();
 renderHero();
 setInterval(advanceHero,3400);
 
+/* ════════════════════════════════════════════════════════
+   VIEW SWITCH — landing hero  ⇄  procedures view
+   Supervisor feedback: reduce scrolling, and the practice
+   selector ("What do you want to practise?") must live only
+   on the Procedures view, never alongside the landing hero.
+════════════════════════════════════════════════════════ */
+function showProceduresView(scrollToId){
+  const hero = document.getElementById('hero');
+  const nav  = document.querySelector('.nav');
+  const view = document.getElementById('procedures-view');
+  if (hero) hero.style.display = 'none';
+  if (view) view.style.display = '';
+  window.scrollTo({top:0,behavior:'instant'});
+  if (scrollToId) {
+    const target = document.getElementById(scrollToId);
+    if (target) target.scrollIntoView({behavior:'smooth'});
+  }
+}
+function showHomeView(){
+  const hero = document.getElementById('hero');
+  const view = document.getElementById('procedures-view');
+  if (view) view.style.display = 'none';
+  if (hero) hero.style.display = '';
+  window.scrollTo({top:0,behavior:'instant'});
+}
+window.showProceduresView = showProceduresView;
+window.showHomeView = showHomeView;
+
 // ════════════════════════════════════════════════════════
 //  FLUTTER INTEGRATION LAYER
 //  The landing page is a fixed overlay (z-index:999) on top of Flutter.
@@ -1423,6 +1563,29 @@ function launchFlutter(route) {
   // else: first-frame listener will consume _noviceTargetRoute
 }
 
+// ── Light/dark theme toggle ─────────────────────────────────────────────
+// Flips html[data-theme] and persists to the same localStorage key the
+// Flutter app's shared_preferences plugin uses ('flutter.novice.theme_mode'),
+// so the choice carries over into the Flutter app once it mounts, and vice
+// versa (see the 'storage' listener below, and the bootstrap script in
+// <head> that reads this key before first paint).
+var NOVICE_THEME_KEY = 'flutter.novice.theme_mode';
+
+function toggleNoviceTheme() {
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { window.localStorage.setItem(NOVICE_THEME_KEY, next); } catch (e) {}
+}
+
+// Cross-tab / cross-frame sync: if the Flutter app (or another tab) changes
+// the preference, reflect it here immediately without a reload.
+window.addEventListener('storage', function (e) {
+  if (e.key === NOVICE_THEME_KEY) {
+    document.documentElement.setAttribute('data-theme', e.newValue === 'dark' ? 'dark' : 'light');
+  }
+});
+
 // Registered by main.dart via dart:js on first frame
 window._noviceFlutterNavigate = null;
 
@@ -1436,12 +1599,12 @@ window._noviceConsumeRoute = function() {
 </div><!-- /#landing-page -->
 
 <!-- ── Flutter loading indicator (behind the overlay, shown after CTA) ── -->
-<div id="flutter-loading" style="position:fixed;inset:0;background:#0A0D0F;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:1;pointer-events:none;">
-  <div style="width:64px;height:64px;border-radius:16px;background:#161C20;border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;">
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00E5A0" stroke-width="2.5" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+<div id="flutter-loading" style="position:fixed;inset:0;background:var(--loader-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:1;pointer-events:none;">
+  <div style="width:64px;height:64px;border-radius:16px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00A876" stroke-width="2.5" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
   </div>
-  <div style="width:120px;height:2px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
-    <div style="height:100%;background:#00E5A0;border-radius:2px;animation:nvload 1.4s ease-in-out infinite;"></div>
+  <div style="width:120px;height:2px;background:var(--border);border-radius:2px;overflow:hidden;">
+    <div style="height:100%;background:#00A876;border-radius:2px;animation:nvload 1.4s ease-in-out infinite;"></div>
   </div>
   <style>@keyframes nvload{0%{width:0;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0;margin-left:100%}}</style>
 </div>
@@ -1467,13 +1630,13 @@ window.addEventListener('flutter-first-frame', function () {
 <style>
 #back-to-landing {
   display:none;position:fixed;top:12px;left:12px;z-index:1000;
-  background:rgba(22,28,32,0.92);border:1px solid rgba(255,255,255,0.1);
-  border-radius:10px;padding:8px 14px;color:#E8EAEC;
+  background:var(--nav-bg);border:1px solid var(--border);
+  border-radius:10px;padding:8px 14px;color:var(--text-primary);
   font-family:'DM Sans',system-ui,sans-serif;font-size:13px;font-weight:500;
   cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  transition:background .15s;
+  transition:background .15s;box-shadow:var(--shadow-sm);
 }
-#back-to-landing:hover{background:rgba(22,28,32,1);}
+#back-to-landing:hover{background:var(--card);}
 </style>
 <button id="back-to-landing" onclick="showLanding()">← Back</button>
 
@@ -1490,6 +1653,7 @@ function showLanding() {
     landing.style.transform = 'scale(1)';
     landing.style.pointerEvents = '';
   }
+  if (window.showHomeView) window.showHomeView();
   history.pushState({}, '', '/');
 }
 window.showLanding = showLanding;

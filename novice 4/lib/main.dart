@@ -16,6 +16,7 @@ import 'core/constants/env.dart';
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/theme_mode_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -91,10 +92,20 @@ class _NoviceAppState extends ConsumerState<NoviceApp> {
     final router = ref.watch(appRouterProvider);
     _routerWrapper.setRouter(router);
 
+    // Watching themeModeProvider here means every rebuild of NoviceApp
+    // (triggered whenever the person toggles the theme, from Settings or
+    // the home screen) rebuilds the whole widget tree beneath it — which
+    // is what lets every screen's AppTheme.bg/.card/.border/.textPrimary/
+    // .textSecondary reads (already mutated by AppTheme.applyBrightness
+    // inside themeModeProvider) actually take effect immediately.
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp.router(
       title: 'Novice — CPR Coach',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

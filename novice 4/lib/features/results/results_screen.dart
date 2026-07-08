@@ -180,6 +180,20 @@ class _ResultsContentState extends State<_ResultsContent> {
 
               const SizedBox(height: 32),
 
+              // ── Per-task accuracy chart ───────────────────────
+              if (widget.session.modelWasAvailable) ...[
+                Text('Technique Breakdown',
+                    style: Theme.of(context).textTheme.labelSmall),
+                const SizedBox(height: 12),
+                _TaskAccuracyChart(
+                  rate: widget.session.rateAccuracy,
+                  depth: widget.session.depthAccuracy,
+                  recoil: widget.session.recoilAccuracy,
+                  recoilConfidence: widget.session.taskConfidences['recoil'],
+                ),
+                const SizedBox(height: 32),
+              ],
+
               // ── TCN Research Metrics ──────────────────
               if (widget.session.modelWasAvailable) ...[
                 _ResearchMetricsPanel(session: widget.session),
@@ -889,6 +903,149 @@ class _MetricTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+// ── Per-task accuracy chart (Rate / Depth / Recoil) ─────────────────────────
+//
+// Supervisor feedback: results need real data visualization for reports and
+// the capstone defense, not just number tiles. Built as a plain
+// CustomPainter bar chart (no chart package dependency) so it stays
+// self-contained. Recoil gets a distinct "low confidence" treatment
+// (hatched/dimmed bar + note) instead of being plotted with the same
+// visual certainty as rate/depth, reflecting the documented recoil-label
+// noise — see core/utils/landmark_math.dart.
+class _TaskAccuracyChart extends StatelessWidget {
+  const _TaskAccuracyChart({
+    required this.rate,
+    required this.depth,
+    required this.recoil,
+    this.recoilConfidence,
+  });
+
+  final double rate;
+  final double depth;
+  final double recoil;
+  final double? recoilConfidence;
+
+  static const double _lowConfidenceThreshold = 0.6;
+
+  @override
+  Widget build(BuildContext context) {
+    final recoilIsLowConfidence =
+        (recoilConfidence ?? 1.0) < _lowConfidenceThreshold;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(AppTheme.r),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _AccuracyBar(label: 'Rate', value: rate, color: AppTheme.aedBlue),
+          const SizedBox(height: 14),
+          _AccuracyBar(
+              label: 'Depth', value: depth, color: AppTheme.recoveryTeal),
+          const SizedBox(height: 14),
+          _AccuracyBar(
+            label: 'Recoil',
+            value: recoil,
+            color: AppTheme.chokingAmber,
+            dimmed: recoilIsLowConfidence,
+          ),
+          if (recoilIsLowConfidence) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 14, color: AppTheme.textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Recoil detection had lower confidence this session — treat this figure as indicative, not exact.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(fontSize: 11.5),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AccuracyBar extends StatelessWidget {
+  const _AccuracyBar({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.dimmed = false,
+  });
+
+  final String label;
+  final double value; // 0.0–1.0
+  final Color color;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (value * 100).clamp(0, 100).round();
+    final barColor = dimmed ? color.withOpacity(0.45) : color;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Spacer(),
+            Text('$pct%',
+                style: TextStyle(
+                    color: barColor, fontWeight: FontWeight.w700, fontSize: 13)),
+            if (dimmed) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.help_outline_rounded,
+                  size: 13, color: AppTheme.textSecondary),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            height: 10,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    Container(color: AppTheme.border),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      width: constraints.maxWidth * value.clamp(0.0, 1.0),
+                      decoration: BoxDecoration(
+                        color: barColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

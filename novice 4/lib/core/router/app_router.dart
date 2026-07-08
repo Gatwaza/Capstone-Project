@@ -83,7 +83,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       backgroundColor: AppTheme.bg,
       body: Center(
         child: Text('Page not found: ${state.uri}',
-            style: const TextStyle(color: AppTheme.textPrimary)),
+            style: TextStyle(color: AppTheme.textPrimary)),
       ),
     ),
   );

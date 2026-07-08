@@ -279,6 +279,17 @@ class _DemoScreenState extends State<DemoScreen>
       ),
       body: Column(
         children: [
+          // ── "What do you want to practice?" ───────────
+          // Supervisor feedback: this selector lives ONLY here, never on
+          // the landing/home screen.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              'What do you want to practice?',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+
           // ── Module tab bar ────────────────────────────
           SizedBox(
             height: 52,
@@ -382,7 +393,7 @@ class _DemoScreenState extends State<DemoScreen>
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.play_lesson_rounded,
+                          Icon(Icons.play_lesson_rounded,
                               color: AppTheme.textSecondary, size: 16),
                           const SizedBox(width: 10),
                           Text('Animated step-by-step guide — study at your own pace',
@@ -454,7 +465,7 @@ class _DemoScreenState extends State<DemoScreen>
                                 Expanded(
                                   child: Text(
                                     _step.title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: AppTheme.textPrimary,
                                       fontSize: 12, fontWeight: FontWeight.w600,
                                     ),
@@ -462,7 +473,7 @@ class _DemoScreenState extends State<DemoScreen>
                                 ),
                                 Text(
                                   'Step ${_stepIdx + 1}/${_mod.steps.length}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AppTheme.textSecondary, fontSize: 11,
                                   ),
                                 ),
@@ -536,7 +547,7 @@ class _DemoScreenState extends State<DemoScreen>
                               : null,
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.textPrimary,
-                            side: const BorderSide(color: AppTheme.border),
+                            side: BorderSide(color: AppTheme.border),
                             minimumSize: const Size(0, 44),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(AppTheme.rMd),
