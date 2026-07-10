@@ -93,6 +93,9 @@ class AppConstants {
     'start':            'Hands on the center of the chest. Begin compressions.',
     'good':             'Good rhythm — keep that up.',
     'bent_elbows':      'Lock your elbows. Push straight down from your shoulders.',
+    // Covers all hand-placement failure modes (too high/low/left/right,
+    // or hands spread apart) with one instruction — see FeedbackEngine.
+    'hand_placement':   'Place your hands together at the center of the chest.',
     'hand_too_high':    'A little lower — center of the chest.',
     'hand_too_low':     'A little higher — center of the chest.',
     'too_shallow':      'Push harder. Go deeper, about five centimeters.',
@@ -100,7 +103,7 @@ class AppConstants {
     'rate_too_slow':    'Faster. Push to the beat.',
     'rate_too_fast':    'Ease back, you\'re rushing it.',
     'body_lean':        'Shoulders directly over your hands.',
-    'incomplete_decomp':'Let the chest come all the way back up between pushes.',
+    'incomplete_decomp':'Allow full chest recoil. Let it come all the way back up.',
     'not_compressing':  'Hands on the chest — start compressing now.',
     'pause_detected':   'Don\'t stop. Keep compressions going.',
   };
@@ -111,6 +114,8 @@ class AppConstants {
     'start':            'Shyira intoki zo hagati y\'isaya.',
     'good':             'Imirimo myiza — komeza.',
     'bent_elbows':      'Gorora amaboko. Shira ingufu.',
+    // TODO: Validate with native speaker — placeholder for hand_placement.
+    'hand_placement':   'Shyira intoki hamwe hagati y\'igituza.',
     'hand_too_high':    'Manura intoki. Hagati y\'isaya.',
     'hand_too_low':     'Fungura intoki hejuru gato.',
     'too_shallow':      'Kanda cyane. Gera kuri santimetero eshanu.',

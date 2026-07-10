@@ -14,9 +14,13 @@
 // this setting — a legibility requirement over live video, not a theme
 // preference.
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js show context;
 
 import '../core/theme/app_theme.dart';
 
@@ -44,6 +48,29 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   void _apply(ThemeMode mode) {
     AppTheme.applyBrightness(mode == ThemeMode.dark);
     state = mode;
+    _syncLandingPage(mode);
+  }
+
+  /// Pushes the change into web/index.html's landing-page overlay
+  /// (window.setNoviceTheme), same window, no reload. Without this, the
+  /// landing overlay only ever picks up a theme change on an actual
+  /// document reload — the 'storage' event it also listens for never
+  /// fires for a same-window write, and this overlay lives in the same
+  /// document as the Flutter app rather than a separate page. See the
+  /// long comment beside toggleNoviceTheme() in index.html.
+  void _syncLandingPage(ThemeMode mode) {
+    if (!kIsWeb) return;
+    try {
+      js.context.callMethod(
+        'setNoviceTheme',
+        [mode == ThemeMode.dark ? 'dark' : 'light'],
+      );
+    } catch (_) {
+      // Landing page JS not present yet (very first frame, before
+      // index.html's <script> block has run) — harmless, since the
+      // bootstrap script already set the correct attribute from
+      // localStorage before Flutter even started.
+    }
   }
 
   /// Switches to the given mode and persists the choice.

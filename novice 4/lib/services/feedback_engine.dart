@@ -18,6 +18,7 @@
 library;
 
 
+import '../core/utils/landmark_math.dart' show HandPlacementResult;
 import '../models/session_model.dart';
 
 class FeedbackEngine {
@@ -33,7 +34,42 @@ class FeedbackEngine {
 
   /// Derives a FeedbackPrompt from the latest InferenceResult.
   /// Call once per assessed frame.
-  FeedbackPrompt process(InferenceResult result, String language) {
+  ///
+  /// [handPlacement] is computed independently of the hosted TCN model —
+  /// the model only classifies rate/depth/recoil, it was never trained on
+  /// hand position. LandmarkMath.assessHandPlacement2D() derives it
+  /// directly from the current frame's wrist/shoulder/hip landmarks every
+  /// tick — vertical position, lateral centering, and hands-together — and
+  /// is checked FIRST, ahead of the model's own label: correcting hand
+  /// position is the pedagogical starting point (an instructor corrects
+  /// this before rate/depth), and badly-placed hands also make the
+  /// model's own depth/rate reading unreliable, since its features assume
+  /// compressions happening at the sternum. Pass null (the default) to
+  /// skip this check entirely — e.g. when landmark confidence is too low
+  /// to trust it for that frame.
+  FeedbackPrompt process(
+    InferenceResult result,
+    String language, {
+    HandPlacementResult? handPlacement,
+  }) {
+    // All hand-placement failure modes (too high/low, off to a side, or
+    // hands spread apart instead of stacked) collapse to a single key and
+    // message. Clinically the correction is the same regardless of which
+    // axis drifted — get the hands back together, centered on the chest —
+    // and a unified key means the voice/on-screen cue doesn't flicker
+    // between different wordings as the geometry jitters frame-to-frame
+    // near a threshold.
+    if (handPlacement != null &&
+        handPlacement != HandPlacementResult.correct &&
+        handPlacement != HandPlacementResult.unknown) {
+      return FeedbackPrompt(
+        key: 'hand_placement',
+        severity: FeedbackSeverity.critical,
+        message: 'Place your hands together at the center of the chest.',
+        issuedAt: DateTime.now(),
+      );
+    }
+
     final label = result.topClassLabel;
 
     // Map model output labels to prioritised feedback prompts.
@@ -71,7 +107,7 @@ class FeedbackEngine {
         return FeedbackPrompt(
           key: 'incomplete_decomp',
           severity: FeedbackSeverity.critical,
-          message: 'Full release',
+          message: 'Allow full chest recoil.',
           issuedAt: DateTime.now(),
         );
       case 'bent_elbows':

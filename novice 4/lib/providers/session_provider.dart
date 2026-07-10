@@ -10,7 +10,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants/app_constants.dart';
 import '../core/di/injection.dart';
+import '../core/utils/landmark_math.dart';
 import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
 import '../services/feedback_engine.dart';
@@ -36,6 +38,7 @@ class LiveSessionState {
     this.currentPrompt,
     this.lastInference,
     this.lastFrame,
+    this.handPlacement,
     this.taskAccuracies = const {},
     this.elapsed = Duration.zero,
   });
@@ -64,6 +67,12 @@ class LiveSessionState {
   final InferenceResult? lastInference;
   final LandmarkFrame? lastFrame;
 
+  /// Latest geometric hand-placement read for this frame, drives both the
+  /// on-screen chest-guide overlay (pose_overlay.dart) and the coaching
+  /// cue. Null before the first assessed frame, or when landmark
+  /// confidence was too low to trust for that frame.
+  final HandPlacementResult? handPlacement;
+
   /// Live per-task accuracy snapshot ('rate'/'depth'/'recoil' → 0.0–1.0),
   /// updated every assessed frame so _TaskIndicators in training_screen can
   /// show a running readout during the session.
@@ -90,6 +99,7 @@ class LiveSessionState {
     FeedbackPrompt? currentPrompt,
     InferenceResult? lastInference,
     LandmarkFrame? lastFrame,
+    HandPlacementResult? handPlacement,
     Map<String, double>? taskAccuracies,
     Duration? elapsed,
   }) {
@@ -106,6 +116,7 @@ class LiveSessionState {
       currentPrompt: currentPrompt ?? this.currentPrompt,
       lastInference: lastInference ?? this.lastInference,
       lastFrame: lastFrame ?? this.lastFrame,
+      handPlacement: handPlacement ?? this.handPlacement,
       taskAccuracies: taskAccuracies ?? this.taskAccuracies,
       elapsed: elapsed ?? this.elapsed,
     );
@@ -229,7 +240,8 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _frameBuffer.add(frame);
 
     final inference = _runInference(frame);
-    final prompt = _feedback.process(inference, state.language);
+    final handPlacement = _assessHandPlacement(frame);
+    final prompt = _feedback.process(inference, state.language, handPlacement: handPlacement);
 
     _assessedFrameCount++;
     if (!inference.isSimulated) _activeFrameCount++;
@@ -304,11 +316,53 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       currentPrompt: prompt,
       lastInference: inference,
       lastFrame: frame,
+      handPlacement: handPlacement,
       modelAvailable: !inference.isSimulated,
       taskAccuracies: liveTaskAccuracies,
     );
 
     if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
+  }
+
+  /// Geometric hand-placement check, independent of the hosted TCN model
+  /// (which only ever classifies rate/depth/recoil — it has no hand
+  /// position axis). Runs every assessed frame using
+  /// LandmarkMath.assessHandPlacement2D() against the frame's own
+  /// wrist/shoulder/hip landmarks, so it works even if the model API is
+  /// unreachable (isSimulated=true) — hand placement is pure geometry, no
+  /// network call needed. Covers vertical position, lateral centering, AND
+  /// whether the wrists are stacked together, feeding both the coaching
+  /// cue and the on-screen chest-guide overlay.
+  ///
+  /// Gated on meanLandmarkConfidence: a low-confidence frame (partial
+  /// occlusion, motion blur, person stepping out of frame) can put the
+  /// wrist/shoulder/hip landmarks in implausible positions, which would
+  /// otherwise produce a spurious cue. Returns null (skip the check for
+  /// this frame) rather than guessing.
+  HandPlacementResult? _assessHandPlacement(LandmarkFrame frame) {
+    if (frame.meanLandmarkConfidence < AppConstants.minLandmarkVisibility) {
+      return null;
+    }
+    final shoulderMidX = (frame.leftShoulderX + frame.rightShoulderX) / 2;
+    final shoulderMidY = (frame.leftShoulderY + frame.rightShoulderY) / 2;
+    final hipMidY = (frame.leftHipY + frame.rightHipY) / 2;
+    final shoulderWidth = LandmarkMath.distance2d(
+      frame.leftShoulderX, frame.leftShoulderY,
+      frame.rightShoulderX, frame.rightShoulderY,
+    );
+    final result = LandmarkMath.assessHandPlacement2D(
+      wristMidX: frame.wristMidX,
+      wristMidY: frame.wristMidY,
+      leftWristX: frame.leftWristX,
+      leftWristY: frame.leftWristY,
+      rightWristX: frame.rightWristX,
+      rightWristY: frame.rightWristY,
+      shoulderMidX: shoulderMidX,
+      shoulderMidY: shoulderMidY,
+      hipMidY: hipMidY,
+      shoulderWidth: shoulderWidth,
+    );
+    return result == HandPlacementResult.unknown ? null : result;
   }
 
   /// Web-only build: mobile (on-device TFLite) inference is on hold.

@@ -276,6 +276,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
               painter: PoseOverlayPainter(
                 frame: session.lastFrame,
                 inference: session.lastInference,
+                handPlacement: session.handPlacement,
               ),
             ),
 

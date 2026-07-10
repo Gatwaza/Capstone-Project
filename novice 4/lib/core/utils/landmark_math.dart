@@ -143,6 +143,62 @@ class LandmarkMath {
     return HandPlacementResult.correct;
   }
 
+  /// Full 2D hand-placement assessment: vertical position (sternum height),
+  /// lateral centering (on the midline, not off to one side of the
+  /// ribcage), AND whether the two wrists are stacked together rather than
+  /// spread apart. This backs the on-screen chest-guide overlay and drives
+  /// a single unified "place your hands together at the center" cue —
+  /// clinically what matters is getting the rescuer's hands back onto one
+  /// spot, not which specific axis drifted, so all failure modes here
+  /// collapse to the same corrective instruction.
+  ///
+  /// Priority order when multiple things are off at once: vertical first
+  /// (an instructor corrects sternum height before anything else), then
+  /// hands-apart (a fundamental technique fault), then lateral centering.
+  ///
+  /// [shoulderWidth] must be in the same unit as the X coordinates passed
+  /// in (normalized 0–1 is fine, as long as every argument is consistent).
+  static HandPlacementResult assessHandPlacement2D({
+    required double wristMidX,
+    required double wristMidY,
+    required double leftWristX,
+    required double leftWristY,
+    required double rightWristX,
+    required double rightWristY,
+    required double shoulderMidX,
+    required double shoulderMidY,
+    required double hipMidY,
+    required double shoulderWidth,
+  }) {
+    final torsoHeight = hipMidY - shoulderMidY;
+    if (torsoHeight < 1e-6 || shoulderWidth < 1e-6) {
+      return HandPlacementResult.unknown;
+    }
+
+    // Vertical — identical thresholds to assessHandPlacement() above.
+    final normPosY = (wristMidY - shoulderMidY) / torsoHeight;
+    if (normPosY < 0.35) return HandPlacementResult.tooHigh;
+    if (normPosY > 0.75) return HandPlacementResult.tooLow;
+
+    // Hands together: heel-of-hand + interlocked-fingers technique keeps
+    // the wrists close together. A wide gap means two separate contact
+    // points on the chest instead of one, which the model was never
+    // trained to expect and which is a correction on its own.
+    final wristSeparation =
+        distance2d(leftWristX, leftWristY, rightWristX, rightWristY);
+    if (wristSeparation > shoulderWidth * 0.35) {
+      return HandPlacementResult.handsApart;
+    }
+
+    // Lateral centering — combined wrist point should sit near the
+    // sternum midline, not drifted toward a rib margin.
+    final normPosX = (wristMidX - shoulderMidX) / shoulderWidth;
+    if (normPosX < -0.15) return HandPlacementResult.tooLeft;
+    if (normPosX > 0.15) return HandPlacementResult.tooRight;
+
+    return HandPlacementResult.correct;
+  }
+
   // ── Feature vector construction ──────────────────────────
 
   /// Builds the 12-dimensional feature vector for one frame.
@@ -186,6 +242,9 @@ enum HandPlacementResult {
   correct,
   tooHigh,
   tooLow,
+  tooLeft,
+  tooRight,
+  handsApart,
   unknown,
 }
 

@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
+import '../core/utils/landmark_math.dart' show HandPlacementResult;
 import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
 
@@ -25,7 +26,11 @@ import '../models/session_model.dart';
 /// onto the canvas lines up correctly with what's on screen — no horizontal
 /// flip is applied here.
 class PoseOverlayPainter extends CustomPainter {
-  const PoseOverlayPainter({required this.frame, required this.inference});
+  const PoseOverlayPainter({
+    required this.frame,
+    required this.inference,
+    this.handPlacement,
+  });
 
   /// Raw per-frame landmarks. Null only in the brief window before the
   /// first valid pose has been detected.
@@ -35,16 +40,81 @@ class PoseOverlayPainter extends CustomPainter {
   /// depth bar — the skeleton itself is driven entirely by [frame].
   final InferenceResult? inference;
 
+  /// Latest geometric hand-placement read (session_provider.dart). Drives
+  /// the chest guide zone color and the red wrist highlight below. Null
+  /// while unassessed (low landmark confidence) — the guide zone still
+  /// draws, just in its neutral color.
+  final HandPlacementResult? handPlacement;
+
   @override
   void paint(Canvas canvas, Size size) {
     final f = frame;
     if (f != null) {
+      _drawChestGuideZone(canvas, size, f);
       _drawSkeleton(canvas, size, f);
       _drawCompressionTarget(canvas, size, f);
     }
     if (inference != null) {
       _drawDepthIndicator(canvas, size, inference!);
     }
+  }
+
+  bool get _handPlacementOk =>
+      handPlacement == null || handPlacement == HandPlacementResult.correct;
+
+  /// Draws the target zone for hand placement as a parallelogram anchored
+  /// to the person's own shoulder/hip landmarks (not a fixed screen
+  /// rectangle), so it tracks them as they move toward/away from camera.
+  /// Green + hollow = hands currently correct or not yet assessed.
+  /// Red + filled tint = a placement error is active right now — this is
+  /// the visual half of the "hand issue" cue; TtsService.speakKey('hand_
+  /// placement') is the spoken half.
+  void _drawChestGuideZone(Canvas canvas, Size size, LandmarkFrame f) {
+    final shoulderMidX = (f.leftShoulderX + f.rightShoulderX) / 2;
+    final shoulderMidY = (f.leftShoulderY + f.rightShoulderY) / 2;
+    final hipMidY = (f.leftHipY + f.rightHipY) / 2;
+    final shoulderWidth = (f.rightShoulderX - f.leftShoulderX).abs();
+    final torsoHeight = hipMidY - shoulderMidY;
+    if (shoulderWidth < 1e-6 || torsoHeight < 1e-6) return;
+
+    // Matches the ideal band from LandmarkMath.assessHandPlacement2D:
+    // 35%–75% down the torso, centered laterally, half-width scaled to
+    // the ±15% lateral tolerance plus a margin so the zone reads as a
+    // believable "aim here" box rather than a hair-thin target.
+    final zoneHalfWidth = shoulderWidth * 0.28;
+    final topY = shoulderMidY + torsoHeight * 0.35;
+    final bottomY = shoulderMidY + torsoHeight * 0.75;
+
+    // A slight parallelogram skew (not a plain rectangle) toward the
+    // shoulder line, which reads more like a chest-surface guide under
+    // perspective than an axis-aligned box would.
+    final skew = shoulderWidth * 0.06;
+
+    final topLeft = _pt(size, shoulderMidX - zoneHalfWidth - skew, topY);
+    final topRight = _pt(size, shoulderMidX + zoneHalfWidth - skew, topY);
+    final bottomRight = _pt(size, shoulderMidX + zoneHalfWidth + skew, bottomY);
+    final bottomLeft = _pt(size, shoulderMidX - zoneHalfWidth + skew, bottomY);
+
+    final path = Path()
+      ..moveTo(topLeft.dx, topLeft.dy)
+      ..lineTo(topRight.dx, topRight.dy)
+      ..lineTo(bottomRight.dx, bottomRight.dy)
+      ..lineTo(bottomLeft.dx, bottomLeft.dy)
+      ..close();
+
+    final ok = _handPlacementOk;
+    final color = ok ? AppTheme.accent : AppTheme.accentWarn;
+
+    if (!ok) {
+      canvas.drawPath(path, Paint()..color = color.withOpacity(0.18));
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color.withOpacity(ok ? 0.55 : 0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = ok ? 1.5 : 2.5,
+    );
   }
 
   // ── Skeleton ─────────────────────────────────────────────
@@ -115,8 +185,12 @@ class PoseOverlayPainter extends CustomPainter {
     joint(lh, structuralColor, 3.5);
     joint(rh, structuralColor, 3.5);
     // Wrists are the compression point — make them the most prominent.
-    joint(lw, leftArmColor, 6);
-    joint(rw, rightArmColor, 6);
+    // A hand-placement error overrides the elbow-lock coloring here
+    // specifically, since a misplaced hand is the more urgent correction
+    // and should read unambiguously as red regardless of arm angle.
+    final wristColor = _handPlacementOk ? null : AppTheme.accentWarn;
+    joint(lw, wristColor ?? leftArmColor, 6);
+    joint(rw, wristColor ?? rightArmColor, 6);
   }
 
   /// Small pulsing ring centered on the actual wrist midpoint (the real
@@ -192,5 +266,7 @@ class PoseOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PoseOverlayPainter old) =>
-      old.frame != frame || old.inference != inference;
+      old.frame != frame ||
+      old.inference != inference ||
+      old.handPlacement != handPlacement;
 }

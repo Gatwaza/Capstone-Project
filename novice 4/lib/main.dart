@@ -76,6 +76,16 @@ class _NoviceAppState extends ConsumerState<NoviceApp> {
     js.context['_noviceFlutterNavigate'] = js.allowInterop((String route) {
       _routerWrapper.navigateTo(route);
     });
+
+    // Lets the landing page's toggleNoviceTheme() (index.html) push a
+    // theme change INTO Flutter's own Riverpod state, same-window, no
+    // reload — see the long comment beside toggleNoviceTheme() in
+    // index.html for why the 'storage' event alone can't do this.
+    js.context['_noviceFlutterSetTheme'] = js.allowInterop((String mode) {
+      ref.read(themeModeProvider.notifier).setMode(
+            mode == 'dark' ? ThemeMode.dark : ThemeMode.light,
+          );
+    });
   }
 
   @override
