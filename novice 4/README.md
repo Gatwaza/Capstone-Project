@@ -14,8 +14,7 @@
 
 Novice is a web app that teaches you how to perform CPR and other first aid procedures — no prior training required, no extra hardware, just a smartphone or laptop with a camera.
 
-### 🎥 [Watch the demo](https://yout.be/elEw564_D9M)
-
+### 🎥 [Watch the demo](https:/)
 [![Novice demo video](https://img.youtube.com/vi/elEw564_D9M/hqdefault.jpg)](https://youtu.be/elEw564_D9M)
 
 | Mode | Procedures | What happens |
