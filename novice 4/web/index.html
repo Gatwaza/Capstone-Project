@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="icons/Icon-192.png"/>
 <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 <link rel="manifest" href="manifest.json"/>
-<title>Novice — First Aid · CPR Coach</title>
+<title>Novice</title>
 <!-- Theme bootstrap — runs before first paint to avoid a light-mode flash.
      Shares the 'novice.theme_mode' preference with the Flutter app: the
      shared_preferences web plugin persists it to localStorage under
@@ -116,6 +116,9 @@ html[data-theme="dark"]{
   --shadow-lg:0 16px 48px rgba(0,0,0,.75);
 }
 html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  .hero-left-bg{animation:none!important;transform:scale(1.08)!important}
+}
 body{
   font-family:'DM Sans',system-ui,sans-serif;
   background:var(--bg);
@@ -127,6 +130,28 @@ body{
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer;border:none;outline:none}
 button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+
+/* ── Hover 3D tilt (every clickable button) ─────────────
+   transform is set inline per-frame by the tilt script below; this just
+   gives it a sane resting transition, depth-of-field shadow lift, and a
+   perspective-friendly transform-origin so the tilt reads as a real
+   object pivoting in space rather than a flat skew. */
+button, .btn-primary, .btn-ghost, .nav-cta{
+  transition:transform .12s ease-out, box-shadow .12s ease-out;
+  transform-style:preserve-3d;
+  transform-origin:center;
+  will-change:transform;
+}
+button.tilting, .btn-primary.tilting, .btn-ghost.tilting, .nav-cta.tilting{
+  transition:transform .04s linear, box-shadow .12s ease-out;
+  box-shadow:0 14px 28px rgba(0,0,0,.22);
+}
+html[data-theme="dark"] button.tilting,
+html[data-theme="dark"] .btn-primary.tilting,
+html[data-theme="dark"] .btn-ghost.tilting,
+html[data-theme="dark"] .nav-cta.tilting{
+  box-shadow:0 14px 32px rgba(0,0,0,.55);
+}
 
 /* ── Nav ─────────────────────────────────────────────── */
 .nav{
@@ -204,25 +229,69 @@ html[data-theme="dark"] .theme-toggle .icon-sun{display:block}
   position:absolute;inset:-20px;z-index:0;
   background-image:
     linear-gradient(100deg,
-      rgba(247,248,246,.97) 0%,
-      rgba(247,248,246,.93) 30%,
-      rgba(247,248,246,.5)  60%,
-      rgba(247,248,246,.15) 100%),
+      rgba(247,248,246,.90) 0%,
+      rgba(247,248,246,.80) 30%,
+      rgba(247,248,246,.35)  60%,
+      rgba(247,248,246,.08) 100%),
     url('images/hero-left.webp');
   background-size:cover, cover;
   background-position:center, center 30%;
   background-repeat:no-repeat, no-repeat;
-  filter:blur(22px);
+  filter:blur(9px) saturate(1.15) contrast(1.05);
+  transform:scale(1.08);
+  animation:heroKenBurns 22s ease-in-out infinite alternate;
   pointer-events:none;
 }
 html[data-theme="dark"] .hero-left-bg{
   background-image:
     linear-gradient(100deg,
-      rgba(10,13,15,.97) 0%,
-      rgba(10,13,15,.93) 30%,
-      rgba(10,13,15,.5)  60%,
-      rgba(10,13,15,.15) 100%),
+      rgba(10,13,15,.94) 0%,
+      rgba(10,13,15,.82) 30%,
+      rgba(10,13,15,.40)  60%,
+      rgba(10,13,15,.10) 100%),
     url('images/hero-left.webp');
+}
+/* Slow, subtle push-in/pan — gives the hero photo a living, cinematic
+   quality instead of sitting static behind the copy. */
+@keyframes heroKenBurns{
+  0%{  transform:scale(1.08) translate3d(0,0,0); }
+  100%{transform:scale(1.16) translate3d(-1.2%,-1%,0); }
+}
+/* Cinematic vignette + brand-mint colour grade, layered above the photo
+   but below the hero copy (z-index:1, same stacking context as
+   .hero-left-bg's z-index:0). Pure light — doesn't intercept clicks. */
+.hero-left-grade{
+  position:absolute;inset:-20px;z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(120% 90% at 15% 20%, rgba(0,229,160,.10) 0%, transparent 55%),
+    radial-gradient(140% 100% at 100% 100%, rgba(0,0,0,.32) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,.22) 100%);
+  mix-blend-mode:multiply;
+}
+html[data-theme="dark"] .hero-left-grade{
+  mix-blend-mode:normal;
+  background:
+    radial-gradient(120% 90% at 15% 20%, rgba(0,229,160,.14) 0%, transparent 55%),
+    radial-gradient(140% 100% at 100% 100%, rgba(0,0,0,.55) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%);
+}
+/* Mirrored "reflection" of the hero photo along the bottom edge of the
+   panel — flipped vertically and faded via mask, like light bouncing off
+   a glass floor beneath the scene. Sits at the very base of .hero-left,
+   under the copy (z-index:0), overflow:hidden on the parent clips it. */
+.hero-left-reflection{
+  position:absolute;left:-20px;right:-20px;bottom:-20px;height:34%;
+  z-index:0;pointer-events:none;
+  background-image:url('images/hero-left.webp');
+  background-size:cover;
+  background-position:center 30%;
+  background-repeat:no-repeat;
+  transform:scaleY(-1);
+  filter:blur(9px) saturate(1.15) brightness(.7);
+  opacity:.35;
+  -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 85%);
+  mask-image:linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 85%);
 }
 .hero-eyebrow{
   position:relative;z-index:1;
@@ -262,7 +331,7 @@ html[data-theme="dark"] .hero-left-bg{
   transition:opacity .15s,transform .15s;
   box-shadow:0 4px 20px rgba(0,229,160,.25);
 }
-.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-primary:hover{opacity:.88}
 .btn-ghost{
   background:transparent;color:var(--text-primary);
   font-size:14px;font-weight:500;
@@ -794,9 +863,11 @@ html[data-theme="dark"] .hero-left-bg{
 <section class="hero" id="hero">
   <div class="hero-left">
     <div class="hero-left-bg" aria-hidden="true"></div>
+    <div class="hero-left-grade" aria-hidden="true"></div>
+    <div class="hero-left-reflection" aria-hidden="true"></div>
     <p class="hero-eyebrow">
       <span class="eyebrow-dot"></span>
-      AI-powered first aid training
+      Your real time guiding and assessing first aid training
     </p>
     <h1 class="hero-h1">Skills that<br><em>save lives</em><br>start here.</h1>
     <p class="hero-sub">Essential first aid procedures. <strong>CPR training with live AI feedback</strong> — your camera grades every compression. All other procedures feature animated 3D step-by-step coaching. No experience needed.</p>
@@ -1828,6 +1899,63 @@ function showLanding() {
   history.pushState({}, '', '/');
 }
 window.showLanding = showLanding;
+</script>
+
+<!-- ── Hover 3D tilt for every clickable button ─────────────────────────
+     Delegated on document (not per-element listeners) so it keeps working
+     for buttons rendered later by JS templates — the procedure/module
+     cards' onclick buttons, step nav, CTA bar, etc. — with no extra
+     wiring needed as new markup gets injected. -->
+<script>
+(function(){
+  var TILT_SEL = 'button, .btn-primary, .btn-ghost, .nav-cta';
+  var MAX_DEG = 14;
+  var active = null;
+  var reduceMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return;
+
+  function tilt(el, clientX, clientY){
+    var r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var px = (clientX - r.left) / r.width;   // 0..1
+    var py = (clientY - r.top) / r.height;   // 0..1
+    var rotY = (px - 0.5) * MAX_DEG * 2;
+    var rotX = (0.5 - py) * MAX_DEG * 2;
+    el.style.transform =
+      'perspective(600px) rotateX(' + rotX.toFixed(2) + 'deg) ' +
+      'rotateY(' + rotY.toFixed(2) + 'deg) scale3d(1.05,1.05,1.05) translateZ(4px)';
+  }
+
+  function reset(el){
+    el.classList.remove('tilting');
+    el.style.transform = '';
+  }
+
+  document.addEventListener('pointermove', function(e){
+    if (e.pointerType === 'touch') return;
+    var el = e.target.closest ? e.target.closest(TILT_SEL) : null;
+    if (!el){
+      if (active) { reset(active); active = null; }
+      return;
+    }
+    if (el !== active){
+      if (active) reset(active);
+      active = el;
+      active.classList.add('tilting');
+    }
+    tilt(active, e.clientX, e.clientY);
+  });
+
+  document.addEventListener('pointerleave', function(){
+    if (active) { reset(active); active = null; }
+  }, true);
+
+  document.addEventListener('pointerdown', function(e){
+    var el = e.target.closest ? e.target.closest(TILT_SEL) : null;
+    if (el) el.style.transform += ' scale3d(0.97,0.97,0.97)';
+  });
+})();
 </script>
 
 </body>

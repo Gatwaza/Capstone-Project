@@ -12,6 +12,8 @@ import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/theme_mode_provider.dart';
+import 'widgets/cinematic_hero_background.dart';
+import 'widgets/tilt_3d.dart';
 
 // Hands control back to web/index.html's landing overlay without resetting
 // GoRouter — Flutter stays parked on whatever route it's on, paused behind
@@ -38,7 +40,17 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      body: SafeArea(
+      body: Stack(
+        children: [
+          // ── Cinematic background — Ken Burns hero photo, colour
+          // grade + vignette, mirrored reflection. Same source image and
+          // motion as web/index.html's .hero-left-bg/.hero-left-grade/
+          // .hero-left-reflection. Sits behind everything, fixed to the
+          // viewport (not the scroll content), matching the HTML page.
+          Positioned.fill(
+            child: CinematicHeroBackground(isDark: isDark),
+          ),
+          SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
@@ -89,16 +101,22 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
-                    icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
-                    color: AppTheme.textSecondary,
-                    tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+                  Tilt3D(
+                    borderRadius: BorderRadius.circular(999),
+                    child: IconButton(
+                      onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+                      icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                      color: AppTheme.textSecondary,
+                      tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+                    ),
                   ),
-                  IconButton(
-                    onPressed: () => context.push(AppRoutes.settings),
-                    icon: const Icon(Icons.tune_rounded),
-                    color: AppTheme.textSecondary,
+                  Tilt3D(
+                    borderRadius: BorderRadius.circular(999),
+                    child: IconButton(
+                      onPressed: () => context.push(AppRoutes.settings),
+                      icon: const Icon(Icons.tune_rounded),
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -117,7 +135,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'AI-POWERED FIRST AID TRAINING',
+                    'YOUR REAL TIME GUIDING AND ASSESSING FIRST AID TRAINING',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppTheme.accent, letterSpacing: 2,
                     ),
@@ -244,6 +262,8 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+        ],
+      ),
     );
   }
 }
@@ -308,7 +328,10 @@ class _PrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Tilt3D(
+      borderRadius: BorderRadius.circular(AppTheme.r),
+      accentColor: accentColor,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -356,6 +379,7 @@ class _PrimaryActionCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -378,34 +402,38 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(compact ? 16 : 20),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(AppTheme.rMd),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(.12),
-                borderRadius: BorderRadius.circular(10),
+    return Tilt3D(
+      borderRadius: BorderRadius.circular(AppTheme.rMd),
+      accentColor: iconColor,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.all(compact ? 16 : 20),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(AppTheme.rMd),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
               ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
-            const SizedBox(height: 2),
-            Text(subtitle,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-          ],
+              const SizedBox(height: 12),
+              Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
+              const SizedBox(height: 2),
+              Text(subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ],
+          ),
         ),
       ),
     );

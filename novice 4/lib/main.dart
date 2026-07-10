@@ -102,7 +102,7 @@ class _NoviceAppState extends ConsumerState<NoviceApp> {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
-      title: 'Novice — CPR Coach',
+      title: 'Novice',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
