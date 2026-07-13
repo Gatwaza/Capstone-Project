@@ -128,6 +128,8 @@ novice/
 
 ## How the AI coaching works
 
+![Novice CPR AI feedback pipeline](docs/novice_cpr_ai_pipeline.svg)
+
 ```
 Camera (25 fps)
     │
