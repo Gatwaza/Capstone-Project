@@ -44,5 +44,13 @@ class LandmarkFrame with _$LandmarkFrame {
     // ── Quality flags ─────────────────────────────────────────────
     @Default(false) bool allLandmarksVisible,
     @Default(0.0) double meanLandmarkConfidence,
+
+    // ── Native camera frame size the landmarks are normalized against ─
+    // (video.videoWidth / video.videoHeight — NOT the on-screen widget
+    // size, which is usually cropped/scaled via CSS object-fit: cover).
+    // Needed by PoseOverlayPainter to correctly map normalized 0–1
+    // landmark coordinates onto the displayed canvas.
+    @Default(0.0) double sourceVideoWidth,
+    @Default(0.0) double sourceVideoHeight,
   }) = _LandmarkFrame;
 }

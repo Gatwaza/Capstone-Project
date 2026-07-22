@@ -18,8 +18,23 @@ class CprApiService {
   bool _reachable = false;
   bool get isReachable => _reachable;
 
-  // Call once at startup — sets _reachable flag
+  // FIX (model never predicts for the whole session after a cold Space):
+  // checkHealth() used to run exactly once, at app startup. Hugging Face
+  // Spaces on the free tier sleep after inactivity and can take 30-60s+ to
+  // cold-boot — well past the 15s timeout below. If the Space happened to
+  // be asleep at startup, _reachable latched to false and NOTHING ever
+  // asked again: every _maybeCallApi() call in inference_service_web.dart
+  // bails on `if (!_api.isReachable) return;` for the rest of the session,
+  // no matter how correctly the user compresses. _lastHealthCheckAt +
+  // maybeRecheckHealth() below let the inference service opportunistically
+  // retry (throttled, so we don't hammer a genuinely-down API every frame)
+  // instead of trusting a single point-in-time result forever.
+  DateTime? _lastHealthCheckAt;
+  static const Duration _healthRecheckInterval = Duration(seconds: 20);
+
+  // Call at startup — sets _reachable flag.
   Future<void> checkHealth() async {
+    _lastHealthCheckAt = DateTime.now();
     try {
       final res = await http
           .get(Uri.parse('$_base/health'))
@@ -30,6 +45,23 @@ class CprApiService {
       _reachable = false;
       print('[CprApiService] health check failed: $e');
     }
+  }
+
+  /// Opportunistic, throttled re-check. Safe to call every frame — it only
+  /// actually issues a network request once every [_healthRecheckInterval],
+  /// and only while we currently believe the API is unreachable (a Space
+  /// that's already confirmed healthy doesn't need re-probing here; a real
+  /// outage after that point will surface via predict() failing per-call).
+  /// Call this from the inference gate BEFORE bailing on `!isReachable`, so
+  /// a Space that finishes cold-booting mid-session gets picked up instead
+  /// of staying permanently marked dead.
+  Future<void> maybeRecheckHealth() async {
+    if (_reachable) return;
+    final last = _lastHealthCheckAt;
+    if (last != null && DateTime.now().difference(last) < _healthRecheckInterval) {
+      return;
+    }
+    await checkHealth();
   }
 
   /// Sends a (60 × 12) feature sequence to the API.

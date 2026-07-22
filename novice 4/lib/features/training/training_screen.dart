@@ -208,6 +208,23 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
     super.dispose();
   }
 
+  /// Reads the <video> element's native pixel dimensions from the same JS
+  /// globals flutter_pose_bridge.js sets once the browser has decoded a
+  /// real frame (window._novicePoseVideoWidth/Height — see pose_bridge.js
+  /// around the videoWidth/videoHeight readiness check). Returns null
+  /// before those are available, or off web, so PoseOverlayPainter falls
+  /// back to its old direct-mapping behaviour rather than drawing at a
+  /// bogus size.
+  Size? _nativeVideoSize() {
+    if (!kIsWeb) return null;
+    final w = js.context['_novicePoseVideoWidth'];
+    final h = js.context['_novicePoseVideoHeight'];
+    final width = (w is num) ? w.toDouble() : 0.0;
+    final height = (h is num) ? h.toDouble() : 0.0;
+    if (width <= 0 || height <= 0) return null;
+    return Size(width, height);
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(liveSessionProvider);
@@ -271,12 +288,31 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
           // frame — the same landmarks the model is trained on — instead of
           // a fixed placeholder circle, so what's on screen reflects the
           // user's real movement.
-          if (session.lastFrame != null)
+          //
+          // `frame` is session.smoothedFrame (a one-euro-filtered display
+          // copy — see landmark_smoother.dart), not session.lastFrame, so
+          // ordinary MediaPipe frame-to-frame jitter doesn't read as a
+          // visibly shaky skeleton. Falls back to the raw lastFrame for the
+          // handful of frames before the first smoothed frame exists.
+          // Inference, compression counting, and hand placement all still
+          // read the raw lastFrame elsewhere — only this painter gets the
+          // smoothed copy.
+          //
+          // videoSize is the <video> element's *native* pixel dimensions
+          // (e.g. a landscape 1280×720 stream), read from the same JS
+          // globals flutter_pose_bridge.js already exposes. MediaPipe's
+          // landmarks are normalized against that native frame, not
+          // against this portrait screen, so the overlay painter needs it
+          // to replicate the video's cover-fit crop — without it, the
+          // skeleton drifts toward one corner instead of tracking the
+          // person on screen.
+          if ((session.smoothedFrame ?? session.lastFrame) != null)
             CustomPaint(
               painter: PoseOverlayPainter(
-                frame: session.lastFrame,
+                frame: session.smoothedFrame ?? session.lastFrame,
                 inference: session.lastInference,
                 handPlacement: session.handPlacement,
+                videoSize: _nativeVideoSize(),
               ),
             ),
 

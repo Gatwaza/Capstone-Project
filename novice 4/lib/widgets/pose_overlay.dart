@@ -20,20 +20,33 @@ import '../models/session_model.dart';
 ///   Red    = error detected (bent elbow on that side)
 ///   White  = structural (shoulders, torso, hips)
 ///
-/// Landmark coordinates from MediaPipe/MLKit are normalized to the source
-/// video frame (0.0–1.0). The camera preview and the pose detector both read
-/// from the same unmirrored frame, so mapping x*width / y*height directly
-/// onto the canvas lines up correctly with what's on screen — no horizontal
-/// flip is applied here.
+/// Landmark coordinates from MediaPipe/MLKit are normalized (0.0–1.0)
+/// against the *native* camera frame (`LandmarkFrame.sourceVideoWidth/
+/// Height` — e.g. a landscape 1280x720 sensor frame), NOT against this
+/// painter's canvas size. The camera preview is shown with CSS
+/// `object-fit: cover`, which scales and crops that native frame to fill
+/// the (usually portrait) canvas. `_pt()` replicates that same cover-fit
+/// transform before scaling into canvas space, so a landmark that's e.g.
+/// dead-center of the native frame lands dead-center of what's on screen,
+/// rather than drifting into a corner whenever the native and canvas
+/// aspect ratios differ (which, on phones, is basically always). No
+/// horizontal flip is applied — camera preview and pose detector both
+/// read the same unmirrored frame.
 class PoseOverlayPainter extends CustomPainter {
   const PoseOverlayPainter({
     required this.frame,
     required this.inference,
     this.handPlacement,
+    this.videoSize,
   });
 
-  /// Raw per-frame landmarks. Null only in the brief window before the
-  /// first valid pose has been detected.
+  /// Per-frame landmarks to draw. As of training_screen.dart's wiring,
+  /// callers pass the display-only, one-euro-filtered copy produced by
+  /// landmark_smoother.dart (LiveSessionState.smoothedFrame) rather than
+  /// the raw frame the ML feature path uses — this painter never itself
+  /// assumes one or the other, it just draws whatever LandmarkFrame it's
+  /// given. Null only in the brief window before the first valid pose has
+  /// been detected (or before the first smoothed frame exists).
   final LandmarkFrame? frame;
 
   /// Aggregate classification/depth/bpm for this moment. Used only for the
@@ -45,6 +58,14 @@ class PoseOverlayPainter extends CustomPainter {
   /// while unassessed (low landmark confidence) — the guide zone still
   /// draws, just in its neutral color.
   final HandPlacementResult? handPlacement;
+
+  /// Optional override for the native camera frame size (e.g. from a
+  /// caller-side `_nativeVideoSize()` helper). When supplied, this takes
+  /// priority over `frame.sourceVideoWidth/Height` in `_pt()` — useful if
+  /// the caller has a fresher or more reliable read of the video element's
+  /// dimensions than what's on the landmark frame itself. When null (the
+  /// common case), `_pt()` falls back to `frame.sourceVideoWidth/Height`.
+  final Size? videoSize;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -90,10 +111,10 @@ class PoseOverlayPainter extends CustomPainter {
     // perspective than an axis-aligned box would.
     final skew = shoulderWidth * 0.06;
 
-    final topLeft = _pt(size, shoulderMidX - zoneHalfWidth - skew, topY);
-    final topRight = _pt(size, shoulderMidX + zoneHalfWidth - skew, topY);
-    final bottomRight = _pt(size, shoulderMidX + zoneHalfWidth + skew, bottomY);
-    final bottomLeft = _pt(size, shoulderMidX - zoneHalfWidth + skew, bottomY);
+    final topLeft = _pt(size, shoulderMidX - zoneHalfWidth - skew, topY, f);
+    final topRight = _pt(size, shoulderMidX + zoneHalfWidth - skew, topY, f);
+    final bottomRight = _pt(size, shoulderMidX + zoneHalfWidth + skew, bottomY, f);
+    final bottomLeft = _pt(size, shoulderMidX - zoneHalfWidth + skew, bottomY, f);
 
     final path = Path()
       ..moveTo(topLeft.dx, topLeft.dy)
@@ -119,8 +140,44 @@ class PoseOverlayPainter extends CustomPainter {
 
   // ── Skeleton ─────────────────────────────────────────────
 
-  Offset _pt(Size size, double nx, double ny) =>
-      Offset(nx * size.width, ny * size.height);
+  /// Maps a normalized (0.0–1.0) landmark coordinate — normalized against
+  /// the native camera frame — onto this painter's canvas, replicating the
+  /// CSS `object-fit: cover` transform the <video> element is displayed
+  /// with. Without this, canvas coordinates are only correct when the
+  /// native camera frame and the canvas happen to share an aspect ratio.
+  Offset _pt(Size size, double nx, double ny, LandmarkFrame f) {
+    // Prefer the frame's own dims: they're read straight from the JS
+    // bridge's _novicePoseVideoWidth/Height globals on every single frame
+    // (pose_service_web.dart), the same globals the pose detector itself
+    // uses — guaranteed in sync with the landmarks being painted right
+    // now. `videoSize` (an external override some callers pass in, e.g.
+    // via a locally-computed _nativeVideoSize() helper) is only used as a
+    // fallback before the first real landmark frame has dimensions —
+    // trusting it over fresh per-frame data risks silently painting
+    // against stale or incorrectly-computed dimensions (e.g. a cached
+    // CameraController.value.previewSize, which can lag or mismatch the
+    // <video> element's actual live pixel size on web).
+    final vw = f.sourceVideoWidth > 0 ? f.sourceVideoWidth : (videoSize?.width ?? 0);
+    final vh = f.sourceVideoHeight > 0 ? f.sourceVideoHeight : (videoSize?.height ?? 0);
+    if (vw <= 0 || vh <= 0) {
+      // Native dimensions not known yet (first frame or two) — fall back
+      // to the naive mapping rather than drawing nothing.
+      return Offset(nx * size.width, ny * size.height);
+    }
+
+    // `cover`: scale the native frame up (never down) until it fully
+    // covers the canvas on both axes, then center it, cropping whichever
+    // axis overflows.
+    final scale = size.width / vw > size.height / vh
+        ? size.width / vw
+        : size.height / vh;
+    final scaledW = vw * scale;
+    final scaledH = vh * scale;
+    final offsetX = (scaledW - size.width) / 2;
+    final offsetY = (scaledH - size.height) / 2;
+
+    return Offset(nx * scaledW - offsetX, ny * scaledH - offsetY);
+  }
 
   void _drawSkeleton(Canvas canvas, Size size, LandmarkFrame f) {
     final leftLocked = f.leftElbowAngle >= AppConstants.elbowLockAngleDeg;
@@ -130,14 +187,14 @@ class PoseOverlayPainter extends CustomPainter {
     final rightArmColor = rightLocked ? AppTheme.accent : AppTheme.accentWarn;
     const structuralColor = Color(0xB3FFFFFF); // ~70% white
 
-    final ls = _pt(size, f.leftShoulderX, f.leftShoulderY);
-    final rs = _pt(size, f.rightShoulderX, f.rightShoulderY);
-    final le = _pt(size, f.leftElbowX, f.leftElbowY);
-    final re = _pt(size, f.rightElbowX, f.rightElbowY);
-    final lw = _pt(size, f.leftWristX, f.leftWristY);
-    final rw = _pt(size, f.rightWristX, f.rightWristY);
-    final lh = _pt(size, f.leftHipX, f.leftHipY);
-    final rh = _pt(size, f.rightHipX, f.rightHipY);
+    final ls = _pt(size, f.leftShoulderX, f.leftShoulderY, f);
+    final rs = _pt(size, f.rightShoulderX, f.rightShoulderY, f);
+    final le = _pt(size, f.leftElbowX, f.leftElbowY, f);
+    final re = _pt(size, f.rightElbowX, f.rightElbowY, f);
+    final lw = _pt(size, f.leftWristX, f.leftWristY, f);
+    final rw = _pt(size, f.rightWristX, f.rightWristY, f);
+    final lh = _pt(size, f.leftHipX, f.leftHipY, f);
+    final rh = _pt(size, f.rightHipX, f.rightHipY, f);
 
     void bone(Offset a, Offset b, Color color, {double width = 3}) {
       canvas.drawLine(
@@ -196,7 +253,7 @@ class PoseOverlayPainter extends CustomPainter {
   /// Small pulsing ring centered on the actual wrist midpoint (the real
   /// compression point this person is using), not a fixed screen position.
   void _drawCompressionTarget(Canvas canvas, Size size, LandmarkFrame f) {
-    final center = _pt(size, f.wristMidX, f.wristMidY);
+    final center = _pt(size, f.wristMidX, f.wristMidY, f);
     canvas.drawCircle(
       center,
       16,

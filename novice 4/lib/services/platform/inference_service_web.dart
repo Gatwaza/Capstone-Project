@@ -21,6 +21,58 @@ class InferenceServiceWeb {
   final _wristYHistory = ListQueue<_TimedSample>();
   final _api           = CprApiService();
 
+  // FIX (idle-frame API spam / confident garbage predictions at rest):
+  // `infer()` used to call `_maybeCallApi()` purely based on whether the
+  // 60-frame buffer was full, with zero regard for whether any of those
+  // frames actually contained compression motion. RATE_CLASSES/
+  // DEPTH_CLASSES/recoil's label set all lack a "no compression happening"
+  // option (see session_provider.dart's onFrame() comment) — the model was
+  // only ever trained on windows containing real compression cycles, so a
+  // flat, motionless window is out-of-distribution input it was never
+  // taught to abstain on. A stationary wrist looks, feature-wise,
+  // identical to "recoil never completed" (zero upward velocity after a
+  // down-phase that never happened either), so the model confidently
+  // predicts incomplete_decomp — even before the user has placed their
+  // hands, let alone started compressions. session_provider.dart already
+  // guards the *displayed accuracy* against this (only accumulates into
+  // rate/depth/recoilAccuracies while `inCompressionMotion`), but nothing
+  // stopped the underlying network call (and console spam) from firing
+  // every ~600ms regardless. `_motionFrameCount` tracks how many frames in
+  // the *current* rolling buffer show real velocity above the same
+  // threshold session_provider.dart uses for compression detection; the
+  // API is only called once enough of the window reflects actual motion,
+  // matching what the model was actually trained on.
+  static const double _motionVelocityThreshold = 0.012; // matches
+      // session_provider.dart's _compressionVelocityThreshold — keep in sync.
+  static const int _minMotionFramesForApiCall = 8; // ~1/3s of real motion
+      // within the window before we trust the model's output at all.
+  final _motionFlags = ListQueue<bool>(); // parallels _frameBuffer 1:1
+  int _motionFrameCount = 0;
+
+  // FIX (API called — and acted on — from windows with real-looking wrist
+  // motion but zero actual confirmed compressions, e.g. sustained arbitrary
+  // vertical hand movement with placement wrong just often enough to never
+  // debounce into a real cycle): raw motion-frame density above
+  // (_motionFrameCount) says a window LOOKS active, but session_provider.dart
+  // is the only place that knows whether any of that motion ever resolved
+  // into an actual debounced down→up compression cycle. notifyCompressionCompleted()
+  // lets it tell this service exactly that, once per confirmed cycle.
+  // _cycleCompletionFlags parallels _frameBuffer/_motionFlags 1:1 (same
+  // add/evict rhythm) so _confirmedCycleCount always reflects only cycles
+  // confirmed within the CURRENT 60-frame window, not the whole session.
+  final _cycleCompletionFlags = ListQueue<bool>();
+  int _confirmedCycleCount = 0;
+  bool _pendingCycleCompletion = false;
+  static const int _minConfirmedCyclesForApiCall = 2;
+
+  /// Call from session_provider.dart's onFrame() the moment its debounced
+  /// state machine confirms a real compression cycle — BEFORE calling
+  /// infer() for that same frame, so the completion lands in the correct
+  /// frame's slot in [_cycleCompletionFlags] rather than one frame late.
+  void notifyCompressionCompleted() {
+    _pendingCycleCompletion = true;
+  }
+
   // Causal, pixel-space, rolling-window feature extractor matching
   // ml_pipeline/CPR_Coach_Training.ipynb Stage 4's train/live feature
   // parity. One instance per InferenceServiceWeb (i.e. per session) — its
@@ -104,6 +156,11 @@ class InferenceServiceWeb {
     _causalExtractor.reset();
     _frameBuffer.clear();
     _wristYHistory.clear();
+    _motionFlags.clear();
+    _motionFrameCount = 0;
+    _cycleCompletionFlags.clear();
+    _confirmedCycleCount = 0;
+    _pendingCycleCompletion = false;
     _lastApiResult = null;
     _lastApiCallAt = null;
     _apiCallInFlight = false;
@@ -115,9 +172,27 @@ class InferenceServiceWeb {
   /// result. This is fire-and-forget by design (it updates `_lastApiResult`
   /// asynchronously) and that cached result is consumed by `infer()` below.
   Future<void> _maybeCallApi(LandmarkFrame frame) async {
-    if (!_api.isReachable) return;
+    // FIX: previously `if (!_api.isReachable) return;` trusted the single
+    // startup checkHealth() call forever. maybeRecheckHealth() is throttled
+    // internally (see cpr_api_service.dart) so this is cheap to call every
+    // frame — it only actually probes the network at most once every 20s,
+    // and only while we currently think the API is down.
+    if (!_api.isReachable) {
+      unawaited(_api.maybeRecheckHealth());
+      return;
+    }
     if (_apiCallInFlight) return;
     if (_frameBuffer.length < AppConstants.temporalWindowFrames) return;
+    // Buffer is full, but if too little of it reflects real compression
+    // motion, the window is still effectively idle/out-of-distribution
+    // input — skip the call rather than pay for (and act on) a confident
+    // guess. See the class-level comment on _motionFrameCount for why.
+    if (_motionFrameCount < _minMotionFramesForApiCall) return;
+    // Raw motion density alone isn't enough — see the class-level comment
+    // on _confirmedCycleCount. Require at least a couple of actual
+    // debounced compression cycles to have completed within this window,
+    // not just frames that looked like motion.
+    if (_confirmedCycleCount < _minConfirmedCyclesForApiCall) return;
 
     final now = DateTime.now();
     if (_lastApiCallAt != null &&
@@ -199,6 +274,29 @@ class InferenceServiceWeb {
       _frameBuffer.removeFirst();
     }
 
+    // Keep _motionFlags exactly aligned 1:1 with _frameBuffer (same
+    // add/evict pairs) so _motionFrameCount always reflects real motion
+    // frames within the *current* window, not the whole session.
+    final isMotionFrame = frame.wristVelocityY.abs() > _motionVelocityThreshold;
+    _motionFlags.addLast(isMotionFrame);
+    if (isMotionFrame) _motionFrameCount++;
+    while (_motionFlags.length > AppConstants.temporalWindowFrames) {
+      if (_motionFlags.removeFirst()) _motionFrameCount--;
+    }
+
+    // Consume the pending confirmed-cycle flag (set by
+    // notifyCompressionCompleted(), called by session_provider.dart just
+    // before this infer() call for the same frame) and record it against
+    // THIS frame's slot, evicting in lockstep with _frameBuffer/_motionFlags
+    // so _confirmedCycleCount only ever reflects the current window.
+    final completedThisFrame = _pendingCycleCompletion;
+    _pendingCycleCompletion = false;
+    _cycleCompletionFlags.addLast(completedThisFrame);
+    if (completedThisFrame) _confirmedCycleCount++;
+    while (_cycleCompletionFlags.length > AppConstants.temporalWindowFrames) {
+      if (_cycleCompletionFlags.removeFirst()) _confirmedCycleCount--;
+    }
+
     _wristYHistory.addLast(_TimedSample(frame.capturedAt, frame.wristMidY));
     while (_wristYHistory.length > AppConstants.bpmHistoryLength) {
       _wristYHistory.removeFirst();
@@ -209,9 +307,10 @@ class InferenceServiceWeb {
     final bpm   = _estimateBpm();
     final depth = _estimateDepthCm(frame);
 
-    // Kick off (or skip, if throttled/in-flight) a real-model prediction.
-    // This updates `_lastApiResult` in the background — it does not block
-    // this frame's return, which is what keeps the UI/audio responsive.
+    // Kick off (or skip, if throttled/in-flight/idle) a real-model
+    // prediction. This updates `_lastApiResult` in the background — it
+    // does not block this frame's return, which is what keeps the
+    // UI/audio responsive.
     unawaited(_maybeCallApi(frame));
 
     // Return cached model result when fresh; otherwise return a null-signal
@@ -236,11 +335,21 @@ class InferenceServiceWeb {
       );
     }
 
-    // Model not yet loaded or API call in flight — return a non-accumulating result.
+    // Model not yet loaded, API call in flight, or (most commonly, right
+    // at session start) the window doesn't contain enough real compression
+    // motion yet to be worth asking the model about — return a
+    // non-accumulating result either way. topClassLabel distinguishes the
+    // two cases for anyone debugging via logs; the UI treats both the same
+    // (isSimulated=true → "Model Unavailable" / no scoring), since neither
+    // represents a real assessment of this moment.
+    final idleWindow = _api.isReachable &&
+        _frameBuffer.length >= AppConstants.temporalWindowFrames &&
+        (_motionFrameCount < _minMotionFramesForApiCall ||
+            _confirmedCycleCount < _minConfirmedCyclesForApiCall);
     return InferenceResult(
       timestamp:           DateTime.now(),
       topClassIndex:       0,
-      topClassLabel:       'model_unavailable',
+      topClassLabel:       idleWindow ? 'awaiting_compressions' : 'model_unavailable',
       topClassConfidence:  0.0,
       allClassScores:      const {},
       currentBpm:          bpm,

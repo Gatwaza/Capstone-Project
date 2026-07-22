@@ -53,7 +53,14 @@ mixin _$LandmarkFrame {
   double get wristAccelerationY =>
       throw _privateConstructorUsedError; // ── Quality flags ─────────────────────────────────────────────
   bool get allLandmarksVisible => throw _privateConstructorUsedError;
-  double get meanLandmarkConfidence => throw _privateConstructorUsedError;
+  double get meanLandmarkConfidence =>
+      throw _privateConstructorUsedError; // ── Native camera frame size the landmarks are normalized against ─
+// (video.videoWidth / video.videoHeight — NOT the on-screen widget
+// size, which is usually cropped/scaled via CSS object-fit: cover).
+// Needed by PoseOverlayPainter to correctly map normalized 0–1
+// landmark coordinates onto the displayed canvas.
+  double get sourceVideoWidth => throw _privateConstructorUsedError;
+  double get sourceVideoHeight => throw _privateConstructorUsedError;
 
   /// Create a copy of LandmarkFrame
   /// with the given fields replaced by the non-null parameter values.
@@ -99,7 +106,9 @@ abstract class $LandmarkFrameCopyWith<$Res> {
       double wristVelocityY,
       double wristAccelerationY,
       bool allLandmarksVisible,
-      double meanLandmarkConfidence});
+      double meanLandmarkConfidence,
+      double sourceVideoWidth,
+      double sourceVideoHeight});
 }
 
 /// @nodoc
@@ -148,6 +157,8 @@ class _$LandmarkFrameCopyWithImpl<$Res, $Val extends LandmarkFrame>
     Object? wristAccelerationY = null,
     Object? allLandmarksVisible = null,
     Object? meanLandmarkConfidence = null,
+    Object? sourceVideoWidth = null,
+    Object? sourceVideoHeight = null,
   }) {
     return _then(_value.copyWith(
       capturedAt: null == capturedAt
@@ -274,6 +285,14 @@ class _$LandmarkFrameCopyWithImpl<$Res, $Val extends LandmarkFrame>
           ? _value.meanLandmarkConfidence
           : meanLandmarkConfidence // ignore: cast_nullable_to_non_nullable
               as double,
+      sourceVideoWidth: null == sourceVideoWidth
+          ? _value.sourceVideoWidth
+          : sourceVideoWidth // ignore: cast_nullable_to_non_nullable
+              as double,
+      sourceVideoHeight: null == sourceVideoHeight
+          ? _value.sourceVideoHeight
+          : sourceVideoHeight // ignore: cast_nullable_to_non_nullable
+              as double,
     ) as $Val);
   }
 }
@@ -317,7 +336,9 @@ abstract class _$$LandmarkFrameImplCopyWith<$Res>
       double wristVelocityY,
       double wristAccelerationY,
       bool allLandmarksVisible,
-      double meanLandmarkConfidence});
+      double meanLandmarkConfidence,
+      double sourceVideoWidth,
+      double sourceVideoHeight});
 }
 
 /// @nodoc
@@ -364,6 +385,8 @@ class __$$LandmarkFrameImplCopyWithImpl<$Res>
     Object? wristAccelerationY = null,
     Object? allLandmarksVisible = null,
     Object? meanLandmarkConfidence = null,
+    Object? sourceVideoWidth = null,
+    Object? sourceVideoHeight = null,
   }) {
     return _then(_$LandmarkFrameImpl(
       capturedAt: null == capturedAt
@@ -490,6 +513,14 @@ class __$$LandmarkFrameImplCopyWithImpl<$Res>
           ? _value.meanLandmarkConfidence
           : meanLandmarkConfidence // ignore: cast_nullable_to_non_nullable
               as double,
+      sourceVideoWidth: null == sourceVideoWidth
+          ? _value.sourceVideoWidth
+          : sourceVideoWidth // ignore: cast_nullable_to_non_nullable
+              as double,
+      sourceVideoHeight: null == sourceVideoHeight
+          ? _value.sourceVideoHeight
+          : sourceVideoHeight // ignore: cast_nullable_to_non_nullable
+              as double,
     ));
   }
 }
@@ -528,7 +559,9 @@ class _$LandmarkFrameImpl implements _LandmarkFrame {
       this.wristVelocityY = 0.0,
       this.wristAccelerationY = 0.0,
       this.allLandmarksVisible = false,
-      this.meanLandmarkConfidence = 0.0});
+      this.meanLandmarkConfidence = 0.0,
+      this.sourceVideoWidth = 0.0,
+      this.sourceVideoHeight = 0.0});
 
   @override
   final DateTime capturedAt;
@@ -605,10 +638,21 @@ class _$LandmarkFrameImpl implements _LandmarkFrame {
   @override
   @JsonKey()
   final double meanLandmarkConfidence;
+// ── Native camera frame size the landmarks are normalized against ─
+// (video.videoWidth / video.videoHeight — NOT the on-screen widget
+// size, which is usually cropped/scaled via CSS object-fit: cover).
+// Needed by PoseOverlayPainter to correctly map normalized 0–1
+// landmark coordinates onto the displayed canvas.
+  @override
+  @JsonKey()
+  final double sourceVideoWidth;
+  @override
+  @JsonKey()
+  final double sourceVideoHeight;
 
   @override
   String toString() {
-    return 'LandmarkFrame(capturedAt: $capturedAt, leftShoulderX: $leftShoulderX, leftShoulderY: $leftShoulderY, rightShoulderX: $rightShoulderX, rightShoulderY: $rightShoulderY, leftElbowX: $leftElbowX, leftElbowY: $leftElbowY, rightElbowX: $rightElbowX, rightElbowY: $rightElbowY, leftWristX: $leftWristX, leftWristY: $leftWristY, rightWristX: $rightWristX, rightWristY: $rightWristY, leftHipX: $leftHipX, leftHipY: $leftHipY, rightHipX: $rightHipX, rightHipY: $rightHipY, leftElbowVisibility: $leftElbowVisibility, rightElbowVisibility: $rightElbowVisibility, leftWristVisibility: $leftWristVisibility, rightWristVisibility: $rightWristVisibility, leftElbowAngle: $leftElbowAngle, rightElbowAngle: $rightElbowAngle, spineVerticality: $spineVerticality, wristMidX: $wristMidX, wristMidY: $wristMidY, shoulderWidth: $shoulderWidth, wristVelocityY: $wristVelocityY, wristAccelerationY: $wristAccelerationY, allLandmarksVisible: $allLandmarksVisible, meanLandmarkConfidence: $meanLandmarkConfidence)';
+    return 'LandmarkFrame(capturedAt: $capturedAt, leftShoulderX: $leftShoulderX, leftShoulderY: $leftShoulderY, rightShoulderX: $rightShoulderX, rightShoulderY: $rightShoulderY, leftElbowX: $leftElbowX, leftElbowY: $leftElbowY, rightElbowX: $rightElbowX, rightElbowY: $rightElbowY, leftWristX: $leftWristX, leftWristY: $leftWristY, rightWristX: $rightWristX, rightWristY: $rightWristY, leftHipX: $leftHipX, leftHipY: $leftHipY, rightHipX: $rightHipX, rightHipY: $rightHipY, leftElbowVisibility: $leftElbowVisibility, rightElbowVisibility: $rightElbowVisibility, leftWristVisibility: $leftWristVisibility, rightWristVisibility: $rightWristVisibility, leftElbowAngle: $leftElbowAngle, rightElbowAngle: $rightElbowAngle, spineVerticality: $spineVerticality, wristMidX: $wristMidX, wristMidY: $wristMidY, shoulderWidth: $shoulderWidth, wristVelocityY: $wristVelocityY, wristAccelerationY: $wristAccelerationY, allLandmarksVisible: $allLandmarksVisible, meanLandmarkConfidence: $meanLandmarkConfidence, sourceVideoWidth: $sourceVideoWidth, sourceVideoHeight: $sourceVideoHeight)';
   }
 
   @override
@@ -677,7 +721,11 @@ class _$LandmarkFrameImpl implements _LandmarkFrame {
             (identical(other.allLandmarksVisible, allLandmarksVisible) ||
                 other.allLandmarksVisible == allLandmarksVisible) &&
             (identical(other.meanLandmarkConfidence, meanLandmarkConfidence) ||
-                other.meanLandmarkConfidence == meanLandmarkConfidence));
+                other.meanLandmarkConfidence == meanLandmarkConfidence) &&
+            (identical(other.sourceVideoWidth, sourceVideoWidth) ||
+                other.sourceVideoWidth == sourceVideoWidth) &&
+            (identical(other.sourceVideoHeight, sourceVideoHeight) ||
+                other.sourceVideoHeight == sourceVideoHeight));
   }
 
   @override
@@ -713,7 +761,9 @@ class _$LandmarkFrameImpl implements _LandmarkFrame {
         wristVelocityY,
         wristAccelerationY,
         allLandmarksVisible,
-        meanLandmarkConfidence
+        meanLandmarkConfidence,
+        sourceVideoWidth,
+        sourceVideoHeight
       ]);
 
   /// Create a copy of LandmarkFrame
@@ -757,7 +807,9 @@ abstract class _LandmarkFrame implements LandmarkFrame {
       final double wristVelocityY,
       final double wristAccelerationY,
       final bool allLandmarksVisible,
-      final double meanLandmarkConfidence}) = _$LandmarkFrameImpl;
+      final double meanLandmarkConfidence,
+      final double sourceVideoWidth,
+      final double sourceVideoHeight}) = _$LandmarkFrameImpl;
 
   @override
   DateTime
@@ -825,7 +877,16 @@ abstract class _LandmarkFrame implements LandmarkFrame {
   @override
   bool get allLandmarksVisible;
   @override
-  double get meanLandmarkConfidence;
+  double
+      get meanLandmarkConfidence; // ── Native camera frame size the landmarks are normalized against ─
+// (video.videoWidth / video.videoHeight — NOT the on-screen widget
+// size, which is usually cropped/scaled via CSS object-fit: cover).
+// Needed by PoseOverlayPainter to correctly map normalized 0–1
+// landmark coordinates onto the displayed canvas.
+  @override
+  double get sourceVideoWidth;
+  @override
+  double get sourceVideoHeight;
 
   /// Create a copy of LandmarkFrame
   /// with the given fields replaced by the non-null parameter values.

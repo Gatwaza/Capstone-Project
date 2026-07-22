@@ -1310,7 +1310,7 @@ mixin _$FrameRecord {
       throw _privateConstructorUsedError; // FK → ResearchSession.sessionId
   DateTime get timestamp => throw _privateConstructorUsedError;
 
-  /// BiLSTM or rule-based output class label.
+  /// TCN or rule-based output class label.
   String get errorClass => throw _privateConstructorUsedError;
 
   /// Confidence score for errorClass (0.0–1.0).
@@ -1563,7 +1563,7 @@ class _$FrameRecordImpl implements _FrameRecord {
   @override
   final DateTime timestamp;
 
-  /// BiLSTM or rule-based output class label.
+  /// TCN or rule-based output class label.
   @override
   final String errorClass;
 
@@ -1686,7 +1686,7 @@ abstract class _FrameRecord implements FrameRecord {
   @override
   DateTime get timestamp;
 
-  /// BiLSTM or rule-based output class label.
+  /// TCN or rule-based output class label.
   @override
   String get errorClass;
 

@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
 import '../core/di/injection.dart';
 import '../core/utils/landmark_math.dart';
+import '../core/utils/landmark_smoother.dart';
 import '../models/landmark_frame.dart';
 import '../models/session_model.dart';
 import '../services/feedback_engine.dart';
@@ -38,6 +39,7 @@ class LiveSessionState {
     this.currentPrompt,
     this.lastInference,
     this.lastFrame,
+    this.smoothedFrame,
     this.handPlacement,
     this.taskAccuracies = const {},
     this.elapsed = Duration.zero,
@@ -66,6 +68,13 @@ class LiveSessionState {
   final FeedbackPrompt? currentPrompt;
   final InferenceResult? lastInference;
   final LandmarkFrame? lastFrame;
+
+  /// Display-only, one-euro-filtered copy of [lastFrame] (see
+  /// landmark_smoother.dart), recomputed once per onFrame(). Consumed ONLY
+  /// by PoseOverlayPainter — inference, compression counting, and hand
+  /// placement all keep reading the raw [lastFrame] so the ML feature path
+  /// stays untouched. Null until the first assessed frame of a session.
+  final LandmarkFrame? smoothedFrame;
 
   /// Latest geometric hand-placement read for this frame, drives both the
   /// on-screen chest-guide overlay (pose_overlay.dart) and the coaching
@@ -99,6 +108,7 @@ class LiveSessionState {
     FeedbackPrompt? currentPrompt,
     InferenceResult? lastInference,
     LandmarkFrame? lastFrame,
+    LandmarkFrame? smoothedFrame,
     HandPlacementResult? handPlacement,
     Map<String, double>? taskAccuracies,
     Duration? elapsed,
@@ -116,12 +126,19 @@ class LiveSessionState {
       currentPrompt: currentPrompt ?? this.currentPrompt,
       lastInference: lastInference ?? this.lastInference,
       lastFrame: lastFrame ?? this.lastFrame,
+      smoothedFrame: smoothedFrame ?? this.smoothedFrame,
       handPlacement: handPlacement ?? this.handPlacement,
       taskAccuracies: taskAccuracies ?? this.taskAccuracies,
       elapsed: elapsed ?? this.elapsed,
     );
   }
 }
+
+/// Coarse per-frame activity classification produced by
+/// LiveSessionNotifier._classifyActivity(). See that method's doc for the
+/// full explanation of each value and the placement-violation tolerance
+/// behind [compressionMotion] vs [nonCompressionMotion].
+enum PoseActivity { idle, compressionMotion, nonCompressionMotion }
 
 class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   LiveSessionNotifier() : super(const LiveSessionState()) {
@@ -177,6 +194,72 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   static const double _compressionVelocityThreshold = 0.012;
   static const Duration _minCompressionInterval = Duration(milliseconds: 300);
 
+  // FIX (false compressions counted from landmark jitter at rest): the
+  // original state machine only required a velocity sign flip past
+  // _compressionVelocityThreshold — one noisy frame descending, one noisy
+  // frame ascending — to count a completed cycle, with no requirement that
+  // any real vertical displacement happened in between. Ordinary MediaPipe
+  // frame-to-frame jitter (sub-pixel wobble, breathing, tiny hand tremor)
+  // is enough to flip that sign back and forth continuously even with the
+  // person sitting still, which was pinning the counter at the 200bpm
+  // ceiling (_minCompressionInterval's floor) with zero real compressions.
+  // _descentStartY records wristMidY at the moment a descent begins;
+  // completing a cycle now also requires the wrist to have actually moved
+  // at least _minCompressionAmplitude (normalized, torso-relative units)
+  // from that point — real compressions have real amplitude by
+  // definition, pure velocity-sign jitter doesn't.
+  double? _descentStartY;
+  static const double _minCompressionAmplitude = 0.02;
+
+  // Display-only smoother for the overlay skeleton (landmark_smoother.dart).
+  // One instance per session, mirroring CprCausalFeatureExtractor's
+  // lifecycle — filter history from a previous participant/session is
+  // meaningless carried into a new one, so startSession() replaces this
+  // rather than calling reset() on it.
+  LandmarkSmoother _smoother = LandmarkSmoother();
+
+  // FIX (real compressions undercounted/never counted): the hand-placement
+  // gate on _updateCompressionCount() used to require handPlacement ==
+  // correct on every single frame, with zero tolerance. A genuine
+  // compression's own downward wrist motion can transiently push normPosY
+  // outside the "correct" band for a frame or two — misclassifying a real,
+  // technically-correct compression as a placement fault purely as a side
+  // effect of doing the compression correctly. _placementViolationStreak
+  // now has to exceed _placementViolationTolerance consecutive bad frames
+  // before a motion stops counting as compression-related, instead of one
+  // bad frame killing the in-progress cycle outright.
+  //
+  // FIX (tolerance of 2 frames was still far too short, and was the actual
+  // cause of "the model never predicts during compressions"): a real
+  // descent phase alone — at typical guideline-compliant rates of
+  // 100-120/min, so a full down+up cycle of ~500-600ms — lasts roughly
+  // 250-300ms, i.e. ~6-8 frames at poseEstimationTargetFps (25fps). A
+  // 2-frame tolerance is shorter than the descent itself, so normPosY
+  // drifting out of the "correct" band partway down a real compression
+  // (expected, not a fault) would exceed the streak and flip
+  // _classifyActivity() to nonCompressionMotion mid-descent —
+  // _updateCompressionCount() then treats that the same as "hands came off
+  // to answer the phone" and abandons the in-progress cycle
+  // (_wasDescending = false), so it never reaches the ascending half that
+  // would complete it. That silently starved
+  // InferenceServiceWeb._confirmedCycleCount (see notifyCompressionCompleted
+  // call site below) — the API gate in inference_service_web.dart requires
+  // 2 confirmed cycles per window, which could never accumulate if no
+  // cycle ever finished. Tolerance is now sized to cover a full descent
+  // phase with margin, not just ordinary single-frame jitter.
+  int _placementViolationStreak = 0;
+  static const int _placementViolationTolerance = 8;
+
+  // FIX (quality score looks like a real 0% after only a couple of
+  // frames): _computeQualityScore() previously scored as soon as
+  // _assessedFrameCount > 0, so a session with e.g. 1 confirmed
+  // compression could report a definitive-looking percentage. Below this
+  // many CONFIRMED (debounced, real-cycle) compressions, results_screen.dart
+  // should read "not enough data" rather than a real score — it already
+  // has state.compressions (SessionModel.totalCompressions) to make that
+  // distinction without any schema change.
+  static const int _minConfirmedCompressionsForScore = 5;
+
   void startSession(String participantId) {
     _sessionStart = DateTime.now();
     _frameBuffer.clear();
@@ -194,6 +277,9 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _lastVelocityY = null;
     _wasDescending = false;
     _lastCompressionAt = null;
+    _descentStartY = null;
+    _placementViolationStreak = 0;
+    _smoother = LandmarkSmoother();
     _feedback.reset();
 
     // InferenceServiceWeb is a DI singleton whose causal feature extractor,
@@ -234,13 +320,51 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   }
 
   /// Called once per assessed pose frame from the camera/web pose loop.
+  ///
+  /// Hand placement, activity classification, and compression counting run
+  /// BEFORE inference (this was reordered — they used to run after). That
+  /// way, when this frame completes a compression cycle,
+  /// InferenceServiceWeb.notifyCompressionCompleted() below lands before
+  /// _runInference() buffers this frame, so its confirmed-cycle window
+  /// (inference_service_web.dart's _maybeCallApi gate) reflects this
+  /// frame's completion immediately rather than one frame late.
   void onFrame(LandmarkFrame frame) {
     if (!state.isActive) return;
 
     _frameBuffer.add(frame);
 
-    final inference = _runInference(frame);
     final handPlacement = _assessHandPlacement(frame);
+
+    // FIX (compressions counted from arbitrary hand movement — answering
+    // the phone, adjusting clothing, scratching your face — while the
+    // "Place your hands together" banner is still showing), now WITH
+    // tolerance (FIX for the follow-up bug this introduced: requiring
+    // handPlacement == correct on literally every frame meant a single
+    // frame of jitter — or a real compression's own downward wrist motion
+    // transiently pushing normPosY out of the "correct" band — discarded
+    // the entire in-progress descent outright, undercounting or zeroing
+    // real compressions). See _classifyActivity() doc below: placement now
+    // has to read wrong for more than _placementViolationTolerance
+    // consecutive frames before motion stops counting as compression.
+    final activity = _classifyActivity(frame, handPlacement);
+    final isCompressionMotion = activity == PoseActivity.compressionMotion;
+
+    // _estimateBpm()'s single-frame velocity-peak detector has no cycle
+    // requirement or debounce on its own, so history is only accumulated at
+    // the moment a real, completed down→up compression cycle is registered
+    // by the stricter, debounced _updateCompressionCount() below. This keeps
+    // landmark-tracking jitter (hand tremor, camera micro-noise) from being
+    // averaged into meanBpm/meanDepthCm.
+    final compressionJustCompleted =
+        _updateCompressionCount(frame, isCompressionMotion: isCompressionMotion);
+    if (compressionJustCompleted) {
+      // Notify BEFORE _runInference() below buffers this frame, so
+      // InferenceServiceWeb's confirmed-cycle window includes this
+      // completion on the correct frame rather than one frame late.
+      getIt<InferenceServiceWeb>().notifyCompressionCompleted();
+    }
+
+    final inference = _runInference(frame);
     final prompt = _feedback.process(inference, state.language, handPlacement: handPlacement);
 
     _assessedFrameCount++;
@@ -251,17 +375,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     // so a static/idle frame is out-of-distribution input the model was
     // never trained to abstain on — it will default toward some label
     // regardless. Accuracy is therefore only accumulated for a frame while
-    // real compression motion is in progress — descending past the velocity
-    // threshold, or still mid-down-cycle (_wasDescending) — computed BEFORE
-    // _updateCompressionCount() below runs and mutates _wasDescending for
-    // the next frame. This keeps idle frames from being averaged into the
+    // real compression motion is in progress (isCompressionMotion above,
+    // computed before _updateCompressionCount() mutated _wasDescending for
+    // the next frame). This keeps idle frames from being averaged into the
     // quality score.
-    final v = frame.wristVelocityY;
-    final inCompressionMotion =
-        v.abs() > _compressionVelocityThreshold || _wasDescending;
-    if (inCompressionMotion) _compressionMotionFrameCount++;
+    if (isCompressionMotion) _compressionMotionFrameCount++;
 
-    if (inCompressionMotion) {
+    if (isCompressionMotion) {
       if (inference.rateAccuracy != null) {
         _rateAccuracies.add(inference.rateAccuracy!);
         _taskConfidences['rate'] = inference.rateConfidence ?? 0.0;
@@ -276,13 +396,6 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       }
     }
 
-    // _estimateBpm()'s single-frame velocity-peak detector has no cycle
-    // requirement or debounce on its own, so history is only accumulated at
-    // the moment a real, completed down→up compression cycle is registered
-    // by the stricter, debounced _updateCompressionCount() below. This keeps
-    // landmark-tracking jitter (hand tremor, camera micro-noise) from being
-    // averaged into meanBpm/meanDepthCm.
-    final compressionJustCompleted = _updateCompressionCount(frame);
     if (compressionJustCompleted) {
       if (inference.currentBpm > 0) _bpmHistory.add(inference.currentBpm);
       if (inference.estimatedDepthCm > 0) {
@@ -295,6 +408,12 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       'depth': _mean(_depthAccuracies),
       'recoil': _mean(_recoilAccuracies),
     };
+
+    // Display-only smoothed skeleton for PoseOverlayPainter (see
+    // landmark_smoother.dart) — recomputed from the raw frame every call.
+    // Never fed back into inference, compression counting, or hand
+    // placement, all of which keep reading the raw `frame`/`lastFrame`.
+    final smoothed = _smoother.smooth(frame);
 
     state = state.copyWith(
       // bpm/depthCm are computed from local pose-landmark math in
@@ -316,12 +435,53 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       currentPrompt: prompt,
       lastInference: inference,
       lastFrame: frame,
+      smoothedFrame: smoothed,
       handPlacement: handPlacement,
       modelAvailable: !inference.isSimulated,
       taskAccuracies: liveTaskAccuracies,
     );
 
     if (_feedback.shouldSpeak(prompt)) _tts.speakKey(prompt.key);
+  }
+
+  /// Coarse per-frame activity classification, replacing a plain
+  /// `handPlacement == correct` check with one that tolerates brief
+  /// placement faults before treating ongoing motion as non-compression.
+  ///
+  ///  - [PoseActivity.idle]: no significant vertical wrist velocity right
+  ///    now, and no in-progress descent — nothing to classify either way.
+  ///  - [PoseActivity.compressionMotion]: real vertical motion is
+  ///    happening (or a down-cycle is still in progress), and hand
+  ///    placement is either correct right now or has been wrong for at
+  ///    most [_placementViolationTolerance] consecutive frames.
+  ///  - [PoseActivity.nonCompressionMotion]: real vertical motion is
+  ///    happening, but placement has read wrong for MORE than
+  ///    [_placementViolationTolerance] consecutive frames — e.g. answering
+  ///    a phone, adjusting clothing, scratching your face — so this motion
+  ///    no longer counts as a compression.
+  ///
+  /// [handPlacement] may be null (frame.meanLandmarkConfidence too low to
+  /// trust, see _assessHandPlacement) — that's treated the same as any
+  /// other non-correct read for streak purposes, same as before, but now
+  /// also subject to the tolerance rather than an immediate reset.
+  PoseActivity _classifyActivity(
+    LandmarkFrame frame,
+    HandPlacementResult? handPlacement,
+  ) {
+    if (handPlacement == HandPlacementResult.correct) {
+      _placementViolationStreak = 0;
+    } else {
+      _placementViolationStreak++;
+    }
+    final placementTolerated =
+        _placementViolationStreak <= _placementViolationTolerance;
+
+    final v = frame.wristVelocityY;
+    final isMoving = v.abs() > _compressionVelocityThreshold || _wasDescending;
+    if (!isMoving) return PoseActivity.idle;
+    return placementTolerated
+        ? PoseActivity.compressionMotion
+        : PoseActivity.nonCompressionMotion;
   }
 
   /// Geometric hand-placement check, independent of the hosted TCN model
@@ -376,9 +536,29 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   /// Returns true iff this call registered a newly-completed compression
   /// (a debounced down→up cycle), so callers (onFrame's history
   /// accumulation) can gate on real compressions rather than raw frames.
-  bool _updateCompressionCount(LandmarkFrame frame) {
+  ///
+  /// [isCompressionMotion] comes from _classifyActivity() above, which
+  /// already applies the placement-violation-streak tolerance — this
+  /// method's own logic is unchanged from when the param was a plain
+  /// handsCorrectlyPlaced check; the tolerance now lives entirely in the
+  /// classifier that feeds it, not here.
+  bool _updateCompressionCount(LandmarkFrame frame, {required bool isCompressionMotion}) {
     final v = frame.wristVelocityY;
     if (_lastVelocityY == null) {
+      _lastVelocityY = v;
+      return false;
+    }
+
+    if (!isCompressionMotion) {
+      // Either genuinely idle, or hands have been off-placement for more
+      // than the tolerated streak (see _classifyActivity) — whatever this
+      // motion is (answering a phone, adjusting clothing, scratching your
+      // face), it isn't a compression. Drop any in-progress descent rather
+      // than letting it sit around to be "completed" later, which would
+      // wrongly stitch together two unrelated motions into one counted
+      // cycle.
+      _wasDescending = false;
+      _descentStartY = null;
       _lastVelocityY = v;
       return false;
     }
@@ -388,20 +568,34 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
     bool completed = false;
     if (descending) {
+      if (!_wasDescending) {
+        // Mark the wrist position at the START of this descent, not on
+        // every descending frame — we need the total displacement across
+        // the whole down-phase, not just the last frame's delta.
+        _descentStartY = frame.wristMidY;
+      }
       _wasDescending = true;
     } else if (ascending && _wasDescending) {
-      final now = DateTime.now();
-      final sinceLast = _lastCompressionAt == null
-          ? _minCompressionInterval
-          : now.difference(_lastCompressionAt!);
-      if (sinceLast >= _minCompressionInterval) {
-        // Completed a down-then-up cycle, not too soon after the last one
-        // — count one compression.
-        state = state.copyWith(compressions: state.compressions + 1);
-        _lastCompressionAt = now;
-        completed = true;
+      final amplitude =
+          _descentStartY == null ? 0.0 : (frame.wristMidY - _descentStartY!).abs();
+      if (amplitude >= _minCompressionAmplitude) {
+        final now = DateTime.now();
+        final sinceLast = _lastCompressionAt == null
+            ? _minCompressionInterval
+            : now.difference(_lastCompressionAt!);
+        if (sinceLast >= _minCompressionInterval) {
+          // Completed a down-then-up cycle with real amplitude, not too
+          // soon after the last one — count one compression.
+          state = state.copyWith(compressions: state.compressions + 1);
+          _lastCompressionAt = now;
+          completed = true;
+        }
       }
+      // Below-amplitude flips (jitter) fall through here without
+      // counting — this is what stops noise from being registered as a
+      // compression cycle at all, not just from double-counting.
       _wasDescending = false;
+      _descentStartY = null;
     }
 
     _lastVelocityY = v;
@@ -461,6 +655,13 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   /// Depth is weighted highest (AUC≈99%) since it's the most reliable task.
   int _computeQualityScore(double rateAcc, double depthAcc, double recoilAcc) {
     if (_assessedFrameCount == 0) return 0;
+    // Below this many CONFIRMED (debounced, real down→up cycle)
+    // compressions, there isn't enough signal for a meaningful score — see
+    // _minConfirmedCompressionsForScore's field doc. state.compressions is
+    // the same confirmed count SessionModel.totalCompressions is built
+    // from at stopSession(), so results_screen.dart can tell "not enough
+    // data" apart from a real 0% using that field, no schema change.
+    if (state.compressions < _minConfirmedCompressionsForScore) return 0;
 
     // rateAcc/depthAcc/recoilAcc are already fair 0-1 accuracy fractions on
     // their own, so they scale directly to 0-100 with no baseline division.
