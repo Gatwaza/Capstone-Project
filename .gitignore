@@ -3,3 +3,9 @@
 .vercel
 .env*
 .DS_Store
+node_modules/
+*.zip
+.dart_tool/
+build/
+.pub-cache/
+*.log
