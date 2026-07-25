@@ -170,13 +170,29 @@ class LandmarkMath {
     required double hipMidY,
     required double shoulderWidth,
   }) {
+    // FIX (handPlacement=null on every frame during real CPR posture):
+    // this used to check `torsoHeight < 1e-6`, which is true for ANY
+    // negative torsoHeight, not just a near-zero/degenerate one. hipMidY
+    // ending up above shoulderMidY (torsoHeight < 0) isn't corrupted
+    // tracking — it's the normal geometry of someone leaning forward over
+    // a low manikin, where the shoulders dip down toward the chest while
+    // the hips stay back/up in the frame. That's exactly the posture this
+    // app is built around, and the old check discarded it as "unknown"
+    // (-> null) on every single frame, which cascaded into a permanent
+    // false placement-violation streak and starved compression counting.
+    // Only bail out when the torso is genuinely collapsed (shoulder/hip
+    // landmarks nearly coincident — the actual degenerate case this guard
+    // was meant to catch).
     final torsoHeight = hipMidY - shoulderMidY;
-    if (torsoHeight < 1e-6 || shoulderWidth < 1e-6) {
+    if (torsoHeight.abs() < 1e-6 || shoulderWidth < 1e-6) {
       return HandPlacementResult.unknown;
     }
 
-    // Vertical — identical thresholds to assessHandPlacement() above.
-    final normPosY = (wristMidY - shoulderMidY) / torsoHeight;
+    // Vertical — normalize by |torsoHeight| so the "correct band" means
+    // the same physical thing (roughly mid-torso) regardless of whether
+    // hipMidY sits below shoulderMidY (upright framing) or above it
+    // (forward-leaning-over-a-low-manikin framing, the common case here).
+    final normPosY = (wristMidY - shoulderMidY) / torsoHeight.abs();
     if (normPosY < 0.35) return HandPlacementResult.tooHigh;
     if (normPosY > 0.75) return HandPlacementResult.tooLow;
 

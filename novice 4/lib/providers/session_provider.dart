@@ -335,19 +335,62 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
     final handPlacement = _assessHandPlacement(frame);
 
-    // FIX (compressions counted from arbitrary hand movement — answering
-    // the phone, adjusting clothing, scratching your face — while the
-    // "Place your hands together" banner is still showing), now WITH
-    // tolerance (FIX for the follow-up bug this introduced: requiring
-    // handPlacement == correct on literally every frame meant a single
-    // frame of jitter — or a real compression's own downward wrist motion
-    // transiently pushing normPosY out of the "correct" band — discarded
-    // the entire in-progress descent outright, undercounting or zeroing
-    // real compressions). See _classifyActivity() doc below: placement now
-    // has to read wrong for more than _placementViolationTolerance
-    // consecutive frames before motion stops counting as compression.
-    final activity = _classifyActivity(frame, handPlacement);
-    final isCompressionMotion = activity == PoseActivity.compressionMotion;
+    // REVERT (confirmed via `git log -S"_placementViolationTolerance"` +
+    // `git show 7ab8037`): before commit 7ab8037 ("inference triggers
+    // updated"), compression counting was based purely on wristVelocityY
+    // crossing the descend/ascend thresholds — hand placement was computed
+    // for the coaching banner/overlay only, and never gated whether motion
+    // counted as a compression. 7ab8037 introduced _classifyActivity()'s
+    // placement-violation-streak gate to stop false compressions from
+    // being counted during genuinely unrelated motion (answering a phone,
+    // adjusting clothing). That fix assumed handPlacement's geometry model
+    // (assessHandPlacement2D's torso-height normalization) reliably reads
+    // "correct" for real compressions — live [PlacementDebug] sessions
+    // showed that assumption doesn't hold for this camera framing:
+    // normPosY consistently landed in tooHigh/tooLow territory even for
+    // genuine, correctly-placed compressions, so the streak permanently
+    // exceeded tolerance and starved compression counting entirely (1
+    // compression per session, 0 BPM, 0 depth, model never called).
+    //
+    // Fix: stop gating isCompressionMotion on handPlacement. Compression
+    // counting is purely velocity/amplitude-based again (matching
+    // pre-7ab8037 behavior) via _updateCompressionCount() below.
+    // handPlacement is still computed and still drives the on-screen
+    // coaching cue (_feedback.process() below) — it's just no longer able
+    // to silently zero out real compressions when the geometry model and
+    // the camera framing disagree. If jitter-triggered false compressions
+    // (7ab8037's original motivating bug) resurface, that's a narrower,
+    // separately-diagnosable problem — not a reason to let a currently-
+    // unreliable geometry check gate everything else.
+    final v = frame.wristVelocityY;
+    final isCompressionMotion = v.abs() > _compressionVelocityThreshold || _wasDescending;
+    final activity = isCompressionMotion
+        ? PoseActivity.compressionMotion
+        : PoseActivity.idle;
+
+    // TEMP DEBUG (remove once hand-placement calibration is confirmed):
+    // prints the geometry behind handPlacement every ~10 frames (~2-3x/sec
+    // at 25fps) so we can see actual normPosY/torsoHeight values live in the
+    // browser console instead of guessing why the "place your hands" banner
+    // stays up. Safe to leave running briefly — throttled, not per-frame.
+    if (_assessedFrameCount % 10 == 0) {
+      final shoulderMidY = (frame.leftShoulderY + frame.rightShoulderY) / 2;
+      final hipMidY = (frame.leftHipY + frame.rightHipY) / 2;
+      final torsoHeight = hipMidY - shoulderMidY;
+      final normPosY = torsoHeight.abs() > 1e-6
+          ? (frame.wristMidY - shoulderMidY) / torsoHeight
+          : double.nan;
+      // ignore: avoid_print
+      print('[PlacementDebug] frame=$_assessedFrameCount '
+          'handPlacement=$handPlacement activity=$activity '
+          'streak=$_placementViolationStreak '
+          'normPosY=${normPosY.toStringAsFixed(3)} '
+          'torsoHeight=${torsoHeight.toStringAsFixed(4)} '
+          'shoulderMidY=${shoulderMidY.toStringAsFixed(3)} '
+          'hipMidY=${hipMidY.toStringAsFixed(3)} '
+          'wristMidY=${frame.wristMidY.toStringAsFixed(3)} '
+          'meanConf=${frame.meanLandmarkConfidence.toStringAsFixed(3)}');
+    }
 
     // _estimateBpm()'s single-frame velocity-peak detector has no cycle
     // requirement or debounce on its own, so history is only accumulated at

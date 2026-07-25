@@ -14,6 +14,12 @@ class PoseServiceWeb implements PoseServiceInterface {
   double _prevWristY  = 0;
   double _prevWristVY = 0;
 
+  // FIX: state for hip-Y smoothing (see the EMA block below) — persists
+  // across frames within a session so torsoHeight can't flip sign on a
+  // single noisy MediaPipe reading.
+  double? _smoothedLhy;
+  double? _smoothedRhy;
+
   // At AppConstants.poseEstimationTargetFps (25fps) a healthy graph updates
   // _novicePoseTimestamp roughly every 40ms. 300ms is ~7-8 missed frames --
   // generous enough to absorb ordinary jitter/GC pauses, but short enough to
@@ -91,8 +97,24 @@ class PoseServiceWeb implements PoseServiceInterface {
       // back to a shoulder-width-anchored estimate instead (~1.45x shoulder
       // width approximates sternum-to-hip height for this framing) rather
       // than trusting the unreliable landmark.
+      //
+      // FIX (torsoHeight flipping sign frame-to-frame even with the 0.5
+      // threshold in place): live [PlacementDebug] logging showed normPosY
+      // swinging from -6.9 to +28 within the same session, with hipMidY
+      // jumping above and below shoulderMidY repeatedly, WHILE MediaPipe
+      // was self-reporting hip visibility above 0.5 almost the entire time
+      // (the low-confidence fallback below only fired 3 times in an
+      // 1200+-frame session). MediaPipe's per-joint confidence is itself
+      // unreliable for a mostly-occluded joint — it doesn't just dip low
+      // when wrong, it stays confidently wrong. Two changes:
+      //   1. Raise the bar substantially (0.5 -> 0.75) so the stable
+      //      shoulder-anchored estimate is used far more often for this
+      //      framing instead of trusting a "confident" but jumpy landmark.
+      //   2. Smooth whichever hip estimate is chosen (raw or fallback) with
+      //      a simple EMA across frames, so a single bad frame can't swing
+      //      torsoHeight's sign and instantly flip tooHigh<->tooLow.
       final hipVisibility = (v(23) + v(24)) / 2;
-      const hipVisibilityThreshold = 0.5;
+      const hipVisibilityThreshold = 0.75;
       if (hipVisibility < hipVisibilityThreshold) {
         final shoulderMidXTmp = (lsx + rsx) / 2;
         final shoulderMidYTmp = (lsy + rsy) / 2;
@@ -104,6 +126,21 @@ class PoseServiceWeb implements PoseServiceInterface {
               '(v=${hipVisibility.toStringAsFixed(2)}) — using '
               'shoulder-based torso estimate instead');
       }
+
+      // EMA smoothing on the final hip Y values (whichever branch produced
+      // them) — alpha=0.25 means each frame moves ~25% of the way toward
+      // the new reading, damping single-frame spikes without lagging so
+      // much that real posture changes (standing up, repositioning) take
+      // seconds to reflect.
+      const hipSmoothingAlpha = 0.25;
+      _smoothedLhy = _smoothedLhy == null
+          ? lhy
+          : _smoothedLhy! + hipSmoothingAlpha * (lhy - _smoothedLhy!);
+      _smoothedRhy = _smoothedRhy == null
+          ? rhy
+          : _smoothedRhy! + hipSmoothingAlpha * (rhy - _smoothedRhy!);
+      lhy = _smoothedLhy!;
+      rhy = _smoothedRhy!;
 
       final wmx = (lwx + rwx) / 2;
       final wmy = (lwy + rwy) / 2;

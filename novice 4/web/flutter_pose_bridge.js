@@ -244,17 +244,35 @@ async function initPoseBridge() {
           if (myGeneration !== window._novicePoseGeneration) return;
 
           window._novicePoseVideoReady = true;
-          window._novicePoseReady      = true;
 
+          // FIX (metrics stuck at zero, no watchdog recovery, no
+          // _novicePoseFailed signal — MediaPipe running fine per
+          // Hugging Face logs, but no person ever detected in-frame):
+          // _novicePoseReady and armWatchdog() used to fire unconditionally
+          // on every successful call to detectForVideo(), even when
+          // result.landmarks[0] was completely empty (no pose found this
+          // frame). That let a session where MediaPipe never once detects
+          // a person — very plausible here, since CPR-over-a-low-manikin
+          // is a much tighter/more awkward crop than the mostly-full-body
+          // view the model expects — silently report "ready" forever.
+          // Because the watchdog's own check is `if
+          // (window._novicePoseReady) return;`, that lie caused the
+          // watchdog to keep re-arming and bailing out early every single
+          // time, so it never fired, _novicePoseFailed never became true,
+          // and nothing ever surfaced the failure to Dart or the user.
+          // pose_service_web.dart's staleness gate (_novicePoseTimestamp
+          // age) was already correctly returning null the whole time —
+          // this bridge was just never telling anyone why.
           if (result.landmarks && result.landmarks[0]) {
-            window._novicePoseLandmarks = result.landmarks[0];
-            window._novicePoseTimestamp = Date.now();
+            window._novicePoseReady      = true;
+            window._novicePoseLandmarks  = result.landmarks[0];
+            window._novicePoseTimestamp  = Date.now();
+            // Re-arm only on an actual detection, so a stall LATER in the
+            // session (not just at startup) is still caught — the legacy
+            // bridge only ever armed the watchdog once, before the first
+            // result, and never again for the rest of the session.
+            armWatchdog();
           }
-          // Re-arm on every successful detection so a stall LATER in the
-          // session (not just at startup) is still caught — the legacy
-          // bridge only ever armed the watchdog once, before the first
-          // result, and never again for the rest of the session.
-          armWatchdog();
         } catch (e) {
           // Catchable per-frame error. tasks-vision surfaces most failures
           // this way instead of a native abort, but the watchdog above is
