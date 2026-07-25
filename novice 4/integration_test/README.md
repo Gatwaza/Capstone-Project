@@ -45,6 +45,7 @@ Get that one green first — it's the baseline. Then, same pattern, swap `--targ
 ```bash
 flutter drive --driver=test_driver/integration_test.dart --target=integration_test/participant_gate_flow_test.dart -d chrome
 flutter drive --driver=test_driver/integration_test.dart --target=integration_test/consent_flow_test.dart -d chrome
+flutter drive --driver=test_driver/integration_test.dart --target=integration_test/enrollment_flow_test.dart -d chrome
 ```
 
 There's no single "run the whole `integration_test/` folder" command on web the way
@@ -69,48 +70,80 @@ on the wrong port — confirm Terminal 1 shows `Only local connections are allow
   nothing selected.
 - **consent_flow_test.dart** — info step → form step → consent checkbox unlocking
   submit → the "Enrolment failed" snackbar when the backend isn't configured.
+- **enrollment_flow_test.dart** — the happy path: info step → form step → submit →
+  "Participant Enrolled" with the assigned ID shown, using a `ParticipantService`
+  backed by an `http.MockClient` (see `test_helpers.dart`) instead of a real
+  Supabase call.
 
-That last point matters: these tests run against an **unconfigured** backend on purpose
-(no `SUPABASE_URL`/`SUPABASE_ANON_KEY` via `--dart-define`), because that's a real,
-reachable state of the app — not a shortcut. They do **not** cover the happy path
-(a participant actually getting registered, reaching "Participant Enrolled", the
-returning-participant dropdown populated with real IDs).
+The unconfigured-backend tests (participant_gate_flow_test.dart, consent_flow_test.dart)
+still run against a real unconfigured Env on purpose — that's a real, reachable state of
+the app, not a shortcut, and it's a genuinely different code path from the mocked one in
+enrollment_flow_test.dart (both are worth keeping).
 
-## Why the happy path isn't here yet
+## Happy-path enrolment — now unblocked
 
-`ParticipantService` (`lib/services/participant_service.dart`) builds its own
-`http.Client` internally and has no constructor seam to inject one. That means a
-test can't hand it a `MockClient` that returns a fake `201` — there's nothing to swap.
-Two ways to unblock this, pick one before writing happy-path tests:
+`ParticipantService` (`lib/services/participant_service.dart`) now takes an optional
+`http.Client` in its constructor (defaults to a real `http.Client()`), so tests can pass
+an `http.MockClient` — from `package:http/testing.dart`, already shipped inside the
+`http` package, no extra dependency needed. `test_helpers.dart`'s
+`overrideParticipantServiceForTesting()` re-registers `ParticipantService` in GetIt with
+a `MockClient` that fakes Supabase's `201` response, then `enrollment_flow_test.dart`
+exercises the real UI flow against it.
 
-1. Add an `http.Client` parameter to `ParticipantService`'s constructor (defaulting to
-   `http.Client()`), then register a `MockClient` via a `test_helpers.dart` override
-   before pumping `ConsentScreen`/`ParticipantGateScreen`.
-2. Point `SUPABASE_URL`/`SUPABASE_ANON_KEY` at a real (or local) Supabase instance for
-   the test run and accept that these become slower, network-dependent tests.
+Run it the same way as the others:
 
-(1) is the standard pattern and is what `test_helpers.dart` already assumes — it's just
-not built into `ParticipantService` yet.
+```bash
+flutter drive --driver=test_driver/integration_test.dart --target=integration_test/enrollment_flow_test.dart -d chrome
+```
 
-## Screens not yet covered: training / results / history / settings
+## Training — now covered, with a caveat on the camera
 
-Training in particular needs its own pass, not a quick add:
+`training_flow_test.dart` covers `TrainingScreen`'s happy path: start a session,
+let a fake pose stream drive several confirmed compression cycles through the real
+`LiveSessionNotifier` state machine, and assert `compressions > 0`,
+`modelAvailable == true`, and `taskAccuracies` all read back 100% — read straight off
+the real `ProviderScope` container rather than parsed from HUD text.
 
-- `TrainingScreen` drives the camera + pose bridge (`PoseServiceWeb`) and
-  `InferenceServiceWeb` (hosted TCN API) through `SessionProvider`'s
-  `LiveSessionNotifier` — a real integration test needs a fake `InferenceServiceWeb`
-  registered in place of the real one (same GetIt-override pattern as
-  `test_helpers.dart`, but `InferenceServiceWeb` is a concrete class too, so faking it
-  needs the same kind of injectable seam discussed above, or a `noSuchMethod`-based fake
-  like `NoopTelemetryService`).
-- Results/History/Settings mostly read from `StorageService` (real
-  `SharedPreferences`, no network) plus Riverpod providers, so they're more
-  straightforward once a session actually exists to read back — which depends on
-  training working first.
+Two GetIt overrides in `test_helpers.dart` make this possible:
 
-Want these built next? Training is the highest-value one but also the one that needs
-the InferenceServiceWeb fake sorted out first — worth doing as its own step rather than
-bolting it onto this batch.
+- **`overridePoseServiceForTesting()`** swaps `PoseServiceInterface` for
+  `FakePoseService` — a normal interface swap, since `PoseServiceWeb` already
+  implements `PoseServiceInterface`.
+- **`overrideInferenceServiceForTesting()`** swaps `InferenceServiceWeb` for
+  `FakeInferenceService` — `InferenceServiceWeb` is a concrete class with no
+  interface, so this uses the same `noSuchMethod`-based fake technique as
+  `NoopTelemetryService` above, with real overrides only for the methods
+  `session_provider.dart` actually calls (`infer`, `resetSession`,
+  `notifyCompressionCompleted`, `isModelLoaded`, `init`, `dispose`).
+
+Both fakes bypass `dart:js`/MediaPipe/the hosted TCN API entirely — this test does
+**not** exercise real pose estimation or ML inference. What it does exercise: the real
+widget, the real debounced compression state machine (hand-placement gating,
+amplitude/interval checks), and the real GetIt/Riverpod wiring connecting them.
+
+**The camera itself is not faked** — `CameraController` has no injectable seam, so
+`TrainingScreen._initCamera()` makes a real `getUserMedia()` call. Run this file with a
+synthetic camera device or it will hang on a permission prompt nothing answers:
+
+```bash
+flutter drive \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/training_flow_test.dart \
+  -d chrome \
+  --web-browser-flag="--use-fake-device-for-media-stream" \
+  --web-browser-flag="--use-fake-ui-for-media-stream"
+```
+
+(`--use-fake-ui-for-media-stream` auto-accepts the permission prompt; without it,
+Chrome still asks and the test has no way to grant it.) These two flags are harmless to
+add to the other `flutter drive` commands above too, if you'd rather standardize on one
+invocation.
+
+## Screens not yet covered: results / history / settings
+
+These mostly read from `StorageService` (real `SharedPreferences`, no network) plus
+Riverpod providers, so they're more straightforward now that training produces a real
+session to read back.
 
 ## Does this replace Cypress?
 

@@ -33,12 +33,19 @@ import '../core/constants/env.dart';
 import '../models/research_models.dart';
 
 class ParticipantService {
-  ParticipantService({String? supabaseUrl, String? anonKey})
+  /// [client] defaults to a real `http.Client()` in production. Tests pass
+  /// an `http.MockClient` (from `package:http/testing.dart`, already part
+  /// of the `http` package — no extra dependency needed) to simulate
+  /// Supabase responses without a network call. See
+  /// `integration_test/enrollment_flow_test.dart`.
+  ParticipantService({String? supabaseUrl, String? anonKey, http.Client? client})
       : _supabaseUrl = supabaseUrl ?? Env.supabaseUrl,
-        _anonKey     = anonKey     ?? Env.supabaseAnonKey;
+        _anonKey     = anonKey     ?? Env.supabaseAnonKey,
+        _client      = client     ?? http.Client();
 
   final String _supabaseUrl;
   final String _anonKey;
+  final http.Client _client;
 
   bool get isConfigured => _supabaseUrl.isNotEmpty && _anonKey.isNotEmpty;
 
@@ -66,7 +73,7 @@ class ParticipantService {
       );
     }
 
-    final response = await http
+    final response = await _client
         .post(
           Uri.parse('$_supabaseUrl/rest/v1/participants'),
           headers: {..._headers, 'Prefer': 'return=representation'},
@@ -102,7 +109,7 @@ class ParticipantService {
   Future<List<ParticipantSummary>> listParticipants() async {
     if (!isConfigured) return [];
     try {
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse(
               '$_supabaseUrl/rest/v1/participants'
@@ -139,7 +146,7 @@ class ParticipantService {
   Future<bool> participantExists(String participantId) async {
     if (!isConfigured) return false;
     try {
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse(
               '$_supabaseUrl/rest/v1/participants'
