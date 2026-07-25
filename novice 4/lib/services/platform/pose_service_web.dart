@@ -71,8 +71,39 @@ class PoseServiceWeb implements PoseServiceInterface {
       final rex = x(14); final rey = y(14);
       final lwx = x(15); final lwy = y(15);
       final rwx = x(16); final rwy = y(16);
-      final lhx = x(23); final lhy = y(23);
-      final rhx = x(24); final rhy = y(24);
+      var lhx = x(23); var lhy = y(23);
+      var rhx = x(24); var rhy = y(24);
+
+      // FIX (compressions permanently stuck at 0 / hand-placement warning
+      // never clears): unlike shoulders/elbows/wrists, hip visibility (v(23),
+      // v(24)) was extracted but never stored or checked anywhere. MediaPipe
+      // still emits a "best guess" hip position even when the hips are
+      // occluded or off-frame — common here, since the coach framing has the
+      // user leaning down over a low manikin with hips below the visible
+      // camera area. LandmarkMath.assessHandPlacement2D() derives
+      // torsoHeight = hipMidY - shoulderMidY and blindly trusts it; a bad
+      // extrapolated hip position throws normPosY outside the [0.35, 0.75]
+      // "correct" band permanently, which means the placement warning never
+      // clears and _classifyActivity()/_updateCompressionCount() in
+      // session_provider.dart never see a single compressionMotion frame —
+      // so compressions stay at 0 for the whole session no matter how
+      // correctly the user compresses. When hip confidence is too low, fall
+      // back to a shoulder-width-anchored estimate instead (~1.45x shoulder
+      // width approximates sternum-to-hip height for this framing) rather
+      // than trusting the unreliable landmark.
+      final hipVisibility = (v(23) + v(24)) / 2;
+      const hipVisibilityThreshold = 0.5;
+      if (hipVisibility < hipVisibilityThreshold) {
+        final shoulderMidXTmp = (lsx + rsx) / 2;
+        final shoulderMidYTmp = (lsy + rsy) / 2;
+        final shoulderWidthTmp = (rsx - lsx).abs();
+        final estimatedTorsoHeight = shoulderWidthTmp * 1.45;
+        lhx = shoulderMidXTmp; lhy = shoulderMidYTmp + estimatedTorsoHeight;
+        rhx = shoulderMidXTmp; rhy = shoulderMidYTmp + estimatedTorsoHeight;
+        print('[NovicePose] hips low-confidence '
+              '(v=${hipVisibility.toStringAsFixed(2)}) — using '
+              'shoulder-based torso estimate instead');
+      }
 
       final wmx = (lwx + rwx) / 2;
       final wmy = (lwy + rwy) / 2;

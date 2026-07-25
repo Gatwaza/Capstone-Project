@@ -40,6 +40,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter          # ← new line
   flutter_lints: ^5.0.0
   # ── Code generation ───────────────────────────────────────
   build_runner: ^2.4.9         # bumped from ^2.4.8

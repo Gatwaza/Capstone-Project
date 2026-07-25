@@ -143,4 +143,16 @@ class FeedbackPrompt with _$FeedbackPrompt {
   }) = _FeedbackPrompt;
 }
 
-enum FeedbackSeverity { good, warning, critical }
+// FIX (novice guidance vs. judgment): `good` never speaks (silence = doing
+// it right) and `warning`/`critical` are real technique corrections from a
+// confirmed model assessment. Neither fits "no assessment has happened yet,
+// here's what to do about that" — e.g. no compression motion detected at
+// all, or motion detected but not yet enough confirmed cycles to trust the
+// model. Before this, those states fell through to `good` (silence) or were
+// never distinguished, so a first-time user who hadn't started compressing
+// correctly yet, or who was scanned in mid-technique, got no feedback at
+// all rather than being told what to do. `info` behaves like an error for
+// speech purposes (it obeys the same cooldown in FeedbackEngine.shouldSpeak,
+// see that file) but is visually distinct (see compression_gauge.dart's
+// FeedbackBanner) since it isn't a fault — it's scaffolding.
+enum FeedbackSeverity { good, warning, critical, info }

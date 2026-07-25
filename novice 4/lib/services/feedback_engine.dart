@@ -124,6 +124,39 @@ class FeedbackEngine {
           message: 'Stay upright',
           issuedAt: DateTime.now(),
         );
+
+      // ── Scaffolding states (see inference_service_web.dart's infer()) ──
+      // These are NOT model assessments — no real classification has
+      // happened yet — so they must never be treated as 'correct
+      // technique' (silence) or blended in with real rate/depth/recoil
+      // errors above. `info` severity speaks (via shouldSpeak()'s existing
+      // non-good path) so a novice gets guidance from frame one, but stays
+      // visually distinct (see compression_gauge.dart's FeedbackBanner) so
+      // it never reads as a fault.
+      case 'no_compression_motion':
+        return FeedbackPrompt(
+          key: 'no_compression_motion',
+          severity: FeedbackSeverity.info,
+          message: 'Start compressions: push hard and fast on the '
+              'center of the chest.',
+          issuedAt: DateTime.now(),
+        );
+      case 'awaiting_compressions':
+        return FeedbackPrompt(
+          key: 'awaiting_compressions',
+          severity: FeedbackSeverity.info,
+          message: 'Good — keep going. Scoring your technique now.',
+          issuedAt: DateTime.now(),
+        );
+      case 'model_unavailable':
+        return FeedbackPrompt(
+          key: 'model_unavailable',
+          severity: FeedbackSeverity.info,
+          message: "Reconnecting to the coach — keep practicing, "
+              "you'll still be able to review your form.",
+          issuedAt: DateTime.now(),
+        );
+
       default:
         return FeedbackPrompt(
           key: 'correct_compression',

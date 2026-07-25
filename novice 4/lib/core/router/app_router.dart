@@ -16,6 +16,7 @@ import '../../features/research/consent_screen.dart';
 import '../../features/research/participant_gate_screen.dart';
 import '../../features/research/survey_screen.dart';
 import '../../features/research/researcher_dashboard.dart';
+import '../../features/legal/privacy_policy_screen.dart';
 import '../theme/app_theme.dart';
 
 class AppRoutes {
@@ -40,6 +41,7 @@ class AppRoutes {
   static const surveyPre       = '/research/survey/pre/:sessionId';
   static const surveyPost      = '/research/survey/post/:sessionId';
   static const researcher      = '/research/dashboard';
+  static const privacyPolicy   = '/legal/privacy';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -92,6 +94,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: AppRoutes.researcher, builder: (_, __) => const ResearcherDashboard()),
+      GoRoute(path: AppRoutes.privacyPolicy, builder: (_, __) => const PrivacyPolicyScreen()),
     ],
     errorBuilder: (context, state) => Scaffold(
       backgroundColor: AppTheme.bg,

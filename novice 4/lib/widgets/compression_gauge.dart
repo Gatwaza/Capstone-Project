@@ -152,6 +152,17 @@ class FeedbackBanner extends StatelessWidget {
           const Color(0xDD200008),
           Icons.priority_high_rounded,
         ),
+      // Scaffolding/guidance (no assessment has happened yet — e.g. no
+      // compression motion detected, or not enough confirmed cycles to
+      // trust the model). Deliberately neither green (nothing's been
+      // judged correct yet) nor red (nothing's wrong either) — aedBlue
+      // reads as neutral/informational against the dark camera HUD.
+      FeedbackSeverity.info     => (
+          AppTheme.aedBlue.withOpacity(0.4),
+          AppTheme.aedBlue,
+          Colors.black.withOpacity(0.7),
+          Icons.info_outline_rounded,
+        ),
     };
 
     return Container(

@@ -57,20 +57,46 @@ class InferenceServiceWeb {
   // is the only place that knows whether any of that motion ever resolved
   // into an actual debounced down→up compression cycle. notifyCompressionCompleted()
   // lets it tell this service exactly that, once per confirmed cycle.
-  // _cycleCompletionFlags parallels _frameBuffer/_motionFlags 1:1 (same
-  // add/evict rhythm) so _confirmedCycleCount always reflects only cycles
-  // confirmed within the CURRENT 60-frame window, not the whole session.
-  final _cycleCompletionFlags = ListQueue<bool>();
-  int _confirmedCycleCount = 0;
-  bool _pendingCycleCompletion = false;
+  //
+  // FIX (2 real, valid compressions could "un-happen" for scoring purposes
+  // just because they were performed slower than guideline pace): this used
+  // to be a ListQueue<bool> parallel to _frameBuffer/_motionFlags, evicted
+  // in the same 1:1 rhythm as the 60-frame feature window (~2.4s at 25fps).
+  // That ties "has the user done 2 real compressions recently enough to
+  // trust" to the SAME window used for the model's own input features. A
+  // novice doing two slow, deliberate presses (e.g. ~1.5s apart, well
+  // within real CPR guidance but slower than the ~600ms/cycle the 60-frame
+  // window comfortably holds two of) would have the first cycle's flag
+  // evicted before the second one completed — _confirmedCycleCount would
+  // reset to 0-or-1 and never reach the gate, so the API was never called
+  // and the user saw no feedback at all, indistinguishable from a broken
+  // pipeline. Cycle confirmation is now tracked by wall-clock timestamp in
+  // its own rolling window (_cycleConfirmationWindow), independent of the
+  // feature buffer's eviction — the two windows can be sized differently
+  // because they answer different questions ("is there recent real
+  // compression activity" vs. "what are this exact frame's model
+  // features").
+  final List<DateTime> _cycleTimestamps = [];
   static const int _minConfirmedCyclesForApiCall = 2;
+  static const Duration _cycleConfirmationWindow = Duration(seconds: 6);
 
   /// Call from session_provider.dart's onFrame() the moment its debounced
-  /// state machine confirms a real compression cycle — BEFORE calling
-  /// infer() for that same frame, so the completion lands in the correct
-  /// frame's slot in [_cycleCompletionFlags] rather than one frame late.
+  /// state machine confirms a real compression cycle. Order relative to
+  /// infer() no longer matters (timestamps are absolute, not tied to a
+  /// frame-buffer slot), but calling it before infer() for the same frame
+  /// is still fine and keeps the call sites unchanged.
   void notifyCompressionCompleted() {
-    _pendingCycleCompletion = true;
+    _cycleTimestamps.add(DateTime.now());
+  }
+
+  /// Confirmed compression cycles within the last [_cycleConfirmationWindow]
+  /// — evicted by wall-clock age, not by feature-buffer position. Call this
+  /// (rather than reading a stored counter) so it's always current relative
+  /// to `DateTime.now()`, including on frames where no new cycle completed.
+  int get _confirmedCycleCount {
+    final cutoff = DateTime.now().subtract(_cycleConfirmationWindow);
+    _cycleTimestamps.removeWhere((t) => t.isBefore(cutoff));
+    return _cycleTimestamps.length;
   }
 
   // Causal, pixel-space, rolling-window feature extractor matching
@@ -158,9 +184,7 @@ class InferenceServiceWeb {
     _wristYHistory.clear();
     _motionFlags.clear();
     _motionFrameCount = 0;
-    _cycleCompletionFlags.clear();
-    _confirmedCycleCount = 0;
-    _pendingCycleCompletion = false;
+    _cycleTimestamps.clear();
     _lastApiResult = null;
     _lastApiCallAt = null;
     _apiCallInFlight = false;
@@ -284,19 +308,6 @@ class InferenceServiceWeb {
       if (_motionFlags.removeFirst()) _motionFrameCount--;
     }
 
-    // Consume the pending confirmed-cycle flag (set by
-    // notifyCompressionCompleted(), called by session_provider.dart just
-    // before this infer() call for the same frame) and record it against
-    // THIS frame's slot, evicting in lockstep with _frameBuffer/_motionFlags
-    // so _confirmedCycleCount only ever reflects the current window.
-    final completedThisFrame = _pendingCycleCompletion;
-    _pendingCycleCompletion = false;
-    _cycleCompletionFlags.addLast(completedThisFrame);
-    if (completedThisFrame) _confirmedCycleCount++;
-    while (_cycleCompletionFlags.length > AppConstants.temporalWindowFrames) {
-      if (_cycleCompletionFlags.removeFirst()) _confirmedCycleCount--;
-    }
-
     _wristYHistory.addLast(_TimedSample(frame.capturedAt, frame.wristMidY));
     while (_wristYHistory.length > AppConstants.bpmHistoryLength) {
       _wristYHistory.removeFirst();
@@ -335,21 +346,38 @@ class InferenceServiceWeb {
       );
     }
 
-    // Model not yet loaded, API call in flight, or (most commonly, right
-    // at session start) the window doesn't contain enough real compression
-    // motion yet to be worth asking the model about — return a
-    // non-accumulating result either way. topClassLabel distinguishes the
-    // two cases for anyone debugging via logs; the UI treats both the same
-    // (isSimulated=true → "Model Unavailable" / no scoring), since neither
-    // represents a real assessment of this moment.
-    final idleWindow = _api.isReachable &&
-        _frameBuffer.length >= AppConstants.temporalWindowFrames &&
-        (_motionFrameCount < _minMotionFramesForApiCall ||
-            _confirmedCycleCount < _minConfirmedCyclesForApiCall);
+    // FIX (novice guidance vs. judgment): this used to collapse to just two
+    // labels ('awaiting_compressions' vs 'model_unavailable'), and
+    // FeedbackEngine had no case for either, so both fell through to the
+    // silent 'good' default — a first-time user got zero coaching for
+    // however long it took the gate above to open, which looked identical
+    // to a broken pipeline. Three real states get distinguished here so
+    // FeedbackEngine (see feedback_engine.dart) can tell the user what to
+    // do about each one instead of saying nothing:
+    //   - 'model_unavailable': the API itself is unreachable. Nothing the
+    //     user does changes this; say so plainly.
+    //   - 'no_compression_motion': API is reachable and the feature window
+    //     is full, but too little of it reflects real wrist motion — the
+    //     user likely hasn't placed their hands/started compressing yet
+    //     (this is also the state right at session start, before the
+    //     60-frame/~2.4s buffer has even filled).
+    //   - 'awaiting_compressions': real motion IS happening, but fewer than
+    //     _minConfirmedCyclesForApiCall debounced cycles have completed
+    //     within _cycleConfirmationWindow yet — the user is doing
+    //     compressions correctly-shaped enough to detect, just needs a
+    //     couple more before the model has enough to score. This is
+    //     encouragement, not correction.
+    final label = !_api.isReachable
+        ? 'model_unavailable'
+        : (_frameBuffer.length < AppConstants.temporalWindowFrames ||
+                _motionFrameCount < _minMotionFramesForApiCall)
+            ? 'no_compression_motion'
+            : 'awaiting_compressions';
+
     return InferenceResult(
       timestamp:           DateTime.now(),
       topClassIndex:       0,
-      topClassLabel:       idleWindow ? 'awaiting_compressions' : 'model_unavailable',
+      topClassLabel:       label,
       topClassConfidence:  0.0,
       allClassScores:      const {},
       currentBpm:          bpm,

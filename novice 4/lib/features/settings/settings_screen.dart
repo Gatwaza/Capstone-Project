@@ -81,6 +81,22 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 8),
 
+          // ── Legal ─────────────────────────────────────────
+          // General-audience policy — applies to every user, not just
+          // pilot-study participants, so it's reachable directly here
+          // rather than nested inside the Pilot Study consent flow.
+          const _SectionHeader('Legal'),
+          _SettingTile(
+            title: 'Privacy Policy',
+            subtitle: 'What data Novice collects and how it is handled',
+            trailing: IconButton(
+              icon: const Icon(Icons.privacy_tip_outlined, color: AppTheme.accent),
+              onPressed: () => context.push(AppRoutes.privacyPolicy),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
           // ── Research ──────────────────────────────────────────
           const _SectionHeader('Pilot Study'),
           _SettingTile(
