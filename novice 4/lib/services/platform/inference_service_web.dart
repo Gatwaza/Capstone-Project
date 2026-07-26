@@ -7,6 +7,7 @@
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert'; // TEMP — for [RAW_SEQUENCE] capture logging
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:js' as js;
 
@@ -106,6 +107,10 @@ class InferenceServiceWeb {
   // sessions.
   final _causalExtractor =
       CprCausalFeatureExtractor(rollingWindow: AppConstants.temporalWindowFrames);
+
+  // TEMP — counter for [RAW_SEQUENCE]/[RAW_RESULT] capture logging, remove
+  // alongside the print() calls once the recoil investigation is closed.
+  int _captureCounter = 0;
 
   // Fallback video dimensions (typical ResolutionPreset.high webcam
   // capture) used only for the handful of frames before
@@ -228,7 +233,22 @@ class InferenceServiceWeb {
     _lastApiCallAt = now;
     try {
       final sequence   = _frameBuffer.toList();
+      // TEMP — capture the exact raw (pre-scaling) window sent to the API,
+      // so a real live sequence can be replayed offline against /predict
+      // for debugging. Remove once the recoil investigation is closed.
+      _captureCounter++;
+      print('[RAW_SEQUENCE #$_captureCounter] ${jsonEncode({'sequence': sequence})}');
       final prediction = await _api.predict(sequence);
+      if (prediction != null) {
+        // TEMP — pairs with the [RAW_SEQUENCE] line above via the same
+        // counter, so you can match "what was sent" to "what came back".
+        print('[RAW_RESULT #$_captureCounter] rate=${prediction.rateLabel} '
+              '(${prediction.rateConfidence.toStringAsFixed(3)})  '
+              'depth=${prediction.depthLabel} '
+              '(${prediction.depthConfidence.toStringAsFixed(3)})  '
+              'recoil=${prediction.recoilLabel} '
+              '(${prediction.recoilConfidence.toStringAsFixed(3)})');
+      }
       if (prediction != null) {
         print('[InferenceServiceWeb] API → ${prediction.resolvedLabel} '
               '(${prediction.resolvedConfidence.toStringAsFixed(2)})');
@@ -456,26 +476,27 @@ class InferenceServiceWeb {
   // compression peaks and inflate BPM. Matches the threshold used for
   // compression counting in session_provider.dart.
   double _estimateBpm() {
-    if (_wristYHistory.length < 10) return 0;
-    final samples    = _wristYHistory.toList();
-    final velocities = <double>[];
-    for (int i = 1; i < samples.length; i++) {
-      velocities.add(samples[i].value - samples[i - 1].value);
-    }
-    final peaks = <DateTime>[];
-    for (int i = 1; i < velocities.length - 1; i++) {
-      if (velocities[i] > velocities[i - 1] &&
-          velocities[i] > velocities[i + 1] &&
-          velocities[i] > 0.012) {
-        peaks.add(samples[i + 1].timestamp);
-      }
-    }
-    if (peaks.length < 2) return 0;
+    // FIX: this used to re-derive peaks from raw _wristYHistory with its
+    // own local-max detector (velocity > 0.012, no amplitude check, no
+    // confidence gate, no debounce) — entirely independent of, and much
+    // weaker than, session_provider.dart's debounced
+    // _updateCompressionCount() state machine. That let the same
+    // landmark-flicker jitter fixed for the compression counter still
+    // spike THIS figure to the 200bpm ceiling even once counting itself
+    // was solid.
+    //
+    // BPM is now derived directly from _cycleTimestamps — the exact same
+    // confirmed, debounced, confidence-gated cycles the compression
+    // counter is built from (see notifyCompressionCompleted() above) — so
+    // BPM and the compression count can never disagree about what counts
+    // as a real compression, and both share the same noise rejection.
+    if (_cycleTimestamps.length < 2) return 0;
+    final sorted = _cycleTimestamps.toList()..sort();
     double totalMs = 0;
-    for (int i = 1; i < peaks.length; i++) {
-      totalMs += peaks[i].difference(peaks[i - 1]).inMilliseconds;
+    for (int i = 1; i < sorted.length; i++) {
+      totalMs += sorted[i].difference(sorted[i - 1]).inMilliseconds;
     }
-    final meanMs = totalMs / (peaks.length - 1);
+    final meanMs = totalMs / (sorted.length - 1);
     return meanMs <= 0 ? 0 : (60000 / meanMs).clamp(0, 200);
   }
 

@@ -194,6 +194,29 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   static const double _compressionVelocityThreshold = 0.012;
   static const Duration _minCompressionInterval = Duration(milliseconds: 300);
 
+  // FIX (compression count still unstable after the amplitude +
+  // confidence-gate fixes): those two fixes stop jitter from being counted
+  // as a compression FROM RESET (idle), but they don't stop jitter from
+  // flipping the direction sign back and forth WHILE a real descent is
+  // already in progress. A genuine descent lasts ~6-8 frames at 25fps —
+  // plenty of room for one noisy frame mid-descent to momentarily read
+  // v < -threshold (looks like a tiny ascend) and flip right back.
+  // Previously a single such frame was enough to either complete a cycle
+  // early (if amplitude-so-far happened to clear the bar) or drop the
+  // in-progress descent outright — either way, one real compression could
+  // register as zero, one, or two counted cycles depending on exactly
+  // where the jitter landed.
+  // Fix: require the OPPOSITE direction to hold for
+  // _directionConfirmFrames consecutive frames before acting on it,
+  // instead of reacting to the first frame that crosses the threshold.
+  // At 25fps, 2 frames = 80ms — far shorter than a real ~250-300ms
+  // descent or the ascent that follows it, so genuine cycles are
+  // unaffected; a single noisy frame flipping back is absorbed instead of
+  // acted on.
+  int _descendStreak = 0;
+  int _ascendStreak = 0;
+  static const int _directionConfirmFrames = 2;
+
   // FIX (false compressions counted from landmark jitter at rest): the
   // original state machine only required a velocity sign flip past
   // _compressionVelocityThreshold — one noisy frame descending, one noisy
@@ -209,7 +232,34 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   // from that point — real compressions have real amplitude by
   // definition, pure velocity-sign jitter doesn't.
   double? _descentStartY;
-  static const double _minCompressionAmplitude = 0.02;
+  // FIX (jitter still counting compressions during low-confidence tracking
+  // — confirmed live: meanConf sitting ~0.75-0.80 with the hip fallback
+  // firing on nearly every frame produced enough wrist-landmark noise to
+  // repeatedly clear the OLD 0.02 amplitude bar with zero real motion).
+  // Raised from 0.02 -> 0.035 for headroom above that observed noise
+  // floor; a real ~5cm compression is still an order of magnitude larger
+  // than this in normalized/torso-relative terms, so genuine compressions
+  // aren't at risk of being filtered out.
+  static const double _minCompressionAmplitude = 0.035;
+
+  // FIX (jitter-driven false compressions during low-confidence tracking):
+  // refuse to advance the descent/ascent state machine at all on frames
+  // where tracking itself is untrustworthy — a direct fix (skip
+  // unreliable input) rather than an indirect one (hoping a bigger
+  // amplitude threshold outguesses however noisy a given session's
+  // tracking turns out to be).
+  //
+  // FIX (0.60 wasn't high enough): live evidence from a session with the
+  // person NOT compressing showed meanConf sitting at 0.635-0.685 the
+  // entire time (worse tracking than the 0.75-0.80 session this gate was
+  // originally tuned against) — the wrist landmark was flickering between
+  // two candidate positions by up to 0.28 (28% of frame height) within
+  // ~400ms, producing a periodic signal that looked exactly like real
+  // compression motion to the amplitude/velocity checks. 0.60 sat BELOW
+  // that session's confidence the whole time, so the gate never engaged.
+  // Raised to 0.72 — above the observed 0.635-0.685 flicker ceiling,
+  // still below known-good sessions' 0.75-0.99 range.
+  static const double _minTrackingConfidence = 0.72;
 
   // Display-only smoother for the overlay skeleton (landmark_smoother.dart).
   // One instance per session, mirroring CprCausalFeatureExtractor's
@@ -278,6 +328,8 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     _wasDescending = false;
     _lastCompressionAt = null;
     _descentStartY = null;
+    _descendStreak = 0;
+    _ascendStreak = 0;
     _placementViolationStreak = 0;
     _smoother = LandmarkSmoother();
     _feedback.reset();
@@ -592,6 +644,21 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       return false;
     }
 
+    // FIX (jitter-driven false compressions during low-confidence
+    // tracking): a frame we don't trust shouldn't be allowed to advance
+    // the descent/ascent state machine at all — same treatment as
+    // !isCompressionMotion below (drop any in-progress descent), since an
+    // untrustworthy velocity reading is exactly as meaningless as a
+    // genuinely-idle one for the purposes of counting a real compression.
+    if (frame.meanLandmarkConfidence < _minTrackingConfidence) {
+      _wasDescending = false;
+      _descentStartY = null;
+      _descendStreak = 0;
+      _ascendStreak = 0;
+      _lastVelocityY = v;
+      return false;
+    }
+
     if (!isCompressionMotion) {
       // Either genuinely idle, or hands have been off-placement for more
       // than the tolerated streak (see _classifyActivity) — whatever this
@@ -602,23 +669,31 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       // cycle.
       _wasDescending = false;
       _descentStartY = null;
+      _descendStreak = 0;
+      _ascendStreak = 0;
       _lastVelocityY = v;
       return false;
     }
 
-    final descending = v > _compressionVelocityThreshold;
-    final ascending = v < -_compressionVelocityThreshold;
+    final descendingFrame = v > _compressionVelocityThreshold;
+    final ascendingFrame = v < -_compressionVelocityThreshold;
+
+    // Track consecutive same-direction frames rather than acting on a
+    // single frame's sign — this is what absorbs a lone noisy frame that
+    // flips sign mid-descent/mid-ascent instead of letting it terminate
+    // or spuriously complete a cycle.
+    _descendStreak = descendingFrame ? _descendStreak + 1 : 0;
+    _ascendStreak = ascendingFrame ? _ascendStreak + 1 : 0;
 
     bool completed = false;
-    if (descending) {
-      if (!_wasDescending) {
-        // Mark the wrist position at the START of this descent, not on
-        // every descending frame — we need the total displacement across
-        // the whole down-phase, not just the last frame's delta.
-        _descentStartY = frame.wristMidY;
-      }
+
+    if (_descendStreak >= _directionConfirmFrames && !_wasDescending) {
+      // Descent CONFIRMED (not just one frame) — mark the wrist position
+      // as of the frame where confirmation happened, not the very first
+      // (possibly jittery) frame that crossed the threshold.
+      _descentStartY = frame.wristMidY;
       _wasDescending = true;
-    } else if (ascending && _wasDescending) {
+    } else if (_ascendStreak >= _directionConfirmFrames && _wasDescending) {
       final amplitude =
           _descentStartY == null ? 0.0 : (frame.wristMidY - _descentStartY!).abs();
       if (amplitude >= _minCompressionAmplitude) {
@@ -627,18 +702,19 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
             ? _minCompressionInterval
             : now.difference(_lastCompressionAt!);
         if (sinceLast >= _minCompressionInterval) {
-          // Completed a down-then-up cycle with real amplitude, not too
+          // Confirmed down-then-up cycle with real amplitude, not too
           // soon after the last one — count one compression.
           state = state.copyWith(compressions: state.compressions + 1);
           _lastCompressionAt = now;
           completed = true;
         }
       }
-      // Below-amplitude flips (jitter) fall through here without
-      // counting — this is what stops noise from being registered as a
-      // compression cycle at all, not just from double-counting.
+      // Below-amplitude confirmed flips (still counts as real motion, just
+      // not enough displacement) fall through here without counting.
       _wasDescending = false;
       _descentStartY = null;
+      _descendStreak = 0;
+      _ascendStreak = 0;
     }
 
     _lastVelocityY = v;
@@ -655,6 +731,7 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     final rateAcc = _mean(_rateAccuracies);
     final depthAcc = _mean(_depthAccuracies);
     final recoilAcc = _mean(_recoilAccuracies);
+    final meanBpm = _mean(_bpmHistory);
 
     final session = SessionModel(
       id: id,
@@ -662,10 +739,10 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
       startedAt: _sessionStart!,
       endedAt: DateTime.now(),
       totalCompressions: state.compressions,
-      meanBpm: _mean(_bpmHistory),
+      meanBpm: meanBpm,
       meanDepthCm: _mean(_depthHistory),
       cprFraction: state.cprFraction,
-      qualityScore: _computeQualityScore(rateAcc, depthAcc, recoilAcc),
+      qualityScore: _computeQualityScore(rateAcc, depthAcc, recoilAcc, meanBpm),
       errorRates: const {},
       rateAccuracy: rateAcc,
       depthAccuracy: depthAcc,
@@ -696,7 +773,31 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
   ///   TCN test-set F1_w:    rate=91.7%, depth=98.3%, recoil=88.5%
   ///   TCN test-set AUC-ROC: rate=98.3%, depth=99.3%, recoil=95.9%
   /// Depth is weighted highest (AUC≈99%) since it's the most reliable task.
-  int _computeQualityScore(double rateAcc, double depthAcc, double recoilAcc) {
+  ///
+  /// FIX (rapid/slow compression wasn't dropping the score): [rateAcc] is
+  /// the model's LIVE rate classification (fraction of assessed windows
+  /// where it predicted "Correct") — but live testing on this app's tight
+  /// torso-crop camera framing repeatedly showed rate defaulting to
+  /// "Correct" at ~99.8% confidence almost regardless of actual pace (see
+  /// the RAW_RESULT logs from the recoil-domain-gap investigation — the
+  /// same training/live feature-scale mismatch documented on
+  /// landmark_math.dart's feature idx 4 affects this too). rateAcc alone
+  /// was never a trustworthy rate signal to score against on this setup.
+  ///
+  /// [meanBpm] is now a genuinely trustworthy alternative: it's derived
+  /// (see InferenceServiceWeb._estimateBpm()) directly from the same
+  /// confirmed, debounced, confidence-gated compression cycles the
+  /// compression counter itself uses — not from the model. The rate
+  /// dimension is scored from _bpmQualityFraction(meanBpm), blended with
+  /// the model's rateAcc rather than replacing it outright, so a
+  /// classifier that DOES discriminate correctly in a future retrain still
+  /// contributes rather than being silently ignored.
+  int _computeQualityScore(
+    double rateAcc,
+    double depthAcc,
+    double recoilAcc,
+    double meanBpm,
+  ) {
     if (_assessedFrameCount == 0) return 0;
     // Below this many CONFIRMED (debounced, real down→up cycle)
     // compressions, there isn't enough signal for a meaningful score — see
@@ -723,7 +824,14 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
     const recoilWeight = 0.959; // TCN test-set recoil AUC-ROC
     const totalWeight = rateWeight + depthWeight + recoilWeight;
 
-    final rateScore = rateAcc * 100;     // 0-100
+    // Blend the model's live rate classification with the measured-BPM
+    // fraction, 50/50 — this is what actually makes a genuinely too-fast
+    // or too-slow session drop the score, independent of whatever the
+    // (currently domain-shifted) rate classifier says.
+    final bpmQuality = _bpmQualityFraction(meanBpm);
+    final blendedRateAcc = (rateAcc + bpmQuality) / 2.0;
+
+    final rateScore = blendedRateAcc * 100; // 0-100
     final depthScore = depthAcc * 100;   // 0-100
     final recoilScore = recoilAcc * 100; // 0-100
 
@@ -742,6 +850,21 @@ class LiveSessionNotifier extends StateNotifier<LiveSessionState> {
 
     return weightedScore.clamp(0, 100).round();
   }
+
+  /// Maps a measured BPM to a 0-1 "how close to guideline pace" fraction.
+  /// AHA/ERC guideline correct rate is 100-120bpm (matches
+  /// ml_pipeline/CPR_Coach_Training.ipynb's rate label thresholds) — scores
+  /// 1.0 inside that band, falling off linearly to 0.0 by 40bpm outside it
+  /// in either direction (e.g. 60bpm or 160bpm -> 0.0), so a genuinely
+  /// rapid or slow session pulls the quality score down directly.
+  double _bpmQualityFraction(double bpm) {
+    if (bpm <= 0) return 0.0;
+    if (bpm >= 100 && bpm <= 120) return 1.0;
+    final distance = bpm < 100 ? (100 - bpm) : (bpm - 120);
+    const tolerance = 40.0;
+    return (1.0 - distance / tolerance).clamp(0.0, 1.0);
+  }
+
 
   double _mean(List<double> values) {
     if (values.isEmpty) return 0.0;
