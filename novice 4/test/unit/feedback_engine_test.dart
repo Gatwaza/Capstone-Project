@@ -124,4 +124,71 @@ void main() {
       );
     });
   });
+
+  group('FeedbackEngine — adaptive severity bands (post-defense revision)', () {
+    test('mildly slow rate → warning, not critical', () {
+      final prompt = engine.process(_makeResult(bpm: 90), 'en');
+      expect(prompt.key, equals('rate_too_slow'));
+      expect(prompt.severity, equals(FeedbackSeverity.warning));
+    });
+
+    test('severely slow rate → critical, distinct key', () {
+      final prompt = engine.process(_makeResult(bpm: 60), 'en');
+      expect(prompt.key, equals('rate_too_slow_severe'));
+      expect(prompt.severity, equals(FeedbackSeverity.critical));
+    });
+
+    test('severely fast rate → critical, distinct key', () {
+      final prompt = engine.process(_makeResult(bpm: 150), 'en');
+      expect(prompt.key, equals('rate_too_fast_severe'));
+      expect(prompt.severity, equals(FeedbackSeverity.critical));
+    });
+
+    test('mildly shallow depth → message includes the measured value', () {
+      final prompt = engine.process(_makeResult(depth: 4.2), 'en');
+      expect(prompt.key, equals('too_shallow'));
+      expect(prompt.message, contains('4.2'));
+    });
+
+    test('severely shallow depth → distinct key and message', () {
+      final prompt = engine.process(_makeResult(depth: 2.0), 'en');
+      expect(prompt.key, equals('too_shallow_severe'));
+      expect(prompt.message, contains('2.0'));
+    });
+
+    test('rate message includes the actual bpm value', () {
+      final prompt = engine.process(_makeResult(bpm: 135), 'en');
+      expect(prompt.message, contains('135'));
+    });
+
+    test('numeric rate check overrides a stale "correct" label even at '
+        'low confidence', () {
+      final prompt = engine.process(
+        _makeResult(label: 'correct_compression', bpm: 145, confidence: 0.4),
+        'en',
+      );
+      expect(prompt.key, equals('rate_too_fast_severe'));
+    });
+
+    test('not_compressing label → critical regardless of bpm', () {
+      final prompt = engine.process(_makeResult(label: 'not_compressing', bpm: 0), 'en');
+      expect(prompt.key, equals('not_compressing'));
+      expect(prompt.severity, equals(FeedbackSeverity.critical));
+    });
+  });
+
+  group('FeedbackEngine — first prompt always speaks', () {
+    test('very first prompt of a session speaks even if it is "good"', () {
+      final result = _makeResult();
+      final prompt = engine.process(result, 'en');
+      expect(prompt.severity, equals(FeedbackSeverity.good));
+      expect(engine.shouldSpeak(prompt), isTrue);
+    });
+
+    test('very first prompt speaks even if it is a critical error', () {
+      final result = _makeResult(label: 'not_compressing', bpm: 0);
+      final prompt = engine.process(result, 'en');
+      expect(engine.shouldSpeak(prompt), isTrue);
+    });
+  });
 }

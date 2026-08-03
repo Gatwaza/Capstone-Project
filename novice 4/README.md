@@ -1,4 +1,4 @@
-# Novice — First Aid Assessment Tool
+# Novice — First Aid Assessment & Guidance Tool
 
 > Real-time CPR assessment empowered by pose estimation and a hosted AI model, paired with an interactive first aid procedure library built for Sub-Saharan Africa.
 
@@ -12,9 +12,9 @@
 
 ## What Novice does
 
-Novice is a web app that teaches you how to perform CPR and other first aid procedures — no prior training required, no extra hardware, just a smartphone or laptop with a camera.
+Novice is a web app that practically teaches you how to perform CPR and other first aid procedures no prior training required, no extra hardware, just a smartphone or laptop with a camera.
 
-### 🎥 [Watch the demo](https:/)
+### 🎥 [Watch the demo](https://youtu.be/elEw564_D9M)
 [![Novice demo video](https://img.youtube.com/vi/elEw564_D9M/hqdefault.jpg)](https://youtu.be/elEw564_D9M)
 
 | Mode | Procedures | What happens |
@@ -63,7 +63,7 @@ flutter run -d chrome
 # dart run build_runner build --delete-conflicting-outputs
 ```
 
-The app will open in Chrome. The CPR training module will ask for camera permission — allow it and position yourself so your upper body is visible.
+The app will open in Chrome. The CPR training module will ask for camera permission allow it and position yourself so your upper body is visible.
 
 > **Without Supabase configured**, participant registration and session upload are disabled, but the CPR training, AI coaching, and all animated guides work fully offline.
 
@@ -156,7 +156,7 @@ Voice coach  →  speaks the highest-priority correction
                 (silent when technique is correct)
 ```
 
-The AI model (TCN — Temporal Convolutional Network) was trained on the [CPR Coach Dataset](https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=sharing) (Wang et al., 2023) and hosted on Hugging Face Spaces. If the API is unreachable, the app falls back to rule-based threshold coaching automatically.
+The AI model (TCN — Temporal Convolutional Network) was trained on the [CPR Coach Dataset](https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=sharing) (Wang et al., 2023) and hosted on Hugging Face Spaces. **If the API is unreachable, there is no offline or rule-based fallback classifier** pose tracking and the skeletal overlay keep running locally, but no new rate/depth/recoil assessment is produced until the connection recovers; the app surfaces a "reconnecting" state rather than silently freezing. An on-device fallback model is a known gap, tracked as future work.
 
 ---
 

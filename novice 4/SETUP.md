@@ -2,7 +2,7 @@
 **GNU GPL v3 — Jean Robert Gatwaza / African Leadership University**
 
 This guide covers everything a third party needs to run Novice locally and deploy
-their own copy. Novice is a **Flutter Web** app — there is currently no mobile
+their own copy. Novice is a **Flutter Web** app there is currently no mobile
 build (see `pubspec.yaml`).
 
 The system has three independently hosted parts:
@@ -14,7 +14,7 @@ The system has three independently hosted parts:
 | **Data store** | Session storage, consent records, researcher dashboard | Supabase (Postgres) |
 
 You can run the frontend against the **already-deployed** inference API
-(`https://jeanrobert-novice.hf.space`) with zero backend setup — this is the
+(`https://jeanrobert-novice.hf.space`) with zero backend setup this is the
 fastest path to testing the app end-to-end. Standing up your own copy of the
 inference API requires the separate model-serving repo (not included here);
 see [Inference API](#4-inference-api-hugging-face-spaces) below.
@@ -106,9 +106,9 @@ below for schema setup.
 
 ## 4. Inference API (Hugging Face Spaces)
 
-The AI model — a Temporal Convolutional Network (TCN) trained on the
+The AI model a Temporal Convolutional Network (TCN) trained on the
 [CPR Coach Dataset](https://drive.google.com/drive/folders/1zJoJYrmvIv9TgNd5ZmVYVq7odkB5wI5e?usp=sharing)
-(Wang et al., 2023) — is served from a Hugging Face Space and called over
+(Wang et al., 2023) is served from a Hugging Face Space and called over
 HTTP from `lib/services/platform/cpr_api_service.dart`.
 
 - **Default endpoint (already live, no setup needed):**
@@ -124,8 +124,13 @@ HTTP from `lib/services/platform/cpr_api_service.dart`.
   `/health` endpoints lives in a separate Hugging Face Space repository —
   reach out to the maintainer for access if you need to redeploy the backend
   independently rather than using the shared endpoint above.
-- If the inference API is unreachable, the app automatically falls back to
-  rule-based threshold coaching so training is never blocked.
+- If the inference API is unreachable, there is currently **no** rule-based or
+  offline fallback — pose tracking and the skeletal overlay keep running
+  locally (they don't depend on the API), but no new rate/depth/recoil
+  classification is produced until the connection recovers. The app surfaces
+  a "reconnecting to the coach" state rather than freezing or crashing, but a
+  trainee's compressions during that window are not scored. An on-device
+  fallback classifier is tracked as future work, not shipped in this version.
 
 ---
 
@@ -184,7 +189,7 @@ training and coaching work fully. To inject config locally, use
 | Issue | Fix |
 |---|---|
 | `flutter pub get` fails | `dart pub cache clean`, then retry |
-| "Model: Unavailable" in the training screen | The Hugging Face Space may be asleep (free-tier Spaces sleep after inactivity) — the app falls back to rule-based coaching automatically; reload after ~30s to let it wake up |
+| "Model: Unavailable" in the training screen | The Hugging Face Space may be asleep (free-tier Spaces sleep after inactivity). There is no rule-based fallback — you'll keep seeing the skeletal overlay but no new scoring until it wakes; reload after ~30s to let it wake up |
 | Camera permission denied | Check the browser's site settings — camera access must be explicitly allowed for the CPR module |
 | Participant registration disabled | `window.__NOVICE_CONFIG__` isn't set — see [Supabase setup](#3a-supabase-setup) |
 | Vercel build fails immediately | Check that `SUPABASE_URL` / `SUPABASE_ANON_KEY` are set in Vercel → Settings → Environment Variables |
